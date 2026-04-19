@@ -1,0 +1,402 @@
+import 'dart:async';
+import 'dart:developer';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import 'package:async/async.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart' as mpv;
+import 'package:media_kit_video/media_kit_video.dart';
+
+import 'package:fladder/models/items/media_streams_model.dart';
+import 'package:fladder/models/playback/playback_model.dart';
+import 'package:fladder/models/settings/subtitle_settings_model.dart';
+import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/providers/settings/subtitle_settings_provider.dart';
+import 'package:fladder/screens/video_player/video_player.dart' as video_screen;
+import 'package:fladder/util/subtitle_position_calculator.dart';
+import 'package:fladder/wrappers/players/base_player.dart';
+import 'package:fladder/wrappers/players/player_states.dart';
+
+class LibMPV extends BasePlayer {
+  mpv.Player? _player;
+  VideoController? _controller;
+  String _currentSubtitleCodec = '';
+
+  final StreamController<PlayerState> _stateController = StreamController.broadcast();
+  @override
+  Stream<PlayerState> get stateStream => _stateController.stream;
+
+  StreamSubscription<bool>? _onCompleted;
+
+  RestartableTimer? _retryTimer;
+  DateTime _firstLoadAttempt = DateTime.now();
+  final Duration _maxRetryDuration = const Duration(minutes: 1);
+  final Duration _currentRetryDuration = const Duration(seconds: 5);
+  Completer<void>? _loadCompleter;
+
+  @override
+  Future<void> init(VideoPlayerSettingsModel settings) async {
+    dispose();
+
+    mpv.MediaKit.ensureInitialized();
+
+    _player = mpv.Player(
+      configuration: mpv.PlayerConfiguration(
+        title: "nl.jknaapen.fladder",
+        libassAndroidFont: libassFallbackFont,
+        libass: !kIsWeb && settings.useLibass,
+        bufferSize: settings.bufferSize * 1024 * 1024, // MPV uses buffer size in bytes
+      ),
+    );
+
+    if (_player != null) {
+      _controller = VideoController(
+        _player!,
+        configuration: VideoControllerConfiguration(
+          enableHardwareAcceleration: settings.hardwareAccel,
+        ),
+      );
+
+      _player!.stream.playing.listen((value) => setState(lastState.update(playing: value)));
+      _player!.stream.buffering.listen((value) => setState(lastState.update(buffering: value)));
+      _player!.stream.position.listen((value) => setState(lastState.update(position: value)));
+      _player!.stream.duration.listen((value) => setState(lastState.update(duration: value)));
+      _player!.stream.volume.listen((value) => setState(lastState.update(volume: value)));
+      _player!.stream.rate.listen((value) => setState(lastState.update(rate: value)));
+      _player!.stream.buffer.listen((value) => setState(lastState.update(buffer: value)));
+    }
+
+    if (_player?.platform is mpv.NativePlayer) {
+      await (_player?.platform as dynamic).setProperty(
+        'force-seekable',
+        'yes',
+      );
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    _onCompleted?.cancel();
+    _onCompleted = null;
+    _player?.stop();
+    _player?.dispose();
+    _player = null;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+  }
+
+  void setState(PlayerState state) {
+    lastState = state;
+    _stateController.add(state);
+  }
+
+  @override
+  Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero}) async {
+    _loadCompleter = Completer<void>();
+    _firstLoadAttempt = DateTime.now();
+
+    await setStartPosition(startPosition);
+
+    await _player?.open(mpv.Media(url), play: play);
+
+    _retryTimer?.cancel();
+    _retryTimer = null;
+
+    _retryTimer = RestartableTimer(
+      _currentRetryDuration,
+      () async {
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (DateTime.now().isAfter(_firstLoadAttempt.add(_maxRetryDuration))) {
+          log("Max retry duration reached, stopping retries.");
+          _retryTimer?.cancel();
+          _retryTimer = null;
+        } else {
+          log("Retrying to load video $url");
+          await setStartPosition(startPosition);
+          await _player?.open(mpv.Media(url), play: play);
+          _retryTimer?.reset();
+        }
+      },
+    );
+
+    // Wait for the player to be ready
+    if (_loadCompleter?.isCompleted == false) {
+      StreamSubscription? subBuffering;
+      StreamSubscription? subDuration;
+
+      void onReady() {
+        if (_loadCompleter?.isCompleted == true) return;
+        _finishedLoading();
+        subBuffering?.cancel();
+        subDuration?.cancel();
+      }
+
+      subBuffering = _player?.stream.buffering.listen((event) {
+        if (event == false && (_player?.state.duration ?? Duration.zero) > Duration.zero) {
+          onReady();
+        }
+      });
+      subDuration = _player?.stream.duration.listen((event) {
+        if (event > Duration.zero) onReady();
+      });
+    }
+
+    _loadCompleter?.future.then(
+      (value) async {
+        // Backup seek in case property didn't work
+        if (startPosition != Duration.zero && (_player?.state.position.inSeconds ?? 0) < startPosition.inSeconds - 5) {
+          await _player?.seek(startPosition);
+        }
+      },
+    );
+    return setState(lastState.update(buffering: true));
+  }
+
+  Future<void> setStartPosition(Duration position) async {
+    if (_player?.platform is mpv.NativePlayer) {
+      await (_player?.platform as dynamic).setProperty(
+        'start',
+        '${position.inMilliseconds / 1000}',
+      );
+    }
+  }
+
+  void _finishedLoading() {
+    _loadCompleter?.complete();
+    _retryTimer?.cancel();
+    _retryTimer = null;
+  }
+
+  @override
+  Future<void> open(BuildContext context) async => Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute(
+          builder: (context) => const video_screen.VideoPlayer(),
+        ),
+      );
+
+  List<mpv.SubtitleTrack> get subTracks => _player?.state.tracks.subtitle ?? [];
+  mpv.SubtitleTrack get subtitleTrack => _player?.state.track.subtitle ?? mpv.SubtitleTrack.no();
+
+  List<mpv.AudioTrack> get audioTracks => _player?.state.tracks.audio ?? [];
+  mpv.AudioTrack get audioTrack => _player?.state.track.audio ?? mpv.AudioTrack.no();
+
+  @override
+  Future<void> pause() async => _player?.pause();
+
+  @override
+  Future<void> play() async => _player?.play();
+
+  @override
+  Future<void> playOrPause() async => _player?.playOrPause();
+
+  @override
+  Future<void> seek(Duration position) async => _player?.seek(position);
+
+  @override
+  Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async {
+    final wantedAudioStream = model ?? playbackModel.defaultAudioStream;
+    if (wantedAudioStream == null) return -1;
+    if (wantedAudioStream.index == AudioStreamModel.no().index) {
+      await _player?.setAudioTrack(mpv.AudioTrack.no());
+    } else {
+      final internalTracks = audioTracks.getRange(2, audioTracks.length).toList();
+      final audioTrack =
+          internalTracks.elementAtOrNull((playbackModel.audioStreams?.indexOf(wantedAudioStream) ?? -1) - 1);
+      if (audioTrack != null) {
+        await _player?.setAudioTrack(audioTrack);
+      }
+    }
+    return wantedAudioStream.index;
+  }
+
+  @override
+  Future<void> setSpeed(double speed) async => _player?.setRate(speed);
+
+  @override
+  Future<int> setSubtitleTrack(SubStreamModel? model, PlaybackModel playbackModel) async {
+    if (_player == null) return -1;
+    final wantedSubtitle = model ?? playbackModel.defaultSubStream;
+    if (wantedSubtitle == null || wantedSubtitle.index == SubStreamModel.no().index) {
+      await _player?.setSubtitleTrack(mpv.SubtitleTrack.no());
+      return -1;
+    }
+    _currentSubtitleCodec = wantedSubtitle.codec;
+    final internalTrack = subTracks.getRange(2, subTracks.length).toList();
+    final index = playbackModel.subStreams?.sublist(1).indexWhere((element) => element.id == wantedSubtitle.id);
+    final subTrack = internalTrack.elementAtOrNull(index ?? -1);
+    if (wantedSubtitle.isExternal && wantedSubtitle.url != null && subTrack == null) {
+      await _player?.setSubtitleTrack(mpv.SubtitleTrack.uri(wantedSubtitle.url!));
+    } else if (subTrack != null) {
+      await _player?.setSubtitleTrack(subTrack);
+    }
+    return wantedSubtitle.index;
+  }
+
+  @override
+  Future<void> stop() async => _player?.stop();
+
+  @override
+  Future<Uint8List?> takeScreenshot() async {
+    return _player?.screenshot(format: "image/png", includeLibassSubtitles: true);
+  }
+
+  @override
+  Widget? videoWidget(
+    Key key,
+    BoxFit fit,
+  ) =>
+      _controller == null
+          ? null
+          : Video(
+              key: key,
+              controller: _controller!,
+              wakelock: false,
+              fill: Colors.transparent,
+              fit: fit,
+              subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
+              controls: NoVideoControls,
+            );
+
+  @override
+  Widget? subtitles(
+    bool showOverlay, {
+    GlobalKey? controlsKey,
+  }) =>
+      _controller != null
+          ? _VideoSubtitles(
+              controller: _controller!,
+              showOverlay: showOverlay,
+              controlsKey: controlsKey,
+              currentSubtitleCodec: _currentSubtitleCodec,
+            )
+          : null;
+
+  @override
+  Future<void> setVolume(double volume) async => _player?.setVolume(volume);
+
+  @override
+  Future<void> loop(bool loop) async {
+    if (loop && _onCompleted == null) {
+      _onCompleted = _player?.stream.completed.listen((completed) {
+        if (completed) {
+          _player?.play();
+        }
+      });
+    } else {
+      _onCompleted?.cancel();
+    }
+  }
+}
+
+class _VideoSubtitles extends ConsumerStatefulWidget {
+  final VideoController controller;
+  final bool showOverlay;
+  final GlobalKey? controlsKey;
+  final String currentSubtitleCodec;
+
+  const _VideoSubtitles({
+    required this.controller,
+    this.showOverlay = false,
+    this.controlsKey,
+    this.currentSubtitleCodec = '',
+  });
+
+  @override
+  _VideoSubtitlesState createState() => _VideoSubtitlesState();
+}
+
+class _VideoSubtitlesState extends ConsumerState<_VideoSubtitles> {
+  late List<String> subtitle;
+  String _cachedSubtitleText = '';
+  List<String>? _lastSubtitleList;
+  StreamSubscription<List<String>>? subscription;
+
+  double? _cachedMenuHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    subtitle = widget.controller.player.state.subtitle;
+    subscription = widget.controller.player.stream.subtitle.listen((value) {
+      if (mounted) {
+        setState(() {
+          subtitle = value;
+          _lastSubtitleList = null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _measureMenuHeight();
+
+    final settings = ref.watch(subtitleSettingsProvider);
+    final padding = MediaQuery.paddingOf(context);
+
+    if (!const ListEquality().equals(subtitle, _lastSubtitleList)) {
+      _lastSubtitleList = List<String>.from(subtitle);
+      _cachedSubtitleText = subtitle.where((line) => line.trim().isNotEmpty).map((line) => line.trim()).join('\n');
+    }
+
+    final text = _cachedSubtitleText;
+
+    final bool isLibassEnabled = widget.controller.player.platform?.configuration.libass ?? false;
+
+    if (isLibassEnabled) {
+      // On desktop (Linux/Windows/macOS), mpv burns ALL subtitle formats into the video when libass is enabled.
+      // On mobile (Android/iOS), only ASS/SSA subs are burned in by libass; other formats need the Flutter overlay.
+      final bool isDesktop = defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.macOS;
+      if (isDesktop) {
+        return const SizedBox.shrink();
+      }
+      final currentSubCodec = widget.currentSubtitleCodec.toLowerCase();
+      final bool isAssSubtitle = currentSubCodec.contains('ass') || currentSubCodec.contains('ssa');
+      if (isAssSubtitle || text.isEmpty) {
+        return const SizedBox.shrink();
+      }
+    } else if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final offset = SubtitlePositionCalculator.calculateOffset(
+      settings: settings,
+      showOverlay: widget.showOverlay,
+      screenHeight: MediaQuery.sizeOf(context).height,
+      menuHeight: _cachedMenuHeight,
+    );
+
+    return SubtitleText(
+      subModel: settings,
+      padding: padding,
+      offset: offset,
+      text: text,
+    );
+  }
+
+  void _measureMenuHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.controlsKey == null) return;
+
+      final RenderBox? renderBox = widget.controlsKey?.currentContext?.findRenderObject() as RenderBox?;
+      final newHeight = renderBox?.size.height;
+
+      if (newHeight != _cachedMenuHeight && newHeight != null) {
+        setState(() {
+          _cachedMenuHeight = newHeight;
+        });
+      }
+    });
+  }
+}

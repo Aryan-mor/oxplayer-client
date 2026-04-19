@@ -1,0 +1,491 @@
+import 'dart:async';
+import 'dart:developer';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import 'package:audio_service/audio_service.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smtc_windows/smtc_windows.dart' if (dart.library.html) 'package:fladder/stubs/web/smtc_web.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+
+import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/models/items/channel_model.dart';
+import 'package:fladder/models/items/media_streams_model.dart';
+import 'package:fladder/models/media_playback_model.dart';
+import 'package:fladder/models/playback/playback_model.dart';
+import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/providers/api_provider.dart';
+import 'package:fladder/providers/live_tv_provider.dart';
+import 'package:fladder/providers/settings/client_settings_provider.dart';
+import 'package:fladder/providers/settings/subtitle_settings_provider.dart';
+import 'package:fladder/providers/settings/video_player_settings_provider.dart';
+import 'package:fladder/providers/video_player_provider.dart';
+import 'package:fladder/providers/window_title_provider.dart';
+import 'package:fladder/src/video_player_helper.g.dart' hide PlaybackState;
+import 'package:fladder/util/localization_helper.dart';
+import 'package:fladder/wrappers/players/base_player.dart';
+import 'package:fladder/wrappers/players/lib_mdk.dart'
+    if (dart.library.html) 'package:fladder/stubs/web/lib_mdk_web.dart';
+import 'package:fladder/wrappers/players/lib_mpv.dart';
+import 'package:fladder/wrappers/players/native_player.dart';
+import 'package:fladder/wrappers/players/player_states.dart';
+
+class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerControlsCallback {
+  MediaControlsWrapper({required this.ref});
+
+  BasePlayer? _player;
+
+  bool get hasPlayer => _player != null;
+
+  PlayerOptions? get backend => switch (_player) {
+        LibMPV _ => PlayerOptions.libMPV,
+        LibMDK _ => PlayerOptions.libMDK,
+        _ => null,
+      };
+
+  Stream<PlayerState>? get stateStream => _player?.stateStream;
+  PlayerState? get lastState => _player?.lastState;
+
+  Widget? subtitleWidget(bool showOverlay, {GlobalKey? controlsKey}) =>
+      _player?.subtitles(showOverlay, controlsKey: controlsKey);
+  Widget? videoWidget(Key key, BoxFit fit) => _player?.videoWidget(key, fit);
+
+  final Ref ref;
+
+  List<StreamSubscription> subscriptions = [];
+  ProviderSubscription? _subtitleSettingsSubscription;
+  SMTCWindows? smtc;
+
+  bool initializedWrapper = false;
+  bool _isNewPlayback = false;
+
+  Future<void> init() async {
+    if (!initializedWrapper) {
+      initializedWrapper = true;
+      if (!kIsWeb && Platform.isAndroid) {
+        VideoPlayerControlsCallback.setUp(this);
+      }
+      await AudioService.init(
+        builder: () => this,
+        config: const AudioServiceConfig(
+          androidNotificationChannelId: 'nl.jknaapen.fladder.channel.playback',
+          androidNotificationChannelName: 'Video playback',
+          androidNotificationIcon: 'drawable/ic_notification',
+          androidNotificationOngoing: true,
+          androidStopForegroundOnPause: true,
+          rewindInterval: Duration(seconds: 10),
+          fastForwardInterval: Duration(seconds: 15),
+          androidNotificationChannelDescription: "Playback",
+          androidShowNotificationBadge: true,
+        ),
+      );
+    }
+
+    final player = switch (ref.read(videoPlayerSettingsProvider).wantedPlayer) {
+      PlayerOptions.libMDK => LibMDK(),
+      PlayerOptions.libMPV => LibMPV(),
+      PlayerOptions.nativePlayer => NativePlayer(),
+    };
+
+    setup(player);
+  }
+
+  Future<void> dispose() async {
+    _subtitleSettingsSubscription?.close();
+    _player?.dispose();
+  }
+
+  Future<void> setup(BasePlayer newPlayer) async {
+    _player = newPlayer;
+    await newPlayer.init(ref.read(videoPlayerSettingsProvider));
+    _initPlayer();
+  }
+
+  void _initPlayer() {
+    _subtitleSettingsSubscription?.close();
+    for (var element in subscriptions) {
+      element.cancel();
+    }
+    stop();
+    _subscribePlayer();
+    _subtitleSettingsSubscription = ref.listen(subtitleSettingsProvider, (_, next) {
+      _player?.applySubtitleSettings(next);
+    });
+  }
+
+  Future<void> loadVideo(PlaybackModel model, Duration startPosition, bool play) async {
+    if (_player is NativePlayer) {
+      final context = ref.read(localizationContextProvider);
+      await (_player as NativePlayer).sendPlaybackDataToNative(context, model, startPosition);
+    }
+    _isNewPlayback = play;
+    await _player?.loadVideo(model.media?.url ?? "", play, startPosition: startPosition);
+    _player?.applySubtitleSettings(ref.read(subtitleSettingsProvider));
+
+    final context = ref.read(localizationContextProvider);
+    if (context != null) {
+      ref.read(windowTitleProvider.notifier).setPlayTitle(model.item.windowTitle(context.localized));
+    }
+  }
+
+  Future<void> updateTVGuide(TVGuideModel guide) async {
+    if (_player is NativePlayer) {
+      (_player as NativePlayer).sendTVGuideModel(guide);
+    }
+  }
+
+  Future<void> openPlayer(BuildContext context) async => _player?.open(context);
+
+  // Update playback play/pause state with single retry
+  Future<void> _updatePositionWithRetry(PlaybackModel model, Duration position, bool isPlaying) async {
+    try {
+      await model.updatePlaybackPosition(position, isPlaying, ref);
+    } catch (error, stackTrace) {
+      log('Failed to send playing: $isPlaying state to server. Retrying once. Error: $error\n$stackTrace');
+      try {
+        await Future.delayed(const Duration(milliseconds: 250));
+        await model.updatePlaybackPosition(position, isPlaying, ref);
+      } catch (retryError, retryStackTrace) {
+        log('Retry failed for playing: $isPlaying state update. Error: $retryError\n$retryStackTrace');
+      }
+    }
+  }
+
+  void _subscribePlayer() {
+    if (Platform.isWindows && !kIsWeb) {
+      smtc = SMTCWindows(
+        config: const SMTCConfig(
+          fastForwardEnabled: true,
+          nextEnabled: false,
+          pauseEnabled: true,
+          playEnabled: true,
+          rewindEnabled: true,
+          prevEnabled: false,
+          stopEnabled: true,
+        ),
+      );
+
+      if (smtc != null) {
+        subscriptions.add(
+          smtc!.buttonPressStream.listen((event) {
+            switch (event) {
+              case PressedButton.play:
+                play();
+                break;
+              case PressedButton.pause:
+                pause();
+                break;
+              case PressedButton.fastForward:
+                fastForward();
+                break;
+              case PressedButton.rewind:
+                rewind();
+                break;
+              case PressedButton.stop:
+                stop();
+                break;
+              case PressedButton.previous:
+                skipToPrevious();
+                break;
+              case PressedButton.next:
+                skipToNext();
+                break;
+              case PressedButton.record:
+                break;
+              case PressedButton.channelUp:
+                break;
+              case PressedButton.channelDown:
+                break;
+            }
+          }),
+        );
+      }
+    }
+
+    subscriptions.add(_player!.stateStream.listen((value) {
+      playbackState.add(playbackState.value.copyWith(
+        bufferedPosition: value.buffer,
+      ));
+      playbackState.add(playbackState.value.copyWith(
+        processingState: value.buffering ? AudioProcessingState.buffering : AudioProcessingState.ready,
+      ));
+      playbackState.add(playbackState.value.copyWith(
+        updatePosition: value.position,
+      ));
+      smtc?.setPosition(value.position);
+      playbackState.add(playbackState.value.copyWith(
+        playing: value.playing,
+      ));
+      smtc?.setPlaybackStatus(value.playing ? PlaybackStatus.playing : PlaybackStatus.paused);
+    }));
+  }
+
+  @override
+  Future<void> skipToNext() => loadNextVideo();
+
+  @override
+  Future<void> skipToPrevious() => loadPreviousVideo();
+
+  @override
+  Future<void> pause() async {
+    await _player?.pause();
+    playbackState.add(playbackState.value.copyWith(
+      playing: false,
+      controls: [MediaControl.play],
+    ));
+    WakelockPlus.disable();
+    final playerState = _player;
+    if (playerState != null) {
+      final model = ref.read(playBackModel);
+      if (model != null) {
+        await _updatePositionWithRetry(model, playerState.lastState.position, false);
+      }
+    }
+  }
+
+  @override
+  Future<void> play() async {
+    WakelockPlus.enable();
+    _player?.play();
+
+    final currentPosition = await ref.read(playBackModel.select((value) => value?.startDuration()));
+    if (_isNewPlayback || !playbackState.value.playing) {
+      _isNewPlayback = false;
+      ref.read(playBackModel)?.playbackStarted(currentPosition ?? Duration.zero, ref);
+    }
+
+    final playBackItem = ref.read(playBackModel.select((value) => value?.item));
+    if (playBackItem == null) return;
+
+    if (!ref.read(clientSettingsProvider).enableMediaKeys) return;
+
+    final poster = playBackItem.images?.firstOrNull;
+
+    windowSMTCSetup(playBackItem, currentPosition ?? Duration.zero);
+
+    final hasNextVideo = ref.read(playBackModel.select((value) => value?.nextVideo != null));
+    final hasPreviousVideo = ref.read(playBackModel.select((value) => value?.previousVideo != null));
+
+    //Everything else setup
+    mediaItem.add(MediaItem(
+      id: playBackItem.id,
+      title: playBackItem.title,
+      rating: Rating.newHeartRating(playBackItem.userData.isFavourite),
+      duration: playBackItem.overview.runTime ?? const Duration(seconds: 0),
+      artUri: poster != null ? Uri.parse(poster.path) : null,
+    ));
+    playbackState.add(PlaybackState(
+      playing: true,
+      controls: [
+        MediaControl.pause,
+        if (hasNextVideo) MediaControl.skipToNext,
+        if (hasPreviousVideo) MediaControl.skipToPrevious,
+      ],
+      systemActions: {
+        if (hasNextVideo) MediaAction.skipToNext,
+        if (hasPreviousVideo) MediaAction.skipToPrevious,
+        MediaAction.seek,
+        MediaAction.fastForward,
+        MediaAction.setSpeed,
+        MediaAction.rewind,
+      },
+      processingState: AudioProcessingState.ready,
+    ));
+
+    return super.play();
+  }
+
+  Future<void> windowSMTCSetup(ItemBaseModel playBackItem, Duration currentPosition) async {
+    final poster = playBackItem.images?.firstOrNull;
+    final mainContext = ref.read(localizationContextProvider);
+
+    //Windows setup
+    smtc?.updateMetadata(MusicMetadata(
+      title: playBackItem.title,
+      artist: mainContext != null ? playBackItem.label(mainContext.localized) : null,
+      thumbnail: poster?.path,
+    ));
+    smtc?.updateTimeline(
+      PlaybackTimeline(
+        startTimeMs: currentPosition.inMilliseconds,
+        endTimeMs: (playBackItem.overview.runTime ?? const Duration(seconds: 0)).inMilliseconds,
+        positionMs: 0,
+        minSeekTimeMs: 0,
+        maxSeekTimeMs: (playBackItem.overview.runTime ?? const Duration(seconds: 0)).inMilliseconds,
+      ),
+    );
+
+    smtc?.enableSmtc();
+    smtc?.setPlaybackStatus(PlaybackStatus.playing);
+  }
+
+  @override
+  Future<void> stop() async {
+    final playbackModel = ref.read(playBackModel);
+    if (playbackModel == null) return;
+
+    ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(state: VideoPlayerState.disposed));
+    WakelockPlus.disable();
+    _player?.stop();
+    ref.read(windowTitleProvider.notifier).setPlayTitle(null);
+
+    final position = _player?.lastState.position;
+    final totalDuration = _player?.lastState.duration;
+
+    // Small delay so we don't post right after playback/progress update
+    await Future.delayed(const Duration(seconds: 1));
+
+    await playbackModel.playbackStopped(position ?? Duration.zero, totalDuration, ref);
+    ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(position: Duration.zero));
+
+    smtc?.setPlaybackStatus(PlaybackStatus.stopped);
+    smtc?.clearMetadata();
+    smtc?.disableSmtc();
+
+    playbackState.add(
+      playbackState.value.copyWith(
+        playing: false,
+        processingState: AudioProcessingState.completed,
+        controls: [],
+      ),
+    );
+    return super.stop();
+  }
+
+  Future<void> playOrPause() async {
+    await _player?.playOrPause();
+    final playing = _player?.lastState.playing ?? false;
+    playbackState.add(playbackState.value.copyWith(
+      playing: playing,
+      controls: [playing ? MediaControl.pause : MediaControl.play],
+    ));
+
+    if (playing) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
+
+    final playerState = _player;
+    if (playerState != null) {
+      final position = playerState.lastState.position;
+      ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(position: position));
+
+      final model = ref.read(playBackModel);
+      if (model != null) {
+        await _updatePositionWithRetry(model, position, playerState.lastState.playing);
+      }
+    }
+  }
+
+  Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async =>
+      await _player?.setAudioTrack(model, playbackModel) ?? -1;
+
+  Future<int> setSubtitleTrack(SubStreamModel? model, PlaybackModel playbackModel) async =>
+      await _player?.setSubtitleTrack(model, playbackModel) ?? -1;
+
+  Future<void> setVolume(double volume) async => _player?.setVolume(volume);
+
+  @override
+  Future<void> seek(Duration position) {
+    _player?.seek(position);
+    if (_player?.lastState.playing == false) {
+      ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(position: position));
+    }
+    return super.seek(position);
+  }
+
+  @override
+  Future<void> setSpeed(double speed) {
+    _player?.setSpeed(speed);
+    return super.setSpeed(speed);
+  }
+
+  //Native player calls
+  //
+  //
+  @override
+  Future<void> loadNextVideo() async {
+    final nextVideo = ref.read(playBackModel.select((value) => value?.nextVideo));
+    final buffering = ref.read(mediaPlaybackProvider.select((value) => value.buffering));
+    if (nextVideo != null && !buffering) ref.read(playbackModelHelper).loadNewVideo(nextVideo);
+  }
+
+  @override
+  Future<void> loadPreviousVideo() async {
+    final previousVideo = ref.read(playBackModel.select((value) => value?.previousVideo));
+    final buffering = ref.read(mediaPlaybackProvider.select((value) => value.buffering));
+    if (previousVideo != null && !buffering) ref.read(playbackModelHelper).loadNewVideo(previousVideo);
+  }
+
+  @override
+  void onStop() => stop();
+
+  @override
+  void swapAudioTrack(int value) async {
+    final playbackModel = ref.read(playBackModel);
+    final newModel = await playbackModel?.setAudio(
+        playbackModel.audioStreams?.firstWhere((element) => element.index == value), this);
+    ref.read(playBackModel.notifier).update((state) => newModel);
+    if (newModel != null) {
+      await ref.read(playbackModelHelper).shouldReload(newModel);
+    }
+  }
+
+  @override
+  void swapSubtitleTrack(int value) async {
+    final playbackModel = ref.read(playBackModel);
+    final newModel = await playbackModel?.setSubtitle(
+        playbackModel.subStreams?.firstWhere((element) => element.index == value), this);
+    ref.read(playBackModel.notifier).update((state) => newModel);
+    if (newModel != null) {
+      await ref.read(playbackModelHelper).shouldReload(newModel);
+    }
+  }
+
+  @override
+  Future<void> loadProgram(GuideChannel selection) async {
+    final channelId = selection.channelId;
+    final model = await ref.read(liveTvProvider.notifier).fetchDashboard();
+    final channel = model.channels.firstWhereOrNull((c) => c.id == channelId);
+    if (channel != null) {
+      await ref.read(playbackModelHelper).loadTVChannel(channel);
+    }
+  }
+
+  @override
+  Future<List<GuideProgram>> fetchProgramsForChannel(String channelId) async {
+    final channel =
+        (await ref.read(jellyApiProvider).usersUserIdItemsItemIdGet(itemId: channelId)).body as ChannelModel;
+
+    final programs = await ref.read(liveTvProvider.notifier).fetchProgramsForChannel(channel);
+
+    final context = ref.read(localizationContextProvider);
+
+    return programs
+        .map((p) => GuideProgram(
+              id: p.id,
+              channelId: channelId,
+              name: p.name,
+              startMs: p.startDate.millisecondsSinceEpoch,
+              endMs: p.endDate.millisecondsSinceEpoch,
+              primaryPoster: p.images?.primary?.path,
+              overview: p.overview,
+              subTitle: context != null ? p.subLabel(context.localized) : null,
+            ))
+        .toList();
+  }
+
+  Future<Uint8List?> takeScreenshot() {
+    final player = _player;
+
+    if (player == null) {
+      return Future.value(null);
+    }
+
+    return player.takeScreenshot();
+  }
+}

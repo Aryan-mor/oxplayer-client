@@ -4,13 +4,15 @@ Flutter client based on [Fladder](https://github.com/DonutWare/fladder), wired f
 
 ## OX build flag
 
-OX-specific hooks run only when:
+OX-specific hooks and **Telegram-first login** run by default.
+
+Use vanilla Fladder-style startup when you need upstream behavior:
 
 ```bash
-flutter run --dart-define=OXPLAYER=true
+flutter run --dart-define=OXPLAYER=false
 ```
 
-Implementation lives in [`lib/oxplayer/`](lib/oxplayer/README.md). Default (`OXPLAYER` unset/false) matches upstream startup behavior.
+Implementation lives in [`lib/oxplayer/`](lib/oxplayer/README.md).
 
 ## Upstream updates
 

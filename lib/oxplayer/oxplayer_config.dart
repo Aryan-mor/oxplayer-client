@@ -1,11 +1,22 @@
+import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
+
 /// OXPlayer distribution flags (keep OX-only behavior behind this).
 ///
-/// Enable hooks with:
-/// `flutter run --dart-define=OXPLAYER=true`
-/// or set `OXPLAYER=true` in your IDE run configuration.
+/// Priority: compile-time `--dart-define=OXPLAYER=...`, then `assets/env/default.env`.
+/// Default is **on** (Telegram-first).
 abstract final class OxplayerConfig {
-  static const bool isEnabled = bool.fromEnvironment(
-    'OXPLAYER',
-    defaultValue: false,
-  );
+  static bool get isEnabled {
+    const fromDefine = bool.fromEnvironment(
+      'OXPLAYER',
+      defaultValue: true,
+    );
+    if (fromDefine == false) return false;
+
+    if (OxplayerDotenv.isLoaded) {
+      final v = OxplayerDotenv.get('OXPLAYER').trim().toLowerCase();
+      if (v == 'false' || v == '0' || v == 'no') return false;
+      if (v == 'true' || v == '1' || v == 'yes') return true;
+    }
+    return fromDefine;
+  }
 }

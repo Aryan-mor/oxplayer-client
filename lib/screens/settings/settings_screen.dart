@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/update_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_navigation.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/settings/quick_connect_window.dart';
@@ -226,7 +227,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               contentColor: Colors.greenAccent,
               onTap: () async {
                 await ref.read(userProvider.notifier).logoutUser();
-                context.router.replaceAll([LoginRoute()]);
+                context.router.replaceAll(oxplayerSignOutRouteList());
               },
             ),
             SettingsListTile(
@@ -257,7 +258,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onPressed: () async {
                           await ref.read(authProvider.notifier).logOutUser();
                           if (context.mounted) {
-                            context.router.replaceAll([LoginRoute()]);
+                            context.router.replaceAll(oxplayerSignOutRouteList());
                           }
                         },
                         child: Text(context.localized.logout),

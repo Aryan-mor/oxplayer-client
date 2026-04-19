@@ -11,6 +11,7 @@
 			"args": [
 				"--flavor",
 				"development",
+				"--dart-define-from-file=dart_defines.ngrok.json"
 			]
 		},
 		{
@@ -20,6 +21,7 @@
 			"args": [
 				"--flavor",
 				"development",
+				"--dart-define-from-file=dart_defines.ngrok.json",
 				"-a",
 				"--htpc",
 			]
@@ -30,7 +32,8 @@
 			"type": "dart",
 			"args": [
 				"--flavor",
-				"production"
+				"production",
+				"--dart-define-from-file=dart_defines.ngrok.json"
 			]
 		},
 		{
@@ -40,7 +43,8 @@
 			"flutterMode": "profile",
 			"args": [
 				"--flavor",
-				"development"
+				"development",
+				"--dart-define-from-file=dart_defines.ngrok.json"
 			]
 		},
 		{
@@ -50,7 +54,8 @@
 			"flutterMode": "profile",
 			"args": [
 				"--flavor",
-				"production"
+				"production",
+				"--dart-define-from-file=dart_defines.ngrok.json"
 			]
 		},
 		{
@@ -60,7 +65,8 @@
 			"flutterMode": "release",
 			"args": [
 				"--flavor",
-				"development"
+				"development",
+				"--dart-define-from-file=dart_defines.ngrok.json"
 			]
 		},
 		{
@@ -70,7 +76,8 @@
 			"flutterMode": "release",
 			"args": [
 				"--flavor",
-				"production"
+				"production",
+				"--dart-define-from-file=dart_defines.ngrok.json"
 			]
 		},
 		{
@@ -78,6 +85,7 @@
 			"request": "launch",
 			"type": "dart",
 			"args": [
+				"--dart-define-from-file=dart_defines.ngrok.json",
 				"--web-port",
 				"9090",
 			],
@@ -88,6 +96,7 @@
 			"type": "dart",
 			"flutterMode": "release",
 			"args": [
+				"--dart-define-from-file=dart_defines.ngrok.json",
 				"--web-port",
 				"9090",
 			],

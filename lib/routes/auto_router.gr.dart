@@ -661,18 +661,62 @@ class LoginRouteArgs {
 
 /// generated route for
 /// [_i21.OxplayerTelegramLoginScreen]
-class OxplayerTelegramLoginRoute extends _i32.PageRouteInfo<void> {
-  const OxplayerTelegramLoginRoute({List<_i32.PageRouteInfo>? children})
-      : super(OxplayerTelegramLoginRoute.name, initialChildren: children);
+class OxplayerTelegramLoginRoute
+    extends _i32.PageRouteInfo<OxplayerTelegramLoginRouteArgs> {
+  OxplayerTelegramLoginRoute({
+    String? tgWebAppData,
+    _i35.Key? key,
+    List<_i32.PageRouteInfo>? children,
+  }) : super(
+          OxplayerTelegramLoginRoute.name,
+          args: OxplayerTelegramLoginRouteArgs(
+            tgWebAppData: tgWebAppData,
+            key: key,
+          ),
+          rawQueryParams: {'tgWebAppData': tgWebAppData},
+          initialChildren: children,
+        );
 
   static const String name = 'OxplayerTelegramLoginRoute';
 
   static _i32.PageInfo page = _i32.PageInfo(
     name,
     builder: (data) {
-      return const _i21.OxplayerTelegramLoginScreen();
+      final queryParams = data.queryParams;
+      final args = data.argsAs<OxplayerTelegramLoginRouteArgs>(
+        orElse: () => OxplayerTelegramLoginRouteArgs(
+          tgWebAppData: queryParams.optString('tgWebAppData'),
+        ),
+      );
+      return _i21.OxplayerTelegramLoginScreen(
+        tgWebAppData: args.tgWebAppData,
+        key: args.key,
+      );
     },
   );
+}
+
+class OxplayerTelegramLoginRouteArgs {
+  const OxplayerTelegramLoginRouteArgs({this.tgWebAppData, this.key});
+
+  final String? tgWebAppData;
+
+  final _i35.Key? key;
+
+  @override
+  String toString() {
+    return 'OxplayerTelegramLoginRouteArgs{tgWebAppData: $tgWebAppData, key: $key}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! OxplayerTelegramLoginRouteArgs) return false;
+    return tgWebAppData == other.tgWebAppData && key == other.key;
+  }
+
+  @override
+  int get hashCode => tgWebAppData.hashCode ^ key.hashCode;
 }
 
 /// generated route for

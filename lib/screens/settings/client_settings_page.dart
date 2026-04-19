@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
-import 'package:fladder/routes/auto_router.gr.dart';
+import 'package:fladder/oxplayer/oxplayer_navigation.dart';
 import 'package:fladder/screens/settings/client_sections/client_settings_advanced.dart';
 import 'package:fladder/screens/settings/client_sections/client_settings_dashboard.dart';
 import 'package:fladder/screens/settings/client_sections/client_settings_download.dart';
@@ -141,7 +141,7 @@ class _ClientSettingsPageState extends ConsumerState<ClientSettingsPage> {
                             ElevatedButton(
                               onPressed: () async {
                                 await ref.read(sharedPreferencesProvider).clear();
-                                context.router.push(LoginRoute());
+                                context.router.push(oxplayerAddAccountRoute());
                               },
                               child: Text(context.localized.clear),
                             )

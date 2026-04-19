@@ -86,6 +86,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Faster local runs on arm64 phones (Pixel, most physical devices). Comment out if you
+            // debug on an x86/x86_64 Android emulator — those need x86_64 libs.
+            ndk {
+                abiFilters "arm64-v8a"
+            }
+        }
         release {
             minifyEnabled true
             shrinkResources true

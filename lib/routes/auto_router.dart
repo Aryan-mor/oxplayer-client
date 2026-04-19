@@ -1,4 +1,5 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
@@ -170,6 +171,27 @@ class AuthGuard extends AutoRouteGuard {
   Future<void> onNavigation(
       NavigationResolver resolver, StackRouter router) async {
     if (resolver.route == router.current.route) {
+      if (kDebugMode) {
+        debugPrint(
+          '[OX AuthGuard] skip (same route) name=${resolver.routeName}',
+        );
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        '[OX AuthGuard] -> ${resolver.routeName} user=${ref.read(userProvider) != null} '
+        'ox=${OxplayerConfig.isEnabled}',
+      );
+    }
+
+    if (OxplayerConfig.isEnabled &&
+        resolver.routeName == LoginRoute().routeName) {
+      if (kDebugMode) {
+        debugPrint('[OX AuthGuard] redirect Login -> OxplayerTelegramLoginRoute');
+      }
+      await resolver.redirectUntil(OxplayerTelegramLoginRoute());
       return;
     }
 
@@ -180,15 +202,21 @@ class AuthGuard extends AutoRouteGuard {
             resolver.routeName == OxplayerTelegramLoginRoute.name)) {
       // We assume the last main focus is no longer active after navigating
       lastMainFocus = null;
+      if (kDebugMode) {
+        debugPrint('[OX AuthGuard] allow ${resolver.routeName}');
+      }
       return resolver.next(true);
     }
 
+    if (kDebugMode) {
+      debugPrint('[OX AuthGuard] redirectUntil Splash -> login/ox-login');
+    }
     resolver.redirectUntil<bool>(SplashRoute(loggedIn: (value) {
       if (value) {
         resolver.next(true);
       } else {
         if (OxplayerConfig.isEnabled) {
-          router.replace(const OxplayerTelegramLoginRoute());
+          router.replace(OxplayerTelegramLoginRoute());
         } else {
           router.replace(LoginRoute());
         }

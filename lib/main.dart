@@ -10,6 +10,8 @@ import 'package:fladder/bootstrap/app_bootstrap.dart';
 import 'package:fladder/bootstrap/platform/platform_app_wrapper.dart';
 import 'package:fladder/oxplayer/oxplayer_bootstrap.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
+import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/l10n/generated/app_localizations.dart';
 import 'package:fladder/localization_delegates.dart';
 import 'package:fladder/providers/arguments_provider.dart';
@@ -28,6 +30,15 @@ import 'package:fladder/widgets/media_query_scaler.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await OxplayerDotenv.ensureLoaded();
+  OxplayerEnv.debugLogApiResolution();
+  if (kDebugMode) {
+    debugPrint(
+      '[OX main] dotenv loaded=${OxplayerDotenv.isLoaded} '
+      'OxplayerConfig.isEnabled=${OxplayerConfig.isEnabled}',
+    );
+  }
 
   if (OxplayerConfig.isEnabled) {
     await OxplayerBootstrap.beforeAppBootstrap(args);

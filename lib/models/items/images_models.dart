@@ -13,6 +13,21 @@ import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/providers/image_provider.dart';
 import 'package:fladder/util/custom_cache_manager.dart';
 
+/// OxPlayer API: direct TMDB CDN URL in [BaseItemDto.externalUrls] (bypasses Jellyfin `/Items/.../Images`).
+const String _kOxTmdbImagePrimaryName = 'TmdbImagePrimary';
+
+String? _oxTmdbPrimaryImageUrl(dto.BaseItemDto item) {
+  final urls = item.externalUrls;
+  if (urls == null) return null;
+  for (final e in urls) {
+    final u = e.url?.trim();
+    if (e.name == _kOxTmdbImagePrimaryName && u != null && u.startsWith('http')) {
+      return u;
+    }
+  }
+  return null;
+}
+
 class ImagesData {
   final ImageData? primary;
   final List<ImageData>? backDrop;
@@ -45,22 +60,24 @@ class ImagesData {
     final itemid = item.id;
     if (itemid == null) return null;
     final imageProvider = ref.read(imageUtilityProvider);
+    final tmdbPrimary = _oxTmdbPrimaryImageUrl(item);
 
     final newImgesData = ImagesData(
-      primary: item.imageTags?['Primary'] != null
+      primary: (tmdbPrimary != null || item.imageTags?['Primary'] != null)
           ? ImageData(
-              path: getOriginalSize
-                  ? imageProvider.getItemsOrigImageUrl(
-                      itemid,
-                      type: enums.ImageType.primary,
-                    )
-                  : imageProvider.getItemsImageUrl(
-                      itemid,
-                      type: enums.ImageType.primary,
-                      maxHeight: primary.height.toInt(),
-                      maxWidth: primary.width.toInt(),
-                    ),
-              key: "${itemid}_primary_${item.imageTags?['Primary']}",
+              path: tmdbPrimary ??
+                  (getOriginalSize
+                      ? imageProvider.getItemsOrigImageUrl(
+                          itemid,
+                          type: enums.ImageType.primary,
+                        )
+                      : imageProvider.getItemsImageUrl(
+                          itemid,
+                          type: enums.ImageType.primary,
+                          maxHeight: primary.height.toInt(),
+                          maxWidth: primary.width.toInt(),
+                        )),
+              key: "${itemid}_primary_${item.imageTags?['Primary'] ?? 'tmdb'}",
               hash: item.imageBlurHashes?.primary?[item.imageTags?['Primary']] ?? "",
             )
           : null,
@@ -118,16 +135,19 @@ class ImagesData {
 
     final imageProvider = ref.read(imageUtilityProvider);
 
+    final tmdbSeriesPrimary = _oxTmdbPrimaryImageUrl(item);
+
     final newImgesData = ImagesData(
-      primary: (item.seriesPrimaryImageTag != null)
+      primary: (tmdbSeriesPrimary != null || item.seriesPrimaryImageTag != null)
           ? ImageData(
-              path: imageProvider.getItemsImageUrl(
-                item.seriesId,
-                type: enums.ImageType.primary,
-                maxHeight: primary.height.toInt(),
-                maxWidth: primary.width.toInt(),
-              ),
-              key: "${item.seriesId}_primary_${item.seriesPrimaryImageTag ?? ""}",
+              path: tmdbSeriesPrimary ??
+                  imageProvider.getItemsImageUrl(
+                    item.seriesId,
+                    type: enums.ImageType.primary,
+                    maxHeight: primary.height.toInt(),
+                    maxWidth: primary.width.toInt(),
+                  ),
+              key: "${item.seriesId}_primary_${item.seriesPrimaryImageTag ?? 'tmdb'}",
               hash: item.imageBlurHashes?.primary?[item.seriesPrimaryImageTag] ?? "")
           : null,
       logo: ImageData(
@@ -171,16 +191,22 @@ class ImagesData {
     Size logo = const Size(1000, 1000),
     Size primary = const Size(500, 500),
   }) {
+    final tag = item.primaryImageTag?.trim();
+    final tmdbDirect =
+        tag != null && (tag.startsWith('http://') || tag.startsWith('https://')) ? tag : null;
+
     return ImagesData(
-      primary: (item.primaryImageTag != null && item.imageBlurHashes != null)
+      primary: (tmdbDirect != null ||
+              (item.primaryImageTag != null && item.imageBlurHashes != null))
           ? ImageData(
-              path: ref.read(imageUtilityProvider).getItemsImageUrl(
-                    item.id ?? "",
-                    type: enums.ImageType.primary,
-                    maxHeight: primary.height.toInt(),
-                    maxWidth: primary.width.toInt(),
-                  ),
-              key: "${item.id ?? ""}_primary_${item.primaryImageTag ?? ''}",
+              path: tmdbDirect ??
+                  ref.read(imageUtilityProvider).getItemsImageUrl(
+                        item.id ?? "",
+                        type: enums.ImageType.primary,
+                        maxHeight: primary.height.toInt(),
+                        maxWidth: primary.width.toInt(),
+                      ),
+              key: "${item.id ?? ""}_primary_${tmdbDirect != null ? 'tmdb' : (item.primaryImageTag ?? '')}",
               hash: item.imageBlurHashes?.primary?[item.primaryImageTag] ?? '')
           : null,
       logo: null,

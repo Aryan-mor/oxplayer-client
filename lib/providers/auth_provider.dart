@@ -38,8 +38,13 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
 
   BuildContext? get localContext => ref.read(localizationContextProvider);
 
-  Future<void> initModel() async {
-    ref.read(userProvider.notifier).clear();
+  /// When [clearUserState] is false (OX Telegram bootstrap), do not clear [userProvider] —
+  /// the default deep link may open splash after a session exists; clearing would drop the
+  /// active account until prefs are re-read.
+  Future<void> initModel({bool clearUserState = true}) async {
+    if (clearUserState) {
+      ref.read(userProvider.notifier).clear();
+    }
     final currentAccounts = ref.read(authProvider.notifier).getSavedAccounts();
     ref.read(lockScreenActiveProvider.notifier).update((state) => true);
     if (FladderConfig.baseUrl != null) {

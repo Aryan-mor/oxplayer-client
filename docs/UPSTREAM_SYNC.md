@@ -34,7 +34,7 @@ Resolve conflicts by **keeping upstream behavior** and re-applying OX changes on
 
 ## OX guard rule
 
-OX-only code must stay behind `OxplayerConfig.isEnabled` (`--dart-define=OXPLAYER=true`) and live in `lib/oxplayer/`. That keeps conflict surface small when merging.
+OX-only code must stay behind `OxplayerConfig.isEnabled` (on by default; `--dart-define=OXPLAYER=false` to turn off) and live in `lib/oxplayer/`. That keeps conflict surface small when merging.
 
 ## Reference tree
 

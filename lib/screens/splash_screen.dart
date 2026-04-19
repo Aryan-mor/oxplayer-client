@@ -57,7 +57,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         context.router.replace(const DashboardRoute());
       } else {
         if (OxplayerConfig.isEnabled) {
-          context.router.replace(const OxplayerTelegramLoginRoute());
+          context.router.replace(OxplayerTelegramLoginRoute());
         } else {
           context.router.replace(LoginRoute());
         }

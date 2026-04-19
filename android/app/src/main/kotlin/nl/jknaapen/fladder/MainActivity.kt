@@ -26,6 +26,17 @@ import nl.jknaapen.fladder.utility.leanBackEnabled
 import androidx.core.net.toUri
 
 class MainActivity : AudioServiceFragmentActivity(), NativeVideoActivity {
+
+    companion object {
+        init {
+            try {
+                System.loadLibrary("tdjson")
+            } catch (_: UnsatisfiedLinkError) {
+                // Dart TDLib init will fail clearly if jniLibs are missing.
+            }
+        }
+    }
+
     private lateinit var videoPlayerLauncher: ActivityResultLauncher<Intent>
     private var videoPlayerCallback: ((Result<StartResult>) -> Unit)? = null
 

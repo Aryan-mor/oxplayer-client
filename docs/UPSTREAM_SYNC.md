@@ -11,10 +11,10 @@ git remote add upstream https://github.com/DonutWare/fladder.git
 git fetch upstream
 ```
 
-Your own repository (push target — **replace the URL** after you create an empty private repo):
+Your own repository (push target for this project):
 
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_PRIVATE_REPO.git
+git remote add origin https://github.com/Aryan-mor/oxplayer-client.git
 git push -u origin main
 ```
 

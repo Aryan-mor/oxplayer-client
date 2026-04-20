@@ -77,8 +77,28 @@ final appId = OxplayerEnv.telegramApiId;      // TELEGRAM_API_ID
 
 `OxplayerConfig.isEnabled` is `true` by default; disable with `--dart-define=OXPLAYER=false`.
 
+## API data contract — fix on the server, not the client
+
+> **The server owns the schema. The client must not patch, transform, or work around malformed API responses.**
+
+If a field is missing, has the wrong type, or points to the wrong URL:
+- **Fix it in `oxplayer/apps/api/`** — correct the DTO, the route handler, or the sync logic.
+- **Do not** add client-side workarounds in `lib/models/`, `lib/providers/`, or `lib/screens/` to compensate for bad server output.
+
+Concrete examples of what this means:
+
+| Situation | ✅ Right place to fix | ❌ Wrong place |
+|---|---|---|
+| Image URL goes to the server instead of TMDB CDN | Server: return `302 → image.tmdb.org` from the image route | Client: special-case the URL in `ImageData.imageProvider` |
+| Logo request causes timeout | Server: handle `/Images/Logo` and redirect to TMDB primary | Client: skip logo in `ImagesData.fromBaseItem` |
+| Backdrop not loading | Server: set `BackdropImageTags` + redirect `/Images/Backdrop/:i` to TMDB | Client: fall back to `ExternalUrls` in the model |
+| Item DTO missing a field the UI needs | Server: add the field to `toBaseItemDto` | Client: derive it at render time |
+
+The only client-side infrastructure allowed in `lib/oxplayer/` is transport-layer concerns that cannot live on the server — e.g. `OxplayerCacheManager` (custom HTTP client for ngrok headers) or auth token injection.
+
 ## Avoid
 
 - Adding `OxplayerConfig.isEnabled` checks inside deep widget trees or providers — push that up to the hook site.
 - Creating files under `lib/oxplayer/` for logic that belongs in upstream Fladder unchanged.
 - Modifying generated code (`jellyfin_open_api.swagger*.dart`) — those are regenerated from the spec.
+- Compensating for missing or wrong API data anywhere in the Flutter codebase — fix the API instead.

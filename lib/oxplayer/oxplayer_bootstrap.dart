@@ -1,6 +1,7 @@
 import 'package:fladder/bootstrap/app_bootstrap.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_persisted_url_sync.dart';
 import 'package:fladder/util/fladder_config.dart';
 
 /// OX-specific startup — avoid scattering `OXPLAYER` checks across upstream files.
@@ -18,5 +19,6 @@ abstract final class OxplayerBootstrap {
     if (media != null && media.isNotEmpty) {
       FladderConfig.baseUrl = media;
     }
+    await OxplayerPersistedUrlSync.syncAccountsIfNeeded(bootstrap.sharedPreferences);
   }
 }

@@ -80,3 +80,4 @@ Output
 lib/l10n/generated
 l10n_untranslated.json
 android/build/reports/problems/
+assets/env/default.env

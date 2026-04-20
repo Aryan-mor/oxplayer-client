@@ -1,0 +1,84 @@
+---
+description: How to add OXPlayer-specific code on top of upstream Fladder without breaking easy upstream updates
+globs: "**/*.dart"
+alwaysApply: false
+---
+
+# OXPlayer Override Strategy
+
+`oxplayer-client` is a fork of **Fladder** (Jellyfin Flutter client).
+The goal is to keep upstream files nearly unchanged so the repo can be rebased on Fladder updates with minimal conflict.
+
+## The golden rule
+
+> **Never delete or replace upstream code. Add OX behavior beside it, gated behind `OxplayerConfig.isEnabled`.**
+
+## Where new code lives
+
+All OX-specific business logic, screens, and utilities go under **`lib/oxplayer/`**.
+Do **not** scatter OX logic across `lib/screens/`, `lib/providers/`, `lib/widgets/`, etc.
+
+```
+lib/
+  oxplayer/               ← OX-only code
+    telegram/             ← TDLib / Telegram session helpers
+    oxplayer_config.dart  ← OxplayerConfig.isEnabled flag
+    oxplayer_env.dart     ← all env/config values
+    oxplayer_bootstrap.dart ← startup hooks
+    oxplayer_navigation.dart ← route overrides
+    ...
+  screens/                ← upstream Fladder (touch as little as possible)
+  providers/              ← upstream Fladder
+```
+
+## Patching upstream files
+
+When an upstream file needs OX behavior, use the **thin hook** pattern — keep the upstream call intact and branch around it:
+
+```dart
+// ✅ GOOD — upstream code kept, OX behavior added beside it
+void onSignOut() {
+  if (OxplayerConfig.isEnabled) {
+    context.router.replaceAll(oxplayerSignOutRouteList());
+    return;
+  }
+  context.router.replaceAll([LoginRoute()]);   // original upstream line
+}
+
+// ❌ BAD — upstream code replaced or deleted
+void onSignOut() {
+  context.router.replaceAll([OxplayerTelegramLoginRoute()]);
+}
+```
+
+The only upstream files that should contain OX hooks are thin entry points:
+`main.dart`, `app_bootstrap.dart`, and similar root files — and only via `OxplayerBootstrap`.
+
+## OxplayerBootstrap lifecycle
+
+```dart
+// main.dart / bootstrapper
+await OxplayerBootstrap.beforeAppBootstrap(args);   // env, experiments
+await bootstrapApplication(...);
+await OxplayerBootstrap.afterAppBootstrap(result);  // URL sync, session
+```
+
+Add new startup work inside `OxplayerBootstrap`, not in `main.dart` directly.
+
+## Config / env values
+
+Always read config from `OxplayerEnv` (never hardcode URLs or keys):
+
+```dart
+final apiUrl = OxplayerEnv.apiBaseUrl;        // OXPLAYER_API_BASE_URL
+final botUser = OxplayerEnv.botUsername;      // BOT_USERNAME / OXPLAYER_BOT_USERNAME
+final appId = OxplayerEnv.telegramApiId;      // TELEGRAM_API_ID
+```
+
+`OxplayerConfig.isEnabled` is `true` by default; disable with `--dart-define=OXPLAYER=false`.
+
+## Avoid
+
+- Adding `OxplayerConfig.isEnabled` checks inside deep widget trees or providers — push that up to the hook site.
+- Creating files under `lib/oxplayer/` for logic that belongs in upstream Fladder unchanged.
+- Modifying generated code (`jellyfin_open_api.swagger*.dart`) — those are regenerated from the spec.

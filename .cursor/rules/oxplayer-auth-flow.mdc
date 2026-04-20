@@ -1,0 +1,63 @@
+---
+description: OXPlayer Telegram login flow — how auth works end-to-end and how to extend it
+globs: "**/oxplayer/**/*.dart"
+alwaysApply: false
+---
+
+# OXPlayer Auth Flow
+
+Vanilla Fladder logs in with a Jellyfin username/password.
+OXPlayer replaces this with **Telegram-only login** — no Jellyfin credentials are ever shown.
+
+## Login sequence
+
+```
+1. App starts
+   └─ OxplayerBootstrap.afterAppBootstrap()
+       └─ OxplayerPersistedUrlSync.syncAccountsIfNeeded()
+           └─ fixes saved account URLs when ngrok rotates
+
+2. User sees OxplayerTelegramLoginScreen  (route: /ox-login)
+   └─ TDLib (tdlib_controller.dart) signs the user into Telegram
+   └─ After TDLib auth, open Telegram Mini App / WebApp
+       URL: OxplayerEnv.telegramMiniAppOpenLink
+       (t.me/<botUsername>/<shortName>)
+
+3. WebApp closes and returns initData (signed by Telegram)
+   └─ OxplayerTelegramAuthClient.authenticateWithOxApi()
+       POST /auth/telegram  { initData }
+       ← { accessToken, jellyfinUserId }
+
+4. Token stored → FladderConfig.baseUrl = OxplayerEnv.effectiveMediaServerUrl
+   └─ Fladder treats the OXPlayer API as its Jellyfin server
+   └─ All subsequent Jellyfin-shaped calls go to oxplayer/apps/api
+```
+
+## Key files
+
+| File | Role |
+|------|------|
+| `oxplayer_telegram_login_screen.dart` | Full login UI; entry point is route `/ox-login` |
+| `telegram/tdlib_controller.dart` | TDLib lifecycle (init, auth states, phone/code/password) |
+| `telegram/oxplayer_telegram_td_session.dart` | Persists TDLib session across app restarts |
+| `oxplayer_telegram_auth_client.dart` | HTTP call to `POST /auth/telegram`; returns OX access token |
+| `oxplayer_telegram_session.dart` | Holds the active session (token + jellyfinUserId) |
+| `oxplayer_navigation.dart` | `oxplayerSignOutRouteList()` / `oxplayerAddAccountRoute()` |
+
+## Extending auth
+
+- **New login step** → add to `OxplayerTelegramLoginScreen` or a new screen under `lib/oxplayer/`.
+- **New session data** → extend `OxplayerTelegramSession`; keep upstream `AccountModel` aligned via `OxplayerPersistedUrlSync`.
+- **Sign-out / add account routing** → always via `oxplayerSignOutRouteList()` / `oxplayerAddAccountRoute()`, never hardcode `LoginRoute()` for the OX path.
+
+## OxPlayer API auth contract
+
+The OXPlayer API (`oxplayer/apps/api`) speaks Jellyfin-shaped HTTP.
+After login the token is passed as `Authorization: MediaBrowser Token="<token>"` — same header Fladder would use with a real Jellyfin server.
+`POST /auth/telegram` is the only non-Jellyfin endpoint the client ever calls directly.
+
+## Avoid
+
+- Bypassing TDLib to open the Telegram WebApp directly (TDLib session is required first).
+- Storing the access token anywhere other than `OxplayerTelegramSession` / the Fladder credential store.
+- Showing the vanilla Fladder `LoginRoute` when `OxplayerConfig.isEnabled` is true.

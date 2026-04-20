@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as enums;
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
+import 'package:fladder/oxplayer/oxplayer_cache_manager.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/image_provider.dart';
 import 'package:fladder/util/custom_cache_manager.dart';
 
@@ -264,9 +266,12 @@ class ImageData {
   ImageProvider get imageProvider {
     if (path.startsWith("http")) {
       return CachedNetworkImageProvider(
-        cacheKey: key,
-        cacheManager: CustomCacheManager.instance,
         path,
+        cacheKey: key,
+        cacheManager: OxplayerConfig.isEnabled
+            ? OxplayerCacheManager.instance
+            : CustomCacheManager.instance,
+        errorListener: OxplayerConfig.isEnabled ? _silenceImageError : null,
       );
     } else {
       return Image.file(
@@ -279,9 +284,12 @@ class ImageData {
   ImageProvider get nonCachedImageProvider {
     if (path.startsWith("http")) {
       return CachedNetworkImageProvider(
-        cacheKey: UniqueKey().toString(),
-        cacheManager: CustomCacheManager.instance,
         path,
+        cacheKey: UniqueKey().toString(),
+        cacheManager: OxplayerConfig.isEnabled
+            ? OxplayerCacheManager.instance
+            : CustomCacheManager.instance,
+        errorListener: OxplayerConfig.isEnabled ? _silenceImageError : null,
       );
     } else {
       return Image.file(
@@ -289,6 +297,14 @@ class ImageData {
         File(path),
       ).image;
     }
+  }
+
+  /// Swallows image-load errors (e.g. [TimeoutException] on ngrok) so they
+  /// don't surface as unhandled Dart exceptions. The widget layer already
+  /// shows a placeholder / blur hash when the image fails.
+  static void _silenceImageError(Object error) {
+    // Intentionally empty — errors are expected on slow/dev tunnels.
+    // Remove or replace with a logger call if you need visibility.
   }
 
   @override

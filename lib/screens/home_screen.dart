@@ -69,7 +69,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canDownload = ref.watch(showSyncButtonProviderProvider);
+    final canDownload = ref.watch(showSyncButtonProvider);
     final seerrAuthenticated = ref.watch(
       userProvider.select((user) => user?.seerrCredentials?.isConfigured ?? false),
     );

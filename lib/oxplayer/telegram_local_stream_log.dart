@@ -1,0 +1,11 @@
+import 'dart:developer' as developer;
+
+import 'package:flutter/foundation.dart';
+
+/// Telegram TDLib → loopback HTTP (filter: `OX_TG_STREAM`). Verbose locator steps:
+/// `--dart-define=OX_TELEGRAM_LOCATOR_VERBOSE=true`.
+void oxTelegramLocalStreamLog(String step, [String? detail]) {
+  final msg = (detail == null || detail.isEmpty) ? step : '$step | $detail';
+  developer.log(msg, name: 'OX_TG_STREAM');
+  debugPrint('[OX_TG_STREAM] $msg');
+}

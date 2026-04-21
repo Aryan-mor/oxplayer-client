@@ -116,7 +116,9 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
 
   Future<bool> loadPlaybackItem(PlaybackModel model, Duration startPosition) async {
     ref.read(playBackModel)?.dispose();
-    await state.stop();
+    final nextUrl = model.media?.url ?? '';
+    final nextUsesOxLoopback = nextUrl.contains('127.0.0.1');
+    await state.stopWithPlaybackOptions(releaseOxTelegramCache: !nextUsesOxLoopback);
     ref.read(playbackRateProvider.notifier).state = 1.0;
     mediaState.update((state) => state.copyWith(
           state: VideoPlayerState.fullScreen,

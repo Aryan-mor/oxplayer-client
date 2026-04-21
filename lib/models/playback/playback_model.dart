@@ -40,6 +40,9 @@ import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/map_bool_helper.dart';
 import 'package:fladder/util/streams_selection.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/oxplayer_playback_resolver.dart';
 
 class Media {
   final String url;
@@ -264,7 +267,9 @@ class PlaybackModelHelper {
         if (firstItemIsSynced) PlaybackType.offline,
       };
 
-      final isOffline = ref.read(connectivityStatusProvider.select((value) => value == ConnectionState.offline));
+      final isOffline = OxplayerConfig.isEnabled
+          ? ref.read(effectiveOfflineModeProvider)
+          : ref.read(connectivityStatusProvider.select((value) => value == ConnectionState.offline));
 
       if (((showPlaybackOptions || firstItemIsSynced) && !isOffline) && context != null) {
         final playbackType = await showPlaybackTypeSelection(
@@ -428,6 +433,20 @@ class PlaybackModelHelper {
           queryParameters: directOptions,
         );
 
+        var playUrl = mediaPath ?? playbackUrl;
+        if (OxplayerConfig.isEnabled &&
+            mediaPath != null &&
+            mediaPath.startsWith('oxplayer://telegram/')) {
+          final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
+            oxplayerLocatorUri: mediaPath,
+            ref: ref,
+          );
+          if (resolved == null) {
+            return null;
+          }
+          playUrl = resolved;
+        }
+
         return DirectPlaybackModel(
           item: item,
           queue: libraryQueue,
@@ -435,7 +454,7 @@ class PlaybackModelHelper {
           chapters: chapters,
           playbackInfo: playbackInfo,
           trickPlay: trickPlay,
-          media: Media(url: mediaPath ?? playbackUrl),
+          media: Media(url: playUrl),
           mediaStreams: mediaStreamsWithUrls,
           bitRateOptions: qualityOptions,
         );
@@ -569,6 +588,18 @@ class PlaybackModelHelper {
 
       final mediaPath = isValidVideoUrl(mediaSource.path ?? "");
 
+      var playUrl = mediaPath ?? directPlay;
+      if (OxplayerConfig.isEnabled && mediaPath != null && mediaPath.startsWith('oxplayer://telegram/')) {
+        final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
+          oxplayerLocatorUri: mediaPath,
+          ref: ref,
+        );
+        if (resolved == null) {
+          return;
+        }
+        playUrl = resolved;
+      }
+
       newModel = DirectPlaybackModel(
         item: playbackModel.item,
         queue: playbackModel.queue,
@@ -576,7 +607,7 @@ class PlaybackModelHelper {
         chapters: playbackModel.chapters,
         playbackInfo: playbackInfo,
         trickPlay: playbackModel.trickPlay,
-        media: Media(url: mediaPath ?? directPlay),
+        media: Media(url: playUrl),
         mediaStreams: mediaStreamsWithUrls,
         bitRateOptions: playbackModel.bitRateOptions,
       );

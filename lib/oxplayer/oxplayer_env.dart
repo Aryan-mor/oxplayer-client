@@ -65,6 +65,10 @@ abstract final class OxplayerEnv {
     'SUBDL_API_KEY',
     defaultValue: '',
   );
+  static const String _cOxmPrefix = String.fromEnvironment(
+    'OXM_PREFIX',
+    defaultValue: '',
+  );
 
   static String _pick(
     List<String> dotKeys,
@@ -191,5 +195,22 @@ abstract final class OxplayerEnv {
     if (!OxplayerConfig.isEnabled) return null;
     final t = _pick(['SUBDL_API_KEY'], _cSubdlApiKey);
     return t.isEmpty ? null : t;
+  }
+
+  /// Media locator hashtag for TDLib search fallbacks (`SearchMessages` / history / `#oxm_*`).
+  /// Set **`OXM_PREFIX`** (e.g. `#oxm_dev_` in dev). If unset or blank, defaults to **`#oxm_`**.
+  /// A leading `#` is added when missing so `oxm_dev_` becomes `#oxm_dev_`.
+  static String get oxmLocatorTagPrefix {
+    if (!OxplayerConfig.isEnabled) return '#oxm_';
+    var t = _pick(['OXM_PREFIX'], _cOxmPrefix).trim();
+    if (t.isEmpty) return '#oxm_';
+    if (!t.startsWith('#')) t = '#$t';
+    return t;
+  }
+
+  /// [oxmLocatorTagPrefix] without the leading `#` (for alternate search queries like `oxm_dev_14`).
+  static String get oxmLocatorTagPrefixBare {
+    final h = oxmLocatorTagPrefix;
+    return h.startsWith('#') ? h.substring(1) : h;
   }
 }

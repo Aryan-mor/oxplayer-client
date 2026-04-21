@@ -3,7 +3,7 @@ import 'package:flutter/material.dart' hide ConnectionState;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
-import 'package:fladder/providers/connectivity_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/util/localization_helper.dart';
 
 class OfflineBanner extends ConsumerWidget {
@@ -11,7 +11,7 @@ class OfflineBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isOffline = ref.watch(connectivityStatusProvider.select((value) => value == ConnectionState.offline));
+    final isOffline = ref.watch(effectiveOfflineModeProvider);
     final theme = Theme.of(context);
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 250),

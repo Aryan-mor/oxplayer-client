@@ -16,6 +16,8 @@ import 'package:fladder/models/items/channel_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
+import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
+import 'package:fladder/oxplayer/telegram/oxplayer_telegram_playback_release.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/live_tv_provider.dart';
@@ -117,12 +119,22 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
   }
 
   Future<void> loadVideo(PlaybackModel model, Duration startPosition, bool play) async {
+    final playUrl = model.media?.url ?? "";
+    if (kDebugMode &&
+        !kIsWeb &&
+        (Platform.isAndroid || Platform.isIOS) &&
+        playUrl.contains('127.0.0.1')) {
+      oxTelegramLocalStreamLog(
+        'player.wrapper',
+        '${_player.runtimeType} loadVideo $playUrl',
+      );
+    }
     if (_player is NativePlayer) {
       final context = ref.read(localizationContextProvider);
       await (_player as NativePlayer).sendPlaybackDataToNative(context, model, startPosition);
     }
     _isNewPlayback = play;
-    await _player?.loadVideo(model.media?.url ?? "", play, startPosition: startPosition);
+    await _player?.loadVideo(playUrl, play, startPosition: startPosition);
     _player?.applySubtitleSettings(ref.read(subtitleSettingsProvider));
 
     final context = ref.read(localizationContextProvider);
@@ -322,8 +334,14 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     smtc?.setPlaybackStatus(PlaybackStatus.playing);
   }
 
-  @override
-  Future<void> stop() async {
+  /// When loading an item whose URL is the Ox loopback (`127.0.0.1`), pass
+  /// [releaseOxTelegramCache]: false so [resolveOxplayerTelegramLocatorToPlayableUrl]'s
+  /// session is not torn down before [loadVideo].
+  Future<void> stopWithPlaybackOptions({bool releaseOxTelegramCache = true}) async {
+    if (releaseOxTelegramCache) {
+      await releaseOxplayerTelegramPlaybackIfNeeded();
+    }
+
     final playbackModel = ref.read(playBackModel);
     if (playbackModel == null) return;
 
@@ -354,6 +372,9 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     );
     return super.stop();
   }
+
+  @override
+  Future<void> stop() async => stopWithPlaybackOptions(releaseOxTelegramCache: true);
 
   Future<void> playOrPause() async {
     await _player?.playOrPause();

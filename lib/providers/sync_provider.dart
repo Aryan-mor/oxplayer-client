@@ -30,7 +30,7 @@ import 'package:fladder/models/syncing/transcode_download_model.dart';
 import 'package:fladder/models/video_stream_model.dart';
 import 'package:fladder/profiles/default_profile.dart';
 import 'package:fladder/providers/api_provider.dart';
-import 'package:fladder/providers/connectivity_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/sync/background_download_provider.dart';
@@ -43,6 +43,14 @@ import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/string_extensions.dart';
 
 final syncProvider = StateNotifierProvider<SyncNotifier, SyncSettingsModel>((ref) => throw UnimplementedError());
+
+/// Lives here (not [user_provider]) to avoid an import cycle:
+/// user → sync → oxplayer_online_status → user.
+final showSyncButtonProvider = Provider.autoDispose<bool>((ref) {
+  final userCanSync = ref.watch(userProvider.select((value) => value?.canDownload ?? false));
+  final hasSyncedItems = ref.watch(syncProvider.select((value) => value.items.isNotEmpty));
+  return userCanSync || hasSyncedItems;
+});
 
 final downloadTasksProvider = StateProvider.family<DownloadStream, String?>((ref, id) => DownloadStream.empty());
 
@@ -109,8 +117,8 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
       },
     );
 
-    ref.listen(connectivityStatusProvider, (_, next) {
-      if (next != ConnectionState.offline) {
+    ref.listen(effectiveOfflineModeProvider, (_, offline) {
+      if (!offline) {
         updateSyncStates();
       }
     });

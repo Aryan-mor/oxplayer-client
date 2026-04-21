@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:fladder/providers/arguments_provider.dart';
-import 'package:fladder/providers/connectivity_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/widgets/full_screen_helpers/full_screen_wrapper.dart';
 import 'package:fladder/widgets/shared/offline_banner.dart';
@@ -42,7 +42,7 @@ class _DefaultTitleBarState extends ConsumerState<DefaultTitleBar> with WindowLi
     final platform = AdaptiveLayout.of(context).platform;
     final brightness = widget.brightness ?? theme.brightness;
     final iconColor = theme.colorScheme.onSurface.withValues(alpha: 0.65);
-    final isOffline = ref.watch(connectivityStatusProvider.select((value) => value == ConnectionState.offline));
+    final isOffline = ref.watch(effectiveOfflineModeProvider);
     final surfaceColor = theme.colorScheme.surface;
     final titleBarHeight = switch (platform) {
       TargetPlatform.android || TargetPlatform.iOS => MediaQuery.paddingOf(context).top,

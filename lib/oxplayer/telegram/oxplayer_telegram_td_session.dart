@@ -8,6 +8,7 @@ import 'package:tdlib/td_api.dart' as td_api;
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 
+import 'oxplayer_telegram_td_runtime.dart';
 import 'tdlib_controller.dart' if (dart.library.html) 'tdlib_controller_web.dart';
 import 'tdlib_facade.dart';
 
@@ -15,8 +16,7 @@ const _kOxDeviceIdPrefsKey = 'oxplayer_td_device_id';
 
 /// TDLib-backed Telegram login + the same backend `/auth/telegram` bridge as oxplayer-android.
 final class OxplayerTelegramTdSession {
-  OxplayerTelegramTdSession({TelegramTdlibFacade? tdlib})
-      : _td = tdlib ?? TelegramTdlibFacade();
+  OxplayerTelegramTdSession({TelegramTdlibFacade? tdlib}) : _td = tdlib ?? OxplayerTelegramTdRuntime.facade;
 
   final TelegramTdlibFacade _td;
   bool _clientInited = false;
@@ -55,6 +55,14 @@ final class OxplayerTelegramTdSession {
       );
     }
     if (_clientInited) return;
+    // [TelegramTdlibFacade] is a process-wide singleton. A second
+    // [OxplayerTelegramTdSession] (bootstrap warm-up + Riverpod notifier) must not
+    // call [init] again: [_performInit] shuts down the existing client first,
+    // which emits AuthorizationStateClosed and can destabilize or crash the app.
+    if (_td.isInitialized) {
+      _clientInited = true;
+      return;
+    }
     await _td.init(apiId: apiId, apiHash: apiHash, sessionString: '');
     _clientInited = true;
   }
@@ -103,6 +111,21 @@ final class OxplayerTelegramTdSession {
   }
 
   Future<void> dispose() => _td.dispose();
+
+  /// Ensures TDLib is initialized and authorized (for library Telegram playback).
+  static Future<bool> ensureReadyForPlayback() async {
+    if (kIsWeb) return false;
+    try {
+      final s = OxplayerTelegramTdSession();
+      await s.initClient();
+      await s.td.ensureAuthorized();
+      return true;
+    } on TdlibInteractiveLoginRequired {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// Same pipeline as oxplayer-android [DataRepository._fetchSignedInitData]: TDLib obtains signed WebApp initData.
   Future<String> fetchSignedInitData() async {

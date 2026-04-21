@@ -5,7 +5,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/media_playback_model.dart';
-import 'package:fladder/providers/connectivity_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
 import 'package:fladder/providers/window_title_provider.dart';
@@ -85,7 +85,7 @@ class _NavigationScaffoldState extends ConsumerState<NavigationScaffold> {
     final bottomViewPadding = isDesktop ? 12.0 : viewPaddingOf.bottom;
     final isHomeScreen = currentIndex != -1;
 
-    final isOffline = ref.watch(connectivityStatusProvider.select((value) => value == ConnectionState.offline));
+    final isOffline = ref.watch(effectiveOfflineModeProvider);
 
     final offlineMessageHeight = isOffline && !isDesktop ? 12 : 0;
 

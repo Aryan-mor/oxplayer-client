@@ -89,7 +89,9 @@ class _OxplayerTelegramLoginScreenState
     unawaited(_waitPhoneSub?.cancel());
     unawaited(_authenticatedUserSub?.cancel());
     unawaited(_functionErrorSub?.cancel());
-    unawaited(_tdSession?.dispose());
+    // Do not dispose [OxplayerTelegramTdSession]: it uses the process-wide TDLib
+    // ([OxplayerTelegramTdRuntime.facade]). Disposing here ran after navigate to
+    // [DashboardRoute] and closed TDLib, breaking Telegram media playback.
     _passwordController.dispose();
     _phoneController.dispose();
     _codeController.dispose();

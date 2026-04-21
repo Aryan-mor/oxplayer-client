@@ -1,6 +1,5 @@
 import 'package:chopper/chopper.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/enum_models.dart';
@@ -16,17 +15,9 @@ import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/image_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
-import 'package:fladder/providers/sync_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 
 part 'user_provider.g.dart';
-
-@riverpod
-bool showSyncButtonProvider(Ref ref) {
-  final userCanSync = ref.watch(userProvider.select((value) => value?.canDownload ?? false));
-  final hasSyncedItems = ref.watch(syncProvider.select((value) => value.items.isNotEmpty));
-  return userCanSync || hasSyncedItems;
-}
 
 @Riverpod(keepAlive: true)
 class User extends _$User {

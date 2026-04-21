@@ -24,6 +24,7 @@ gradle.beforeProject { proj ->
             "PROVIDER_BOT_USERNAME",
             "OXPLAYER_JELLYFIN_URL",
             "SUBDL_API_KEY",
+            "OXM_PREFIX",
     ] as Set
 
     def stripQuotes = { String s ->

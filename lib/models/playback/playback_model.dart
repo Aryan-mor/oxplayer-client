@@ -41,6 +41,7 @@ import 'package:fladder/util/map_bool_helper.dart';
 import 'package:fladder/util/streams_selection.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_playback_resolver.dart';
 
@@ -355,6 +356,13 @@ class PlaybackModelHelper {
           ref.read(videoPlayerSettingsProvider.select((value) => value.wantedPlayer == PlayerOptions.nativePlayer));
       final isExternalSub = newStreamModel?.currentSubStream?.isExternal == true;
 
+      oxMediaVersionsLog(
+        '_createServerPlayback itemId=${item.id} '
+        'catalogVersionCount=${newStreamModel?.versionStreams.length ?? 0} '
+        'versionIndex=${newStreamModel?.versionStreamIndex} '
+        'requestMediaSourceId=${newStreamModel?.currentVersionStream?.id}',
+      );
+
       final Response<PlaybackInfoResponse> response = await api.itemsItemIdPlaybackInfoPost(
         itemId: item.id,
         body: PlaybackInfoDto(
@@ -378,6 +386,11 @@ class PlaybackModelHelper {
       if (playbackInfo == null) {
         return null;
       }
+
+      oxMediaVersionsLog(
+        '_createServerPlayback after PlaybackInfo itemId=${item.id} '
+        'playbackMediaSourcesCount=${playbackInfo.mediaSources?.length ?? 0}',
+      );
 
       final mediaSource = playbackInfo.mediaSources?[newStreamModel?.versionStreamIndex ?? 0];
 
@@ -535,6 +548,12 @@ class PlaybackModelHelper {
         playbackModel.subStreams,
         playbackModel.mediaStreams?.defaultSubStreamIndex);
 
+    oxMediaVersionsLog(
+      'shouldReload itemId=${item.id} '
+      'currentVersionCount=${playbackModel.mediaStreams?.versionStreams.length ?? 0} '
+      'requestMediaSourceId=${playbackModel.mediaStreams?.currentVersionStream?.id}',
+    );
+
     Response<PlaybackInfoResponse> response = await api.itemsItemIdPlaybackInfoPost(
       itemId: item.id,
       body: PlaybackInfoDto(
@@ -553,6 +572,11 @@ class PlaybackModelHelper {
     );
 
     PlaybackInfoResponse playbackInfo = response.bodyOrThrow;
+
+    oxMediaVersionsLog(
+      'shouldReload after PlaybackInfo itemId=${item.id} '
+      'playbackMediaSourcesCount=${playbackInfo.mediaSources?.length ?? 0}',
+    );
 
     final mediaSource = playbackInfo.mediaSources?.first;
 

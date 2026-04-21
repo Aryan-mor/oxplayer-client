@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
+import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/video_properties.dart';
@@ -39,6 +40,12 @@ class MediaStreamsModel {
   bool get isNotEmpty {
     return audioStreams.isNotEmpty && subStreams.isNotEmpty;
   }
+
+  /// Detail header stream/version row: show when there are multiple Jellyfin media sources
+  /// (e.g. several Ox uploads) or classic Jellyfin audio+subtitle rows.
+  /// [isNotEmpty] alone hides multi-version Ox stubs that have no subtitle streams.
+  bool get shouldShowDetailStreamSelectors =>
+      versionStreams.length > 1 || (audioStreams.isNotEmpty && subStreams.isNotEmpty);
 
   AudioStreamModel? get currentAudioStream {
     if (defaultAudioStreamIndex == -1 || defaultAudioStreamIndex == null) {
@@ -101,10 +108,8 @@ class MediaStreamsModel {
     List<dto.MediaSourceInfo>? mediaSource,
     Ref ref,
   ) {
-    return MediaStreamsModel(
-        defaultAudioStreamIndex: mediaSource?.firstOrNull?.defaultAudioStreamIndex,
-        defaultSubStreamIndex: mediaSource?.firstOrNull?.defaultSubtitleStreamIndex,
-        versionStreams: mediaSource?.mapIndexed(
+    final versionStreams = mediaSource
+            ?.mapIndexed(
               (index, element) {
                 final streams = element.mediaStreams ?? [];
                 return VersionStreamModel(
@@ -132,8 +137,21 @@ class MediaStreamsModel {
                         )
                         .sortByExternal());
               },
-            ).toList() ??
-            []);
+            )
+            .toList() ??
+        [];
+    final summary = versionStreams
+        .map((v) => '${v.id ?? "?"}:${(v.name).isEmpty ? "(no name)" : v.name}')
+        .join(' | ');
+    final paths = mediaSource?.map((e) => e.path ?? "").join(' | ') ?? '';
+    oxMediaVersionsLog(
+      'fromMediaStreamsList count=${versionStreams.length} paths=[$paths] streams=[$summary]',
+    );
+    return MediaStreamsModel(
+      defaultAudioStreamIndex: mediaSource?.firstOrNull?.defaultAudioStreamIndex,
+      defaultSubStreamIndex: mediaSource?.firstOrNull?.defaultSubtitleStreamIndex,
+      versionStreams: versionStreams,
+    );
   }
 
   MediaStreamsModel copyWith({

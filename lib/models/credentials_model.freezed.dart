@@ -21,6 +21,9 @@ mixin _$CredentialsModel implements DiagnosticableTreeMixin {
   String get serverId;
   String get deviceId;
 
+  /// OXPlayer `POST /auth/refresh` (from `POST /auth/telegram`); empty when unknown / legacy.
+  String get oxRefreshToken;
+
   /// Create a copy of CredentialsModel
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -41,12 +44,13 @@ mixin _$CredentialsModel implements DiagnosticableTreeMixin {
       ..add(DiagnosticsProperty('localUrl', localUrl))
       ..add(DiagnosticsProperty('serverName', serverName))
       ..add(DiagnosticsProperty('serverId', serverId))
-      ..add(DiagnosticsProperty('deviceId', deviceId));
+      ..add(DiagnosticsProperty('deviceId', deviceId))
+      ..add(DiagnosticsProperty('oxRefreshToken', oxRefreshToken));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'CredentialsModel(token: $token, url: $url, localUrl: $localUrl, serverName: $serverName, serverId: $serverId, deviceId: $deviceId)';
+    return 'CredentialsModel(token: $token, url: $url, localUrl: $localUrl, serverName: $serverName, serverId: $serverId, deviceId: $deviceId, oxRefreshToken: $oxRefreshToken)';
   }
 }
 
@@ -62,7 +66,8 @@ abstract mixin class $CredentialsModelCopyWith<$Res> {
       String? localUrl,
       String serverName,
       String serverId,
-      String deviceId});
+      String deviceId,
+      String oxRefreshToken});
 }
 
 /// @nodoc
@@ -84,6 +89,7 @@ class _$CredentialsModelCopyWithImpl<$Res>
     Object? serverName = null,
     Object? serverId = null,
     Object? deviceId = null,
+    Object? oxRefreshToken = null,
   }) {
     return _then(_self.copyWith(
       token: null == token
@@ -109,6 +115,10 @@ class _$CredentialsModelCopyWithImpl<$Res>
       deviceId: null == deviceId
           ? _self.deviceId
           : deviceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      oxRefreshToken: null == oxRefreshToken
+          ? _self.oxRefreshToken
+          : oxRefreshToken // ignore: cast_nullable_to_non_nullable
               as String,
     ));
   }
@@ -207,16 +217,28 @@ extension CredentialsModelPatterns on CredentialsModel {
 
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function(String token, String url, String? localUrl,
-            String serverName, String serverId, String deviceId)?
+    TResult Function(
+            String token,
+            String url,
+            String? localUrl,
+            String serverName,
+            String serverId,
+            String deviceId,
+            String oxRefreshToken)?
         internal,
     required TResult orElse(),
   }) {
     final _that = this;
     switch (_that) {
       case _CredentialsModel() when internal != null:
-        return internal(_that.token, _that.url, _that.localUrl,
-            _that.serverName, _that.serverId, _that.deviceId);
+        return internal(
+            _that.token,
+            _that.url,
+            _that.localUrl,
+            _that.serverName,
+            _that.serverId,
+            _that.deviceId,
+            _that.oxRefreshToken);
       case _:
         return orElse();
     }
@@ -237,15 +259,27 @@ extension CredentialsModelPatterns on CredentialsModel {
 
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function(String token, String url, String? localUrl,
-            String serverName, String serverId, String deviceId)
+    required TResult Function(
+            String token,
+            String url,
+            String? localUrl,
+            String serverName,
+            String serverId,
+            String deviceId,
+            String oxRefreshToken)
         internal,
   }) {
     final _that = this;
     switch (_that) {
       case _CredentialsModel():
-        return internal(_that.token, _that.url, _that.localUrl,
-            _that.serverName, _that.serverId, _that.deviceId);
+        return internal(
+            _that.token,
+            _that.url,
+            _that.localUrl,
+            _that.serverName,
+            _that.serverId,
+            _that.deviceId,
+            _that.oxRefreshToken);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -265,15 +299,27 @@ extension CredentialsModelPatterns on CredentialsModel {
 
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function(String token, String url, String? localUrl,
-            String serverName, String serverId, String deviceId)?
+    TResult? Function(
+            String token,
+            String url,
+            String? localUrl,
+            String serverName,
+            String serverId,
+            String deviceId,
+            String oxRefreshToken)?
         internal,
   }) {
     final _that = this;
     switch (_that) {
       case _CredentialsModel() when internal != null:
-        return internal(_that.token, _that.url, _that.localUrl,
-            _that.serverName, _that.serverId, _that.deviceId);
+        return internal(
+            _that.token,
+            _that.url,
+            _that.localUrl,
+            _that.serverName,
+            _that.serverId,
+            _that.deviceId,
+            _that.oxRefreshToken);
       case _:
         return null;
     }
@@ -289,7 +335,8 @@ class _CredentialsModel extends CredentialsModel with DiagnosticableTreeMixin {
       this.localUrl,
       this.serverName = "",
       this.serverId = "",
-      this.deviceId = ""})
+      this.deviceId = "",
+      this.oxRefreshToken = ""})
       : super._();
   factory _CredentialsModel.fromJson(Map<String, dynamic> json) =>
       _$CredentialsModelFromJson(json);
@@ -311,6 +358,11 @@ class _CredentialsModel extends CredentialsModel with DiagnosticableTreeMixin {
   @override
   @JsonKey()
   final String deviceId;
+
+  /// OXPlayer `POST /auth/refresh` (from `POST /auth/telegram`); empty when unknown / legacy.
+  @override
+  @JsonKey()
+  final String oxRefreshToken;
 
   /// Create a copy of CredentialsModel
   /// with the given fields replaced by the non-null parameter values.
@@ -336,12 +388,13 @@ class _CredentialsModel extends CredentialsModel with DiagnosticableTreeMixin {
       ..add(DiagnosticsProperty('localUrl', localUrl))
       ..add(DiagnosticsProperty('serverName', serverName))
       ..add(DiagnosticsProperty('serverId', serverId))
-      ..add(DiagnosticsProperty('deviceId', deviceId));
+      ..add(DiagnosticsProperty('deviceId', deviceId))
+      ..add(DiagnosticsProperty('oxRefreshToken', oxRefreshToken));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'CredentialsModel.internal(token: $token, url: $url, localUrl: $localUrl, serverName: $serverName, serverId: $serverId, deviceId: $deviceId)';
+    return 'CredentialsModel.internal(token: $token, url: $url, localUrl: $localUrl, serverName: $serverName, serverId: $serverId, deviceId: $deviceId, oxRefreshToken: $oxRefreshToken)';
   }
 }
 
@@ -359,7 +412,8 @@ abstract mixin class _$CredentialsModelCopyWith<$Res>
       String? localUrl,
       String serverName,
       String serverId,
-      String deviceId});
+      String deviceId,
+      String oxRefreshToken});
 }
 
 /// @nodoc
@@ -381,6 +435,7 @@ class __$CredentialsModelCopyWithImpl<$Res>
     Object? serverName = null,
     Object? serverId = null,
     Object? deviceId = null,
+    Object? oxRefreshToken = null,
   }) {
     return _then(_CredentialsModel(
       token: null == token
@@ -406,6 +461,10 @@ class __$CredentialsModelCopyWithImpl<$Res>
       deviceId: null == deviceId
           ? _self.deviceId
           : deviceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      oxRefreshToken: null == oxRefreshToken
+          ? _self.oxRefreshToken
+          : oxRefreshToken // ignore: cast_nullable_to_non_nullable
               as String,
     ));
   }

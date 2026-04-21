@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:tdlib/td_api.dart' as td;
 
+import 'package:fladder/oxplayer/oxplayer_dev_fallbacks.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
@@ -91,7 +92,8 @@ Future<ResolvedTelegramMediaFile?> _resolveTelegramMediaFileImpl({
   List<int> locatorTagTelegramSearchChatIds = const [],
   void Function(String message)? onDiagnostic,
 }) async {
-  if (locatorType == 'CHAT_MESSAGE' &&
+  if (OxplayerDevFallbacks.locatorStoredChatBranch &&
+      locatorType == 'CHAT_MESSAGE' &&
       locatorChatId != null &&
       locatorMessageId != null) {
     final chatCandidates = _candidateTelegramChatIds(locatorChatId, exactOnly: false)
@@ -148,7 +150,7 @@ Future<ResolvedTelegramMediaFile?> _resolveTelegramMediaFileImpl({
   }
 
   final trimmedLocatorRemote = locatorRemoteFileId?.trim() ?? '';
-  if (trimmedLocatorRemote.isNotEmpty) {
+  if (OxplayerDevFallbacks.locatorRemoteFile && trimmedLocatorRemote.isNotEmpty) {
     try {
       onDiagnostic?.call(
         'Trying Telegram remote file fallback for mediaFileId=$mediaFileId remoteFileId=$trimmedLocatorRemote',
@@ -230,48 +232,50 @@ Future<_ExtractedFromMessage?> _resolveFileByMessage({
   } catch (_) {}
   await Future<void>.delayed(const Duration(milliseconds: 220));
 
-  for (final chatCandidate in mergedChatIds) {
-    for (final messageCandidate in _candidateTelegramMessageIds(messageId)) {
-      try {
-        onDiagnostic?.call(
-          'Trying Telegram message lookup chatCandidate=$chatCandidate messageCandidate=$messageCandidate',
-        );
-        final messageObject = await _sendWithTimeout(
-          tdlib: tdlib,
-          request: td.GetMessage(
-            chatId: chatCandidate,
-            messageId: messageCandidate,
-          ),
-        );
-        if (messageObject is! td.Message) continue;
-        final file = _extractFileFromMessage(messageObject);
-        if (file == null) {
+  if (OxplayerDevFallbacks.locatorDirectGetMessage) {
+    for (final chatCandidate in mergedChatIds) {
+      for (final messageCandidate in _candidateTelegramMessageIds(messageId)) {
+        try {
           onDiagnostic?.call(
-            'Telegram message lookup succeeded but message ${messageObject.id} had no playable file',
+            'Trying Telegram message lookup chatCandidate=$chatCandidate messageCandidate=$messageCandidate',
           );
-          continue;
+          final messageObject = await _sendWithTimeout(
+            tdlib: tdlib,
+            request: td.GetMessage(
+              chatId: chatCandidate,
+              messageId: messageCandidate,
+            ),
+          );
+          if (messageObject is! td.Message) continue;
+          final file = _extractFileFromMessage(messageObject);
+          if (file == null) {
+            onDiagnostic?.call(
+              'Telegram message lookup succeeded but message ${messageObject.id} had no playable file',
+            );
+            continue;
+          }
+          onDiagnostic?.call(
+            'Telegram message lookup succeeded for chatCandidate=$chatCandidate resolvedMessageId=${messageObject.id} fileId=${file.id}',
+          );
+          final resolutionReason =
+              chatCandidate == chatId && messageCandidate == requestedMessageId
+              ? 'direct_chat_message_exact'
+              : 'direct_chat_message_candidate';
+          return _ExtractedFromMessage(
+            file: file,
+            locatorMessageId: messageObject.id,
+            resolutionReason: resolutionReason,
+            resolvedChatId: chatCandidate,
+          );
+        } on td.TdError catch (error) {
+          onDiagnostic?.call(
+            'Telegram message lookup failed for chatCandidate=$chatCandidate messageCandidate=$messageCandidate: code=${error.code} message=${error.message}',
+          );
+        } catch (error) {
+          onDiagnostic?.call(
+            'Telegram message lookup crashed for chatCandidate=$chatCandidate messageCandidate=$messageCandidate: $error',
+          );
         }
-        onDiagnostic?.call(
-          'Telegram message lookup succeeded for chatCandidate=$chatCandidate resolvedMessageId=${messageObject.id} fileId=${file.id}',
-        );
-        final resolutionReason =
-            chatCandidate == chatId && messageCandidate == requestedMessageId
-            ? 'direct_chat_message_exact'
-            : 'direct_chat_message_candidate';
-        return _ExtractedFromMessage(
-          file: file,
-          locatorMessageId: messageObject.id,
-          resolutionReason: resolutionReason,
-          resolvedChatId: chatCandidate,
-        );
-      } on td.TdError catch (error) {
-        onDiagnostic?.call(
-          'Telegram message lookup failed for chatCandidate=$chatCandidate messageCandidate=$messageCandidate: code=${error.code} message=${error.message}',
-        );
-      } catch (error) {
-        onDiagnostic?.call(
-          'Telegram message lookup crashed for chatCandidate=$chatCandidate messageCandidate=$messageCandidate: $error',
-        );
       }
     }
   }
@@ -279,7 +283,9 @@ Future<_ExtractedFromMessage?> _resolveFileByMessage({
   final trimmedFileUniqueId = fileUniqueId?.trim() ?? '';
   final trimmedMediaId = mediaFileId.trim();
 
-  if (trimmedMediaId.isNotEmpty && locatorTagTelegramSearchChatIds.isNotEmpty) {
+  if (OxplayerDevFallbacks.locatorEnvSearchTag &&
+      trimmedMediaId.isNotEmpty &&
+      locatorTagTelegramSearchChatIds.isNotEmpty) {
     final seenSearchChat = <int>{};
     for (final searchChatId in locatorTagTelegramSearchChatIds) {
       if (!seenSearchChat.add(searchChatId)) continue;
@@ -300,7 +306,7 @@ Future<_ExtractedFromMessage?> _resolveFileByMessage({
     }
   }
 
-  if (trimmedMediaId.isNotEmpty) {
+  if (OxplayerDevFallbacks.locatorGlobalSearch && trimmedMediaId.isNotEmpty) {
     final globalMatch = await _findLocatorTagViaGlobalSearchMessagesMedia(
       tdlib: tdlib,
       mediaFileId: trimmedMediaId,
@@ -316,20 +322,22 @@ Future<_ExtractedFromMessage?> _resolveFileByMessage({
     return null;
   }
 
-  for (final chatCandidate in mergedChatIds) {
-    await _openChatBestEffort(tdlib, chatCandidate, onDiagnostic);
-    onDiagnostic?.call(
-      'Trying Telegram GetChatHistory locator fallback for chatCandidate=$chatCandidate fileUniqueId=${trimmedFileUniqueId.isEmpty ? '(none)' : trimmedFileUniqueId} mediaId=${trimmedMediaId.isEmpty ? '(none)' : trimmedMediaId}',
-    );
-    final historyMatch = await _paginatedHistoryLocatorScanMediaResolver(
-      tdlib: tdlib,
-      chatId: chatCandidate,
-      fileUniqueId: trimmedFileUniqueId.isEmpty ? null : trimmedFileUniqueId,
-      mediaFileId: trimmedMediaId.isEmpty ? null : trimmedMediaId,
-      onDiagnostic: onDiagnostic,
-    );
-    if (historyMatch != null) {
-      return historyMatch;
+  if (OxplayerDevFallbacks.locatorHistoryScan) {
+    for (final chatCandidate in mergedChatIds) {
+      await _openChatBestEffort(tdlib, chatCandidate, onDiagnostic);
+      onDiagnostic?.call(
+        'Trying Telegram GetChatHistory locator fallback for chatCandidate=$chatCandidate fileUniqueId=${trimmedFileUniqueId.isEmpty ? '(none)' : trimmedFileUniqueId} mediaId=${trimmedMediaId.isEmpty ? '(none)' : trimmedMediaId}',
+      );
+      final historyMatch = await _paginatedHistoryLocatorScanMediaResolver(
+        tdlib: tdlib,
+        chatId: chatCandidate,
+        fileUniqueId: trimmedFileUniqueId.isEmpty ? null : trimmedFileUniqueId,
+        mediaFileId: trimmedMediaId.isEmpty ? null : trimmedMediaId,
+        onDiagnostic: onDiagnostic,
+      );
+      if (historyMatch != null) {
+        return historyMatch;
+      }
     }
   }
 

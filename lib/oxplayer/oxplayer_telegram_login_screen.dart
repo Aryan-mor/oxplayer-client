@@ -10,10 +10,9 @@ import 'package:fladder/oxplayer/oxplayer_debug.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_init_data.dart';
-import 'package:fladder/oxplayer/oxplayer_telegram_session.dart';
+import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
-import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/login/lock_screen.dart';
 import 'package:fladder/screens/shared/fladder_logo.dart';
@@ -137,7 +136,7 @@ class _OxplayerTelegramLoginScreenState
           '${app.name} / ${defaultTargetPlatform.name}';
       final exchanged =
           await _tdSession!.authenticateWithOxApi(deviceName: deviceName);
-      await oxplayerApplyTelegramJellyfinSession(ref, exchanged.jellyfin);
+      await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
       ref.read(lockScreenActiveProvider.notifier).update((s) => false);
       _backendBridgeDone = true;
       if (mounted) {
@@ -260,7 +259,7 @@ class _OxplayerTelegramLoginScreenState
         deviceName: deviceName,
       );
 
-      await oxplayerApplyTelegramJellyfinSession(ref, exchanged.jellyfin);
+      await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
 
       ref.read(lockScreenActiveProvider.notifier).update((s) => false);
 

@@ -25,6 +25,18 @@ gradle.beforeProject { proj ->
             "OXPLAYER_JELLYFIN_URL",
             "SUBDL_API_KEY",
             "OXM_PREFIX",
+            // Flutter dev fallbacks (OxplayerDevFallbacks): must match keys or Android builds fall back to
+            // bool.fromEnvironment(..., defaultValue: true) when dotenv asset load fails at runtime.
+            "OX_FALLBACK_PROVIDER_ONLY",
+            "OX_FALLBACK_PRIMARY_LIBRARY_LOCATOR",
+            "OX_FALLBACK_PROVIDER_POST",
+            "OX_FALLBACK_PROVIDER_POST_URL_OVERRIDE",
+            "OX_FALLBACK_LOCATOR_STORED_CHAT",
+            "OX_FALLBACK_LOCATOR_REMOTE_FILE",
+            "OX_FALLBACK_LOCATOR_DIRECT_GET",
+            "OX_FALLBACK_LOCATOR_ENV_SEARCH",
+            "OX_FALLBACK_LOCATOR_GLOBAL_SEARCH",
+            "OX_FALLBACK_LOCATOR_HISTORY_SCAN",
     ] as Set
 
     def stripQuotes = { String s ->

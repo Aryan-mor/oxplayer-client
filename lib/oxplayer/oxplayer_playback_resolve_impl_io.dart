@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:tdlib/td_api.dart' as td;
 
+import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
+import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/auth_provider.dart';
@@ -13,7 +15,8 @@ import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 import 'package:fladder/oxplayer/telegram/telegram_locator_env_search_chats.dart';
-import 'package:fladder/oxplayer/telegram/telegram_media_file_locator_resolver.dart';
+import 'package:fladder/oxplayer/telegram/telegram_media_file_locator_resolver.dart'
+    show ResolvedTelegramMediaFile, resolveTelegramMediaFile;
 import 'package:fladder/oxplayer/telegram/telegram_range_playback.dart';
 
 /// Full TDLib locator fallback chain (`GetMessage`, `SearchChatMessages`, …). Off by default.
@@ -21,6 +24,65 @@ const bool _kOxTelegramLocatorVerbose = bool.fromEnvironment(
   'OX_TELEGRAM_LOCATOR_VERBOSE',
   defaultValue: false,
 );
+
+/// Extra lines for `t.me` provider backup resolve (parsed URL excerpt, chat resolve). Filter: `OX_TG_STREAM`.
+const bool _kOxProviderBackupVerbose = bool.fromEnvironment(
+  'OX_PROVIDER_BACKUP_VERBOSE',
+  defaultValue: false,
+);
+
+String _truncateForLog(String s, {int max = 160}) {
+  final t = s.trim();
+  if (t.length <= max) return t;
+  return '${t.substring(0, max)}…(+${t.length - max} chars)';
+}
+
+void _providerTmeLog(String detail) {
+  oxTelegramLocalStreamLog('provider.tme', detail);
+}
+
+String _describeMessageContent(td.Message message) {
+  final c = message.content;
+  return c.runtimeType.toString();
+}
+
+/// Same URL shape the user opens in Telegram / provider-bot stores (`https://t.me/...`).
+String? _normalizePublicTmeUrl(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) return null;
+  final withScheme = t.startsWith('http') ? t : 'https://$t';
+  final u = Uri.tryParse(withScheme);
+  if (u == null || u.host.toLowerCase() != 't.me') return null;
+  return Uri(
+    scheme: 'https',
+    host: 't.me',
+    pathSegments: u.pathSegments.where((s) => s.isNotEmpty).toList(),
+  ).toString();
+}
+
+Future<void> _providerOpenChatBestEffort(TdlibFacade tdlib, int chatId) async {
+  try {
+    await tdlib.send(td.OpenChat(chatId: chatId));
+    if (_kOxProviderBackupVerbose) {
+      _providerTmeLog('OpenChat(chatId=$chatId) OK');
+    }
+  } on td.TdError catch (e) {
+    _providerTmeLog('OpenChat(chatId=$chatId) TdError code=${e.code} message=${e.message}');
+  }
+}
+
+Future<({td.Message? msg, td.TdError? err})> _providerGetMessageOnce(
+  TdlibFacade tdlib, {
+  required int chatId,
+  required int messageId,
+}) async {
+  try {
+    final msgObj = await tdlib.send(td.GetMessage(chatId: chatId, messageId: messageId));
+    return (msg: msgObj is td.Message ? msgObj : null, err: null);
+  } on td.TdError catch (e) {
+    return (msg: null, err: e);
+  }
+}
 
 class _OxLibraryFileDto {
   _OxLibraryFileDto({
@@ -68,21 +130,27 @@ int? _parseInt(Object? v) {
 }
 
 class _OxLibraryDetailDto {
-  _OxLibraryDetailDto({required this.files});
+  _OxLibraryDetailDto({required this.files, this.providerBackupPostUrl});
 
   final List<_OxLibraryFileDto> files;
+  /// From API `media.providerBackupPostUrl` — public `t.me/...` backup post link.
+  final String? providerBackupPostUrl;
 
   static _OxLibraryDetailDto? tryParseBody(String body) {
     final dec = jsonDecode(body);
     if (dec is! Map) return null;
     final filesRaw = dec['files'];
     if (filesRaw is! List) return null;
+    final mediaRaw = dec['media'];
+    String? trimmedBackup =
+        mediaRaw is Map ? (mediaRaw['providerBackupPostUrl'] ?? mediaRaw['provider_backup_post_url'])?.toString().trim() : null;
+    if (trimmedBackup != null && trimmedBackup.isEmpty) trimmedBackup = null;
     final files = <_OxLibraryFileDto>[];
     for (final f in filesRaw) {
       final p = _OxLibraryFileDto.tryParse(f);
       if (p != null) files.add(p);
     }
-    return _OxLibraryDetailDto(files: files);
+    return _OxLibraryDetailDto(files: files, providerBackupPostUrl: trimmedBackup);
   }
 }
 
@@ -98,6 +166,43 @@ Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(Ref ref, String globalId) 
     return null;
   }
   return _OxLibraryDetailDto.tryParseBody(response.body);
+}
+
+/// Same contract as Android `POST /me/recover-from-backup` — [mediaFileId] is **Media.id** (API `mediaFileId`).
+Future<bool?> _postRecoverFromBackup(Ref ref, String mediaFileId) async {
+  final serverUrl = ref.read(serverUrlProvider);
+  final login = ref.read(userProvider)?.credentials ?? ref.read(authProvider).serverLoginModel?.tempCredentials;
+  if (serverUrl == null || serverUrl.isEmpty || login == null) return null;
+
+  final uri = Uri.parse(serverUrl).resolve('me/recover-from-backup');
+  final headers = Map<String, String>.from(login.header(ref));
+  headers['Content-Type'] = 'application/json; charset=utf-8';
+
+  try {
+    final response = await http.post(
+      uri,
+      headers: headers,
+      body: jsonEncode(<String, dynamic>{'mediaFileId': mediaFileId}),
+    );
+    if (response.statusCode != 200) {
+      oxTelegramLocalStreamLog(
+        'recover',
+        'HTTP ${response.statusCode} body=${response.body.length > 500 ? "${response.body.substring(0, 500)}…" : response.body}',
+      );
+      return false;
+    }
+    final dec = jsonDecode(response.body);
+    if (dec is Map) {
+      final ok = dec['ok'] == true;
+      final status = dec['status']?.toString();
+      oxTelegramLocalStreamLog('recover', 'ok=$ok status=$status attempts=${dec['attempts']}');
+      return ok;
+    }
+    return false;
+  } catch (e) {
+    oxTelegramLocalStreamLog('recover', 'ERROR $e');
+    return null;
+  }
 }
 
 String? _parseOxplayerTelegramMediaId(String uri) {
@@ -123,6 +228,140 @@ String? _mimeFromMessage(td.Message message) {
   if (content is td.MessageVideo) return content.video.mimeType;
   if (content is td.MessageDocument) return content.document.mimeType;
   return null;
+}
+
+({String? username, int? internalChatId, int messageId})? _parseTmePostLinkForPlayback(String rawUrl) {
+  final trimmed = rawUrl.trim();
+  if (trimmed.isEmpty) return null;
+  late final Uri u;
+  try {
+    u = Uri.parse(trimmed.startsWith('http') ? trimmed : 'https://$trimmed');
+  } catch (_) {
+    return null;
+  }
+  if (u.host != 't.me') return null;
+  final parts = u.pathSegments.where((p) => p.isNotEmpty).toList();
+  if (parts.length >= 3 && parts[0] == 'c') {
+    final digits = parts[1].replaceAll(RegExp(r'\D'), '');
+    final msgId = int.tryParse(parts[2]);
+    if (digits.isEmpty || msgId == null || msgId <= 0) return null;
+    try {
+      final chatId = int.parse('-100$digits');
+      return (username: null, internalChatId: chatId, messageId: msgId);
+    } catch (_) {
+      return null;
+    }
+  }
+  if (parts.length >= 2) {
+    final user = parts[0].replaceFirst(RegExp(r'^@'), '');
+    final msgId = int.tryParse(parts[1]);
+    if (user.isEmpty || msgId == null || msgId <= 0) return null;
+    return (username: user, internalChatId: null, messageId: msgId);
+  }
+  return null;
+}
+
+td.File? _extractPlayableFileFromMessage(td.Message message) {
+  final content = message.content;
+  if (content is td.MessageVideo) return content.video.video;
+  if (content is td.MessageDocument) return content.document.document;
+  if (content is td.MessageAnimation) return content.animation.animation;
+  if (content is td.MessageVideoNote) return content.videoNote.video;
+  return null;
+}
+
+Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
+  TdlibFacade tdlib,
+  String providerBackupPostUrl,
+) async {
+  if (_kOxProviderBackupVerbose) {
+    _providerTmeLog('input url=${_truncateForLog(providerBackupPostUrl, max: 200)}');
+  }
+
+  final normalizedUrl = _normalizePublicTmeUrl(providerBackupPostUrl);
+  if (normalizedUrl == null) {
+    _providerTmeLog(
+      'not a https://t.me/… URL excerpt=${_truncateForLog(providerBackupPostUrl)}',
+    );
+    return null;
+  }
+
+  // TDLib resolves the same link as the official apps (`getMessageLinkInfo`).
+  late final td.MessageLinkInfo linkInfo;
+  try {
+    final obj = await tdlib.send(td.GetMessageLinkInfo(url: normalizedUrl));
+    if (obj is! td.MessageLinkInfo) {
+      _providerTmeLog('GetMessageLinkInfo → ${obj.runtimeType}');
+      return null;
+    }
+    linkInfo = obj;
+  } on td.TdError catch (e) {
+    _providerTmeLog(
+      'GetMessageLinkInfo TdError code=${e.code} message=${e.message}',
+    );
+    return null;
+  }
+
+  final chatId = linkInfo.chatId;
+  _providerTmeLog(
+    'GetMessageLinkInfo chatId=$chatId thread=${linkInfo.messageThreadId} '
+    'embeddedMessage=${linkInfo.message != null}',
+  );
+
+  if (chatId == 0) {
+    _providerTmeLog('GetMessageLinkInfo returned chatId=0');
+    return null;
+  }
+
+  await _providerOpenChatBestEffort(tdlib, chatId);
+
+  td.Message? msgObj = linkInfo.message;
+  if (msgObj == null) {
+    final parsed = _parseTmePostLinkForPlayback(normalizedUrl);
+    final mid = parsed?.messageId;
+    if (mid != null && mid > 0) {
+      final once = await _providerGetMessageOnce(tdlib, chatId: chatId, messageId: mid);
+      msgObj = once.msg;
+      if (msgObj == null && once.err != null) {
+        _providerTmeLog(
+          'GetMessage(chatId=$chatId, messageId=$mid) TdError '
+          'code=${once.err!.code} message=${once.err!.message}',
+        );
+      }
+    }
+  }
+
+  if (msgObj == null) {
+    _providerTmeLog(
+      'no Message — join TELEGRAM_MEDIA_PROVIDERS with this TDLib account if private',
+    );
+    return null;
+  }
+
+  final file = _extractPlayableFileFromMessage(msgObj);
+  if (file == null) {
+    _providerTmeLog(
+      'message has no playable Video/Document/Animation/VideoNote '
+      '(content=${_describeMessageContent(msgObj)} chatId=$chatId tdMessageId=${msgObj.id})',
+    );
+    return null;
+  }
+
+  if (_kOxProviderBackupVerbose) {
+    final rid = file.remote.id;
+    _providerTmeLog(
+      'OK extracted file id=${file.id} remoteId=${rid.trim().isEmpty ? "?" : rid} '
+      'expectedSize=${file.expectedSize}',
+    );
+  }
+
+  return ResolvedTelegramMediaFile(
+    file: file,
+    locatorChatId: chatId,
+    locatorMessageId: msgObj.id,
+    locatorType: 'CHAT_MESSAGE',
+    resolutionReason: 'provider_backup_post_url',
+  );
 }
 
 Future<String?> _downloadTelegramFileFully(
@@ -232,10 +471,38 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
     return null;
   }
 
+  await OxplayerDotenv.ensureLoaded();
+
   final mediaId = _parseOxplayerTelegramMediaId(oxplayerLocatorUri);
   if (mediaId == null) {
     oxTelegramLocalStreamLog('prep ABORT', 'bad oxplayer locator');
     return null;
+  }
+
+  final providerOnly = OxplayerEnv.playbackProviderOnly;
+  final overrideUrl = OxplayerEnv.playbackProviderPostUrlOverride;
+
+  /// Provider-only + hardcoded URL: skip library/locator entirely (dev smoke test).
+  if (providerOnly && overrideUrl.isNotEmpty) {
+    oxTelegramLocalStreamLog('prep', 'OX_FALLBACK_PROVIDER_ONLY + override URL (skip library detail)');
+    final ready = await OxplayerTelegramTdSession.ensureReadyForPlayback();
+    if (!ready) {
+      oxTelegramLocalStreamLog('tdlib.session', 'FAIL not authorized / not ready');
+      return null;
+    }
+    final tdlib = OxplayerTelegramTdRuntime.facade;
+    final direct = await _resolveFromProviderBackupPostUrl(tdlib, overrideUrl);
+    if (direct == null) {
+      oxTelegramLocalStreamLog('tdlib.file', 'FAIL provider override URL resolve');
+      return null;
+    }
+    final url = await _resolveToStreamOrFileUrl(
+      tdlib: tdlib,
+      resolvedFile: direct.file,
+      messageForMime: null,
+    );
+    if (url != null) oxTelegramLocalStreamLog('resolve.done', 'OK $url');
+    return url;
   }
 
   final detail = await _fetchLibraryMediaDetail(ref, mediaId);
@@ -262,6 +529,81 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   oxTelegramLocalStreamLog('tdlib.session', 'OK');
 
   final tdlib = OxplayerTelegramTdRuntime.facade;
+
+  final apiBackup = detail.providerBackupPostUrl?.trim() ?? '';
+  final effectiveBackup = overrideUrl.isNotEmpty ? overrideUrl : apiBackup;
+  if (effectiveBackup.isNotEmpty) {
+    final direct = await _resolveFromProviderBackupPostUrl(tdlib, effectiveBackup);
+    if (direct != null) {
+      oxTelegramLocalStreamLog(
+        'tdlib.file',
+        'OK provider_backup_post_url fileId=${direct.file.id}',
+      );
+      final url = await _resolveToStreamOrFileUrl(
+        tdlib: tdlib,
+        resolvedFile: direct.file,
+        messageForMime: null,
+      );
+      if (url == null) {
+        oxTelegramLocalStreamLog('resolve.done', 'FAIL after provider_backup_post_url');
+      } else {
+        oxTelegramLocalStreamLog('resolve.done', 'OK $url');
+      }
+      return url;
+    }
+    if (providerOnly) {
+      oxTelegramLocalStreamLog(
+        'tdlib.file',
+        'FAIL provider URL (OX_FALLBACK_PROVIDER_ONLY — no locator fallback) — see provider.tme lines above',
+      );
+      return null;
+    }
+    oxTelegramLocalStreamLog('prep', 'provider_backup_post_url failed → full locator chain');
+  } else if (providerOnly) {
+    oxTelegramLocalStreamLog(
+      'prep',
+      'OX_FALLBACK_PROVIDER_ONLY: no providerBackupPostUrl → API recover-from-backup (provider-bot fills DB)',
+    );
+    final recovered = await _postRecoverFromBackup(ref, file.mediaId);
+    if (recovered != true) {
+      oxTelegramLocalStreamLog(
+        'recover',
+        'recover-from-backup failed or incomplete (recovered=$recovered). '
+        'Ensure provider-bot runs and TELEGRAM_MEDIA_PROVIDERS is set on the server.',
+      );
+      return null;
+    }
+    final detailAfter = await _fetchLibraryMediaDetail(ref, mediaId);
+    final backupAfter = overrideUrl.isNotEmpty
+        ? overrideUrl
+        : (detailAfter?.providerBackupPostUrl?.trim() ?? '');
+    if (backupAfter.isEmpty) {
+      oxTelegramLocalStreamLog(
+        'recover',
+        'recovery reported ok but providerBackupPostUrl still empty — refetch detail or check provider-bot logs',
+      );
+      return null;
+    }
+    oxTelegramLocalStreamLog(
+      'recover.detail',
+      'refetched backupPostUrl len=${backupAfter.length} excerpt=${_truncateForLog(backupAfter, max: 120)}',
+    );
+    final directAfter = await _resolveFromProviderBackupPostUrl(tdlib, backupAfter);
+    if (directAfter == null) {
+      oxTelegramLocalStreamLog(
+        'tdlib.file',
+        'FAIL provider URL after recovery — see provider.tme lines above (GetMessage / SearchPublicChat / channel access)',
+      );
+      return null;
+    }
+    final urlAfter = await _resolveToStreamOrFileUrl(
+      tdlib: tdlib,
+      resolvedFile: directAfter.file,
+      messageForMime: null,
+    );
+    if (urlAfter != null) oxTelegramLocalStreamLog('resolve.done', 'OK $urlAfter');
+    return urlAfter;
+  }
 
   void onDiag(String m) {
     if (!_kOxTelegramLocatorVerbose) return;

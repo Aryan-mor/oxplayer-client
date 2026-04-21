@@ -14,6 +14,7 @@ _CredentialsModel _$CredentialsModelFromJson(Map<String, dynamic> json) =>
       serverName: json['serverName'] as String? ?? "",
       serverId: json['serverId'] as String? ?? "",
       deviceId: json['deviceId'] as String? ?? "",
+      oxRefreshToken: json['oxRefreshToken'] as String? ?? "",
     );
 
 Map<String, dynamic> _$CredentialsModelToJson(_CredentialsModel instance) =>
@@ -24,4 +25,5 @@ Map<String, dynamic> _$CredentialsModelToJson(_CredentialsModel instance) =>
       'serverName': instance.serverName,
       'serverId': instance.serverId,
       'deviceId': instance.deviceId,
+      'oxRefreshToken': instance.oxRefreshToken,
     };

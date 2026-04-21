@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:chopper/chopper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,8 @@ import 'package:punycoder/punycoder.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_jellyfin_session_refresh.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -95,37 +98,49 @@ class JellyRequest implements Interceptor {
       throw const HttpException('No server URL provided');
     }
 
-    // Use current logged in user otherwise use the authProvider
-    final loginModel = ref.read(userProvider)?.credentials ?? ref.read(authProvider).serverLoginModel?.tempCredentials;
-    if (loginModel == null) {
-      throw UnimplementedError();
-    }
+    var ox401Retried = false;
 
-    final headers = loginModel.header(ref);
+    while (true) {
+      final creds = ref.read(userProvider)?.credentials ?? ref.read(authProvider).serverLoginModel?.tempCredentials;
+      if (creds == null) {
+        throw UnimplementedError();
+      }
+      final headers = creds.header(ref);
 
-    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
-      try {
-        final response = await chain.proceed(
-          applyHeaders(
-            chain.request.copyWith(baseUri: Uri.parse(serverUrl)),
-            headers,
-          ),
-        );
+      for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+        try {
+          final response = await chain.proceed(
+            applyHeaders(
+              chain.request.copyWith(baseUri: Uri.parse(serverUrl)),
+              headers,
+            ),
+          );
 
-        connectivityNotifier.checkConnectivity();
-        return response;
-      } catch (e) {
-        if (!_isConnectionError(e) || attempt == _maxRetries) {
-          connectivityNotifier.onStateChange([ConnectivityResult.none]);
-          rethrow;
+          if (response.statusCode == 401 &&
+              OxplayerConfig.isEnabled &&
+              !kIsWeb &&
+              !ox401Retried) {
+            ox401Retried = true;
+            final refreshed = await oxplayerTryRefreshJellyfinSessionAfter401(ref);
+            if (refreshed) {
+              break;
+            }
+          }
+
+          connectivityNotifier.checkConnectivity();
+          return response;
+        } catch (e) {
+          if (!_isConnectionError(e) || attempt == _maxRetries) {
+            connectivityNotifier.onStateChange([ConnectivityResult.none]);
+            rethrow;
+          }
+
+          final delay = Duration(milliseconds: 200 * (attempt + 1));
+          log('Connection failed (attempt ${attempt + 1}/$_maxRetries), retrying in ${delay.inMilliseconds}ms: $e');
+          await Future.delayed(delay);
         }
-
-        final delay = Duration(milliseconds: 200 * (attempt + 1));
-        log('Connection failed (attempt ${attempt + 1}/$_maxRetries), retrying in ${delay.inMilliseconds}ms: $e');
-        await Future.delayed(delay);
       }
     }
-    throw StateError('Unexpected state in JellyRequest.intercept');
   }
 }
 

@@ -24,6 +24,8 @@ abstract class CredentialsModel with _$CredentialsModel {
     @Default("") String serverName,
     @Default("") String serverId,
     @Default("") String deviceId,
+    /// OXPlayer `POST /auth/refresh` (from `POST /auth/telegram`); empty when unknown / legacy.
+    @Default("") String oxRefreshToken,
   }) = _CredentialsModel;
 
   factory CredentialsModel.createNewCredentials() => CredentialsModel.internal(deviceId: Xid().toString());
@@ -55,6 +57,7 @@ abstract class CredentialsModel with _$CredentialsModel {
       serverName: map['serverName'] ?? '',
       serverId: map['serverId'] ?? '',
       deviceId: map['deviceId'] ?? '',
+      oxRefreshToken: map['oxRefreshToken']?.toString() ?? '',
     );
   }
 }

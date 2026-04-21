@@ -8,6 +8,7 @@ import 'package:fladder/models/account_model.dart';
 import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/models/login_screen_model.dart';
+import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/favourites_provider.dart';
@@ -200,20 +201,76 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
   ServerLoginModel? get oxplayerServerLoginModel => state.serverLoginModel;
 
   /// OXPlayer Telegram login: attach the issued Jellyfin token to the current [serverLoginModel] session.
-  void oxplayerAttachSessionToken(String token, {String? serverId}) {
+  void oxplayerAttachSessionToken(
+    String token, {
+    String? serverId,
+    String? refreshToken,
+  }) {
     final sm = state.serverLoginModel;
     if (sm == null) return;
     final nextServerId = (serverId != null && serverId.isNotEmpty)
         ? serverId
         : sm.tempCredentials.serverId;
+    final creds = sm.tempCredentials;
+    final nextOxRefresh =
+        refreshToken != null ? refreshToken.trim() : creds.oxRefreshToken;
     state = state.copyWith(
       serverLoginModel: sm.copyWith(
-        tempCredentials: sm.tempCredentials.copyWith(
+        tempCredentials: creds.copyWith(
           token: token,
           serverId: nextServerId,
+          oxRefreshToken: nextOxRefresh,
         ),
       ),
     );
+  }
+
+  /// Applies a full OX `POST /auth/telegram` or `POST /auth/refresh` payload (Jellyfin-shaped + refresh).
+  Future<void> applyOxplayerTelegramAuthResponse(
+    OxplayerTelegramAuthResponse exchanged,
+  ) async {
+    await switchUser();
+
+    final ar = exchanged.jellyfin;
+    final token = exchanged.accessToken.isNotEmpty
+        ? exchanged.accessToken
+        : (ar.accessToken ?? '');
+    if (token.isEmpty) {
+      throw StateError('Missing access token');
+    }
+    if (oxplayerServerLoginModel == null) {
+      throw StateError('Server is not configured; connect to Jellyfin first');
+    }
+
+    oxplayerAttachSessionToken(
+      token,
+      serverId: ar.serverId,
+      refreshToken: exchanged.refreshToken,
+    );
+
+    final serverResponse = await api.systemInfoPublicGet();
+    final login = oxplayerServerLoginModel!;
+    final mergedCreds = login.tempCredentials;
+    final creds = mergedCreds.copyWith(
+      serverName: serverResponse.body?.serverName ?? mergedCreds.serverName,
+      serverId: ar.serverId ?? mergedCreds.serverId,
+      oxRefreshToken: exchanged.refreshToken ?? mergedCreds.oxRefreshToken,
+    );
+
+    final imageUrl = ref
+        .read(imageUtilityProvider)
+        .getUserImageUrl(ar.user?.id ?? '');
+    final newUser = AccountModel(
+      name: ar.user?.name ?? '',
+      id: ar.user?.id ?? '',
+      avatar: imageUrl,
+      credentials: creds,
+      lastUsed: DateTime.now(),
+    );
+
+    await ref.read(sharedUtilityProvider).addAccount(newUser);
+    ref.read(userProvider.notifier).userState = newUser;
+    getSavedAccounts();
   }
 
   void clearAllProviders() {

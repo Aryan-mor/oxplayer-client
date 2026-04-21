@@ -213,4 +213,28 @@ abstract final class OxplayerEnv {
     final h = oxmLocatorTagPrefix;
     return h.startsWith('#') ? h.substring(1) : h;
   }
+
+  /// When true, OX Telegram playback uses only [providerBackupPostUrl] (or [playbackProviderPostUrlOverride]);
+  /// stored locator + TDLib search fallbacks are skipped. See `OX_FALLBACK_PROVIDER_ONLY` in `default.env`.
+  static bool get playbackProviderOnly {
+    const fromDefine = bool.fromEnvironment(
+      'OX_FALLBACK_PROVIDER_ONLY',
+      defaultValue: false,
+    );
+    if (fromDefine) return true;
+    if (!OxplayerConfig.isEnabled) return false;
+    final v = OxplayerDotenv.get('OX_FALLBACK_PROVIDER_ONLY').trim().toLowerCase();
+    return v == 'true' || v == '1' || v == 'yes' || v == 'on';
+  }
+
+  /// Dev override for public `t.me/...` post when API has no [providerBackupPostUrl] yet.
+  static String get playbackProviderPostUrlOverride {
+    const fromDefine = String.fromEnvironment(
+      'OX_FALLBACK_PROVIDER_POST_URL_OVERRIDE',
+      defaultValue: '',
+    );
+    if (fromDefine.trim().isNotEmpty) return fromDefine.trim();
+    if (!OxplayerConfig.isEnabled) return '';
+    return OxplayerDotenv.get('OX_FALLBACK_PROVIDER_POST_URL_OVERRIDE').trim();
+  }
 }

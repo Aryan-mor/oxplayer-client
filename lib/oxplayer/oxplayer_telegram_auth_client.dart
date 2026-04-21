@@ -8,10 +8,12 @@ class OxplayerTelegramAuthResponse {
   OxplayerTelegramAuthResponse({
     required this.accessToken,
     required this.jellyfin,
+    this.refreshToken,
   });
 
   final String accessToken;
   final AuthenticationResult jellyfin;
+  final String? refreshToken;
 }
 
 /// Calls the OXPlayer HTTP API to exchange Telegram Mini App [initData] for a session.
@@ -22,6 +24,33 @@ final class OxplayerTelegramAuthClient {
   final String apiBase;
 
   Uri get _telegramAuthUri => Uri.parse('$apiBase/auth/telegram');
+  Uri get _refreshAuthUri => Uri.parse('$apiBase/auth/refresh');
+
+  Future<OxplayerTelegramAuthResponse> refreshAccessToken({
+    required String refreshToken,
+    String? deviceId,
+  }) async {
+    final payload = <String, dynamic>{
+      'refreshToken': refreshToken,
+      if (deviceId != null && deviceId.trim().isNotEmpty)
+        'deviceId': deviceId.trim(),
+    };
+
+    final response = await http.post(
+      _refreshAuthUri,
+      headers: const {'Content-Type': 'application/json; charset=utf-8'},
+      body: jsonEncode(payload),
+    );
+
+    final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
+    if (response.statusCode != 200 || decoded is! Map<String, dynamic>) {
+      final err = decoded is Map<String, dynamic> ? decoded['error'] : null;
+      final msg = err is String ? err : 'HTTP ${response.statusCode}';
+      throw OxplayerTelegramAuthException(msg);
+    }
+
+    return _parseAuthOk(decoded);
+  }
 
   Future<OxplayerTelegramAuthResponse> exchangeInitData({
     required String initData,
@@ -49,6 +78,10 @@ final class OxplayerTelegramAuthClient {
       throw OxplayerTelegramAuthException(msg);
     }
 
+    return _parseAuthOk(decoded);
+  }
+
+  OxplayerTelegramAuthResponse _parseAuthOk(Map<String, dynamic> decoded) {
     final jellyfinRaw = decoded['jellyfin'];
     if (jellyfinRaw is! Map) {
       throw const OxplayerTelegramAuthException(
@@ -65,7 +98,13 @@ final class OxplayerTelegramAuthClient {
           'Invalid response: missing access token');
     }
 
-    return OxplayerTelegramAuthResponse(accessToken: token, jellyfin: jellyfin);
+    final refresh = decoded['refreshToken'] as String?;
+
+    return OxplayerTelegramAuthResponse(
+      accessToken: token,
+      jellyfin: jellyfin,
+      refreshToken: (refresh != null && refresh.isNotEmpty) ? refresh : null,
+    );
   }
 }
 

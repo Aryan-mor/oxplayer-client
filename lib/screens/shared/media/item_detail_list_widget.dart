@@ -1,10 +1,13 @@
-import 'package:fladder/util/fladder_image.dart';
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/screens/shared/flat_button.dart';
 import 'package:fladder/util/duration_extensions.dart';
+import 'package:fladder/util/fladder_image.dart';
 import 'package:fladder/util/localization_helper.dart';
 
 class ItemDetailListWidget extends ConsumerStatefulWidget {
@@ -41,7 +44,10 @@ class _ItemDetailListWidgetState extends ConsumerState<ItemDetailListWidget> {
                   onExit: (event) => setState(() => showImageOverlay = false),
                   child: Stack(
                     children: [
-                      FladderImage(image: widget.item.images?.primary),
+                      FladderImage(
+                        image: widget.item.images?.primary,
+                        placeHolder: OxplayerConfig.isEnabled ? const OxplayerTmdbEmptyImagePlaceholder() : null,
+                      ),
                       if (widget.item.subTextShort(context.localized) != null)
                         Card(
                           child: Padding(

@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/season_model.dart';
 import 'package:fladder/models/syncing/sync_item.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/providers/sync/sync_provider_helpers.dart';
 import 'package:fladder/screens/shared/flat_button.dart';
 import 'package:fladder/screens/syncing/sync_widgets.dart';
@@ -61,6 +63,7 @@ class _SyncedSeasonPosterState extends ConsumerState<SyncedSeasonPoster> {
                           image: season.getPosters?.primary ??
                               season.parentImages?.backDrop?.firstOrNull ??
                               season.parentImages?.primary,
+                          placeHolder: OxplayerConfig.isEnabled ? const OxplayerTmdbEmptyImagePlaceholder() : null,
                         ),
                       ),
                     ),

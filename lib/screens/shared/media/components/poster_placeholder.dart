@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/util/localization_helper.dart';
 
 class PosterPlaceholder extends StatelessWidget {
@@ -9,6 +11,9 @@ class PosterPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (OxplayerConfig.isEnabled) {
+      return const OxplayerTmdbEmptyImagePlaceholder();
+    }
     final color = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75);
     return Stack(
       alignment: Alignment.center,

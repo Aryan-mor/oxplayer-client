@@ -76,26 +76,28 @@ class _ItemDetailScreenState extends ConsumerState<MovieDetailScreen> {
                     name: details.name,
                     image: details.images,
                     padding: padding,
-                    mainButton: MediaPlayButton(
-                      item: details,
-                      onLongPressed: (restart) async {
-                        await details.play(
-                          detailsContext,
-                          ref,
-                          showPlaybackOption: true,
-                          startPosition: restart ? Duration.zero : null,
-                        );
-                        ref.read(providerInstance.notifier).fetchDetails(widget.item);
-                      },
-                      onPressed: (restart) async {
-                        await details.play(
-                          detailsContext,
-                          ref,
-                          startPosition: restart ? Duration.zero : null,
-                        );
-                        ref.read(providerInstance.notifier).fetchDetails(widget.item);
-                      },
-                    ),
+                    mainButton: details.playAble
+                        ? MediaPlayButton(
+                            item: details,
+                            onLongPressed: (restart) async {
+                              await details.play(
+                                detailsContext,
+                                ref,
+                                showPlaybackOption: true,
+                                startPosition: restart ? Duration.zero : null,
+                              );
+                              ref.read(providerInstance.notifier).fetchDetails(widget.item);
+                            },
+                            onPressed: (restart) async {
+                              await details.play(
+                                detailsContext,
+                                ref,
+                                startPosition: restart ? Duration.zero : null,
+                              );
+                              ref.read(providerInstance.notifier).fetchDetails(widget.item);
+                            },
+                          )
+                        : null,
                     centerButtons: Wrap(
                       spacing: 8,
                       runSpacing: 8,

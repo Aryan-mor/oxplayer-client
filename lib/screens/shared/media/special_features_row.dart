@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/items/special_feature_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/models/syncing/sync_item.dart';
 import 'package:fladder/providers/sync/sync_provider_helpers.dart';
 import 'package:fladder/screens/syncing/sync_button.dart';
@@ -102,10 +104,12 @@ class SpecialFeaturePoster extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    Widget placeHolder = Container(
-      height: double.infinity,
-      child: const Icon(Icons.local_movies_outlined),
-    );
+    Widget placeHolder = OxplayerConfig.isEnabled
+        ? const OxplayerTmdbEmptyImagePlaceholder()
+        : Container(
+            height: double.infinity,
+            child: const Icon(Icons.local_movies_outlined),
+          );
     final syncedDetails = ref.watch(syncedItemProvider(specialFeature));
     return AspectRatio(
       aspectRatio: 1.76,

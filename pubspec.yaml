@@ -223,6 +223,7 @@ flutter:
     - assets/fonts/
     - config/
     - assets/mp-font.ttf
+    - assets/oxplayer/
     - assets/
 
   fonts:

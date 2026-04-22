@@ -5,6 +5,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/providers/items/item_details_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/util/fladder_image.dart';
@@ -79,7 +81,12 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
             ),
             //Small offset to match detailscaffold
             child: Transform.translate(
-                offset: const Offset(0, -5), child: FladderImage(image: widget.item?.getPosters?.primary)),
+              offset: const Offset(0, -5),
+              child: FladderImage(
+                image: widget.item?.getPosters?.primary,
+                placeHolder: OxplayerConfig.isEnabled ? const OxplayerTmdbEmptyImagePlaceholder() : null,
+              ),
+            ),
           ),
         ),
         AnimatedSwitcher(

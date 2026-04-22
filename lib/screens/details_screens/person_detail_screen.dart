@@ -107,12 +107,22 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               contentPadding: padding,
               posters: details?.movies ?? [],
               label: context.localized.mediaTypeMovie(details?.movies.length ?? 2),
+              onUserDataChanged: (id, newData) {
+                if (newData != null) {
+                  ref.read(providerID.notifier).applyOxFilmographyUserData(id, newData);
+                }
+              },
             ),
           if (details?.series.isNotEmpty ?? false)
             PosterRow(
               contentPadding: padding,
               posters: details?.series ?? [],
               label: context.localized.mediaTypeSeries(details?.series.length ?? 2),
+              onUserDataChanged: (id, newData) {
+                if (newData != null) {
+                  ref.read(providerID.notifier).applyOxFilmographyUserData(id, newData);
+                }
+              },
             ),
           if (details?.seerrMovies.isNotEmpty ?? false)
             SeerrPosterRow(

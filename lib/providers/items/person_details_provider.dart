@@ -27,16 +27,49 @@ class PersonDetailsNotifier extends StateNotifier<PersonModel?> {
 
   final Ref ref;
 
+  /// Ox TMDB-only filmography rows keep server `UserData` here (loader uses empty defaults).
+  final Map<String, UserData> _oxFilmographyUserDataPatches = {};
+
   late final JellyService api = ref.read(jellyApiProvider);
   late final SeerrService seerrApi = ref.read(seerrApiProvider);
+
+  /// Call after favorite / played / rating from filmography posters (synthetic `tmdb-*` ids).
+  void applyOxFilmographyUserData(String itemId, UserData data) {
+    if (itemId.isEmpty) return;
+    _oxFilmographyUserDataPatches[itemId] = data;
+    if (state == null) return;
+    state = _mergeOxFilmographyPatches(state!);
+  }
+
+  PersonModel _mergeOxFilmographyPatches(PersonModel person) {
+    if (_oxFilmographyUserDataPatches.isEmpty) {
+      return person;
+    }
+    return person.copyWith(
+      movies: person.movies
+          .map(
+            (m) => _oxFilmographyUserDataPatches[m.id] != null
+                ? m.copyWith(userData: _oxFilmographyUserDataPatches[m.id]!)
+                : m,
+          )
+          .toList(),
+      series: person.series
+          .map(
+            (s) => _oxFilmographyUserDataPatches[s.id] != null
+                ? s.copyWith(userData: _oxFilmographyUserDataPatches[s.id]!)
+                : s,
+          )
+          .toList(),
+    );
+  }
 
   Future<Response?> fetchPerson(Person person) async {
     if (OxplayerConfig.isEnabled) {
       final oxPerson = await OxplayerPersonTmdbLoader.loadPerson(ref, person.id);
       if (oxPerson != null) {
-        state = oxPerson;
+        state = _mergeOxFilmographyPatches(oxPerson);
         await fetchMovies();
-        return Response<PersonModel>(http.Response('', 200), oxPerson);
+        return Response<PersonModel>(http.Response('', 200), state!);
       }
     }
 
@@ -55,7 +88,9 @@ class PersonDetailsNotifier extends StateNotifier<PersonModel?> {
       final tmdbId = OxplayerPersonTmdbLoader.parseTmdbPersonId(state!.id) ?? _tmdbPersonId();
       if (tmdbId != null) {
         final film = await OxplayerPersonTmdbLoader.loadFilmography(ref, tmdbId);
-        state = state?.copyWith(movies: film.movies, series: film.series);
+        state = _mergeOxFilmographyPatches(
+          state!.copyWith(movies: film.movies, series: film.series),
+        );
       } else {
         state = state?.copyWith(movies: const [], series: const []);
       }

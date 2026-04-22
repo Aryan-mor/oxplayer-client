@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/screens/shared/media/poster_widget.dart';
 import 'package:fladder/screens/shared/media/tv_poster_row.dart';
@@ -20,6 +21,7 @@ class PosterRow extends ConsumerWidget {
   final Function(ItemBaseModel focused)? onFocused;
   final bool primaryPosters;
   final bool tvMode;
+  final Function(String id, UserData? newData)? onUserDataChanged;
   const PosterRow({
     required this.posters,
     this.contentPadding = const EdgeInsets.symmetric(horizontal: 16),
@@ -29,6 +31,7 @@ class PosterRow extends ConsumerWidget {
     this.onFocused,
     this.primaryPosters = false,
     this.tvMode = false,
+    this.onUserDataChanged,
     super.key,
   });
 
@@ -44,6 +47,7 @@ class PosterRow extends ConsumerWidget {
         onLabelClick: onLabelClick,
         onFocused: onFocused,
         primaryPosters: primaryPosters,
+        onUserDataChanged: onUserDataChanged,
         autoFocus: ref.read(argumentsStateProvider).htpcMode ? FocusProvider.autoFocusOf(context) : false,
       );
     }
@@ -68,6 +72,7 @@ class PosterRow extends ConsumerWidget {
           poster: poster,
           aspectRatio: dominantRatio,
           primaryPosters: primaryPosters,
+          onUserDataChanged: onUserDataChanged,
         );
       },
     );

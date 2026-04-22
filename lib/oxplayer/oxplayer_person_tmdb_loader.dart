@@ -40,7 +40,11 @@ abstract final class OxplayerPersonTmdbLoader {
 
   /// TMDB numeric person id from cast [Person.id], or null.
   static int? parseTmdbPersonId(String raw) {
-    return int.tryParse(raw.trim());
+    final str = raw.trim();
+    if (str.startsWith('tmdb-person-')) {
+      return int.tryParse(str.substring('tmdb-person-'.length));
+    }
+    return int.tryParse(str);
   }
 
   static Map<String, dynamic> _emptyUserData(String id) => {
@@ -69,7 +73,7 @@ abstract final class OxplayerPersonTmdbLoader {
     final place = p['place_of_birth'];
     final locations = place is String && place.trim().isNotEmpty ? <String>[place.trim()] : <String>[];
 
-    final pid = int.tryParse(personId);
+    final pid = parseTmdbPersonId(personId);
     return {
       'Type': 'Person',
       'Name': p['name']?.toString() ?? '',
@@ -93,7 +97,27 @@ abstract final class OxplayerPersonTmdbLoader {
     final json = await _getJson(ref, 'tmdb/v3/person/$tmdbId', {'language': lang});
     if (json == null) return null;
 
-    final dtoItem = dto.BaseItemDto.fromJson(_personBaseItemJson(json, '$tmdbId'));
+    final resolvedId = 'tmdb-person-$tmdbId';
+    final baseItemJson = _personBaseItemJson(json, resolvedId);
+
+    try {
+      final user = ref.read(userProvider);
+      if (user != null) {
+        final origin = _mediaOrigin();
+        if (origin != null) {
+          final udUri = Uri.parse('$origin/Users/${user.user.id}/Items/$resolvedId');
+          final udRes = await http.get(udUri, headers: user.credentials.header(ref));
+          if (udRes.statusCode == 200) {
+            final udJson = jsonDecode(udRes.body);
+            if (udJson is Map<String, dynamic> && udJson['UserData'] != null) {
+              baseItemJson['UserData'] = udJson['UserData'];
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    final dtoItem = dto.BaseItemDto.fromJson(baseItemJson);
     return PersonModel.fromBaseDto(dtoItem, ref);
   }
 

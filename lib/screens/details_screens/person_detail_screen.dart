@@ -80,9 +80,14 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                           Flexible(child: Text(details?.name ?? "", style: Theme.of(context).textTheme.displaySmall)),
                           const SizedBox(width: 15),
                           SelectableIconButton(
-                            onPressed: () async => await ref
-                                .read(userProvider.notifier)
-                                .setAsFavorite(!(details?.userData.isFavourite ?? false), details?.id ?? ""),
+                            onPressed: () async {
+                              final newData = await ref
+                                  .read(userProvider.notifier)
+                                  .setAsFavorite(!(details?.userData.isFavourite ?? false), details?.id ?? "");
+                              if (newData != null) {
+                                ref.read(providerID.notifier).updatePersonUserData(newData);
+                              }
+                            },
                             selected: (details?.userData.isFavourite ?? false),
                             selectedIcon: Icons.favorite_rounded,
                             icon: Icons.favorite_border_rounded,

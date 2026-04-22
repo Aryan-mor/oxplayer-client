@@ -41,6 +41,11 @@ class PersonDetailsNotifier extends StateNotifier<PersonModel?> {
     state = _mergeOxFilmographyPatches(state!);
   }
 
+  void updatePersonUserData(UserData data) {
+    if (state == null) return;
+    state = state!.copyWith(userData: data);
+  }
+
   PersonModel _mergeOxFilmographyPatches(PersonModel person) {
     if (_oxFilmographyUserDataPatches.isEmpty) {
       return person;

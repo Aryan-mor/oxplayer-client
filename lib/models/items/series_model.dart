@@ -89,11 +89,12 @@ class SeriesModel extends ItemBaseModel with SeriesModelMappable {
   }
 
   @override
-  WatchedState watchedState(AppLocalizations l10n) => userData.played
-      ? const Played()
-      : userData.unPlayedItemCount != null
-          ? PartiallyPlayed(userData.unPlayedItemCount!.toString())
-          : const Unplayed();
+  WatchedState watchedState(AppLocalizations l10n) {
+    if (userData.played) return const Played();
+    final u = userData.unPlayedItemCount;
+    if (u != null && u > 0) return PartiallyPlayed(u.toString());
+    return const Unplayed();
+  }
 
   @override
   bool get syncAble => true;

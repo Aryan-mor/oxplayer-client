@@ -6,7 +6,7 @@ on:
       - "fastlane/**"
   push:
     branches:
-      - develop
+      - main
     paths:
       - "fastlane/**"
 

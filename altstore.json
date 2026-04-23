@@ -6,7 +6,7 @@
 	"apps": [
 	  {
 	    "name": "Fladder",
-	    "bundleIdentifier": "nl.jknaapen.fladder",
+	    "bundleIdentifier": "de.aryanmo.oxplayer",
 	    "developerName": "DonutWare",
 	    "localizedDescription": "A Simple Jellyfin Frontend built on top of Flutter.",
 	    "iconURL": "https://github.com/DonutWare/Fladder/raw/develop/icons/fladder_macos_icon.png?raw=true",

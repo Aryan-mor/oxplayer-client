@@ -5,55 +5,34 @@ on:
 
 jobs:
   prepare-release:
-    name: Update Metadata and Tag
+    name: Bump Version and Tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Generate Bot Token
-        id: generate-token
-        uses: actions/create-github-app-token@v3.1.1
-        with:
-          app-id: ${{ secrets.FLADDER_BOT_APP_ID }}
-          private-key: ${{ secrets.FLADDER_BOT_APP_PRIVATE_KEY }}
-
       - name: Checkout repository
-        uses: actions/checkout@v4.1.1
+        uses: actions/checkout@v4
         with:
-          ref: develop
           fetch-depth: 0
-          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Extract Version
         id: version
         run: |
-          # Extract version from pubspec.yaml (e.g., 0.10.3+1)
           FULL_VERSION=$(grep '^version: ' pubspec.yaml | sed 's/version: //')
-          # Remove build number (e.g., 0.10.3)
           VERSION_NAME=$(echo "$FULL_VERSION" | cut -d'+' -f1)
-          # Exact Build Number (e.g., 1)
           BUILD_NUMBER=$(echo "$FULL_VERSION" | cut -d'+' -f2)
 
           echo "version=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
           echo "build_number=${BUILD_NUMBER}" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION_NAME (Build: $BUILD_NUMBER)"
 
-          # Check if this version is already tagged
           if git rev-parse "v${VERSION_NAME}" >/dev/null 2>&1; then
             echo "is_new_version=false" >> "$GITHUB_OUTPUT"
-            echo "Status: Version is already tagged."
+            echo "Status: Version v${VERSION_NAME} is already tagged."
           else
             echo "is_new_version=true" >> "$GITHUB_OUTPUT"
-            echo "Status: New version detected."
+            echo "Status: New version v${VERSION_NAME} detected."
           fi
-
-      - name: Update metainfo.xml
-        if: steps.version.outputs.is_new_version == 'true'
-        env:
-          CHANGELOG_MSG: "See the full changelog at: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          DATE=$(date +%Y-%m-%d)
-          NEW_RELEASE="  <releases>\n    <release version=\"${VERSION}\" date=\"${DATE}\">\n      <description>\n        <p>${{ env.CHANGELOG_MSG }}</p>\n      </description>\n    </release>\n  </releases>"
-          perl -i -0777 -pe "s@  <releases>.*?</releases>@$NEW_RELEASE@s" flatpak/nl.jknaapen.fladder.metainfo.xml
 
       - name: Update Fastlane Changelog
         if: steps.version.outputs.is_new_version == 'true'
@@ -64,31 +43,20 @@ jobs:
           mkdir -p fastlane/metadata/android/en-US/changelogs
           printf '%s' "${{ env.CHANGELOG_MSG }}" > "fastlane/metadata/android/en-US/changelogs/${VERSION}.txt"
 
-      - name: Commit, Merge and Tag
+      - name: Commit and Tag
         if: steps.version.outputs.is_new_version == 'true'
         run: |
-          git config user.name "Fladder Bot"
-          git config user.email "fladder-bot[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           VERSION="v${{ steps.version.outputs.version }}"
 
-          # 1. Commit metadata to develop
-          git add flatpak/nl.jknaapen.fladder.metainfo.xml
-          git add fastlane/metadata/android/en-US/changelogs/
-
-          if git diff --staged --quiet; then
-            echo "No changes to metadata"
-          else
+          git add fastlane/metadata/android/en-US/changelogs/ 2>/dev/null || true
+          if ! git diff --staged --quiet; then
             git commit -m "chore: prepare release $VERSION"
-            git push origin develop
+            git push origin main
           fi
 
-          # 2. Merge develop into main
-          git fetch origin main
-          git checkout main
-          git merge develop --no-ff -m "chore: merge develop into main for $VERSION"
-          git push origin main
-
-          # 3. Create and push the tag on main
           git tag "$VERSION"
           git push origin "$VERSION"
+          echo "Tagged and pushed $VERSION"

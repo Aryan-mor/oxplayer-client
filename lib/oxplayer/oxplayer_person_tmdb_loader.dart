@@ -105,7 +105,7 @@ abstract final class OxplayerPersonTmdbLoader {
       if (user != null) {
         final origin = _mediaOrigin();
         if (origin != null) {
-          final udUri = Uri.parse('$origin/Users/${user.user.id}/Items/$resolvedId');
+          final udUri = Uri.parse('$origin/Users/${user.id}/Items/$resolvedId');
           final udRes = await http.get(udUri, headers: user.credentials.header(ref));
           if (udRes.statusCode == 200) {
             final udJson = jsonDecode(udRes.body);

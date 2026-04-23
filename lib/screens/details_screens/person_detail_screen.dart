@@ -85,7 +85,7 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                                   .read(userProvider.notifier)
                                   .setAsFavorite(!(details?.userData.isFavourite ?? false), details?.id ?? "");
                               if (newData != null) {
-                                ref.read(providerID.notifier).updatePersonUserData(newData);
+                                ref.read(providerID.notifier).updatePersonUserData(newData.bodyOrThrow);
                               }
                             },
                             selected: (details?.userData.isFavourite ?? false),

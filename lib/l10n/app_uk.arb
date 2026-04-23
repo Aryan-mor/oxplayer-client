@@ -928,7 +928,7 @@
     "hasLikedActor": "Має вподобаного актора",
     "recommended": "Рекомендовано",
     "hasDirectorFromRecentlyPlayed": "Має режисера з нещодавно відтвореного",
-    "exitOXPlayerTitle": "Вийти з OXPlayer",
+    "exitFladderTitle": "Вийти з OXPlayer",
     "playbackTypeDirect": "Пряме",
     "playbackType": "Тип відтворення",
     "playbackTypeTranscode": "Перекодування",
@@ -1046,7 +1046,7 @@
         }
     },
     "television": "Телебачення",
-    "exitOXPlayerDesc": "Ви впевнені, що хочете закрити OXPlayer?",
+    "exitFladderDesc": "Ви впевнені, що хочете закрити OXPlayer?",
     "quickConnectPostFailed": "Не вдалося отримати швидкий код підключення",
     "quickConnectLoginUsingCode": "Використання швидкого підключення",
     "quickConnectEnterCodeDescription": "Введіть код нижче для входу",

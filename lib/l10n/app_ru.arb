@@ -581,7 +581,7 @@
     "pathEditSelect": "Выберите место загрузки",
     "saved": "Сохранено",
     "maxConcurrentDownloadsTitle": "Максимальное количество одновременных загрузок",
-    "exitOXPlayerTitle": "Выйти из OXPlayer",
+    "exitFladderTitle": "Выйти из OXPlayer",
     "maxConcurrentDownloadsDesc": "Устанавливает максимальное количество загрузок, которые могут выполняться одновременно. Установите значение 0, чтобы отключить ограничение.",
     "rememberAudioSelections": "Установка звуковой дорожки на основе предыдущего элемента",
     "similarToRecentlyPlayed": "Похожие на недавно просмотренные",
@@ -1031,7 +1031,7 @@
         }
     },
     "television": "Телевидение",
-    "exitOXPlayerDesc": "Вы уверены, что хотите закрыть OXPlayer?",
+    "exitFladderDesc": "Вы уверены, что хотите закрыть OXPlayer?",
     "keyboardShortCuts": "Горячие клавиши",
     "speedUp": "Ускорение",
     "speedDown": "Замедление",
@@ -1863,7 +1863,7 @@
     "linkData": "Данные ссылки",
     "passwordNotRequired": "Не требуется, оставьте пустым, чтобы не включать пароль в ссылку",
     "connectWithAuthLink": "Подключиться с ссылкой для входа",
-    "pasteOXPlayerAuthLink": "Вставьте ссылку для входа вида OXPlayer:///login?authLink=...",
+    "pasteFladderAuthLink": "Вставьте ссылку для входа вида oxplayer:///login?authLink=...",
     "connect": "Подключиться",
     "deletedItem": "{itemName} удалено",
     "@deletedItem": {

@@ -28,7 +28,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/util/jellyfin_extension.dart';
 
 const _userSettings = "usersettings";
-const _client = "fladder";
+const _client = "OXPlayer";
 
 class ServerQueryResult {
   final List<BaseItemDto> original;

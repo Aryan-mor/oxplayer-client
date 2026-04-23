@@ -18,7 +18,7 @@ import 'package:fladder/util/notification_helpers.dart';
 
 const String updateTaskName = 'de.aryanmo.oxplayer.update_notifications_check';
 const String updateTaskNameDebug = 'de.aryanmo.oxplayer.update_notifications_check_debug';
-const String updateWorkerPortName = 'fladder_notification_update_worker_port';
+const String updateWorkerPortName = 'oxplayer_notification_update_worker_port';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {

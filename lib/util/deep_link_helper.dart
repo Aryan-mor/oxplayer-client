@@ -98,7 +98,7 @@ String encodeAuthLink(AuthLinkData data) {
 
 String buildAuthUrl(AuthLinkData data) {
   final payload = encodeAuthLink(data);
-  return 'fladder:///login?authLink=$payload';
+  return 'oxplayer:///login?authLink=$payload';
 }
 
 String? _tgWebAppDataFromUri(Uri payload) {

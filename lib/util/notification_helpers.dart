@@ -14,9 +14,9 @@ const String updateTaskName = 'de.aryanmo.oxplayer.update_notifications_check';
 const String updateTaskNameDebug = 'de.aryanmo.oxplayer.update_notifications_check_debug';
 
 class NotificationHelpers {
-  static String buildDetailsDeepLink(String id) => 'fladder:///details?id=${Uri.encodeComponent(id)}';
+  static String buildDetailsDeepLink(String id) => 'oxplayer:///details?id=${Uri.encodeComponent(id)}';
 
-  static String buildSeerrDeepLink(String mediaType, int tmdbId) => 'fladder:///seerr/$mediaType/$tmdbId';
+  static String buildSeerrDeepLink(String mediaType, int tmdbId) => 'oxplayer:///seerr/$mediaType/$tmdbId';
 
   static List<LastSeenModel> replaceOrAppendLastSeen(List<LastSeenModel> servers, LastSeenModel saved) {
     final exists = servers.any((s) => s.userId == saved.userId);

@@ -21,7 +21,7 @@ class AuthService {
               context.localized.scanYourFingerprintToAuthenticate("(${user.name} - ${user.credentials.serverName})"),
           authMessages: <AuthMessages>[
             AndroidAuthMessages(
-              signInTitle: 'Fladder',
+              signInTitle: 'OXPlayer',
               biometricHint: context.localized.scanBiometricHint,
             ),
             IOSAuthMessages(

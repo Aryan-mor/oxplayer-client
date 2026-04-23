@@ -12,7 +12,7 @@ final windowTitleProvider = StateNotifierProvider<WindowTitleNotifier, String>((
 
 class WindowTitleNotifier extends StateNotifier<String> {
   final Ref ref;
-  WindowTitleNotifier(this.ref) : super('Fladder') {
+  WindowTitleNotifier(this.ref) : super('OXPlayer') {
     // Listen to player state changes to handle minimized <-> maximized transitions
     ref.listen(mediaPlaybackProvider.select((v) => v.state), (_, __) => _update());
   }
@@ -58,7 +58,7 @@ class WindowTitleNotifier extends StateNotifier<String> {
     // If player is minimized or inactive, prefer navigation title.
     final title = (isPlayerActive && !isPlayerMinimized) ? (_playTitle ?? nav) : (nav ?? _playTitle);
 
-    final newState = kIsWeb ? (title != null ? 'Fladder • $title' : 'Fladder') : (title ?? 'Fladder');
+    final newState = kIsWeb ? (title != null ? 'OXPlayer • $title' : 'OXPlayer') : (title ?? 'OXPlayer');
 
     if (state == newState) return;
 

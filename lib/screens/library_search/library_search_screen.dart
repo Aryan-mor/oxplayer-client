@@ -6,6 +6,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_search_tmdb_suggestions.dart';
 import 'package:fladder/models/boxset_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/library_filter_model.dart';
@@ -545,11 +547,18 @@ class _LibrarySearchScreenState extends ConsumerState<LibrarySearchScreen> {
                             groupByType: librarySearchResults.filters.groupBy,
                           ),
                         )
-                      else
+                      // OXPlayer: when TMDB suggestions are shown, avoid SliverFillRemaining because
+                      // it consumes all remaining viewport space and pushes the TMDB section off-screen.
+                      else if (!OxplayerConfig.isEnabled || librarySearchResults.searchQuery.isEmpty)
                         SliverFillRemaining(
                           child: Center(
                             child: Text(context.localized.noItemsToShow),
                           ),
+                        ),
+                      // OXPlayer: server-gated TMDB suggestions (403 for general users → silent empty).
+                      if (OxplayerConfig.isEnabled && librarySearchResults.searchQuery.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: OxplayerSearchTmdbSuggestions(query: librarySearchResults.searchQuery),
                         ),
                       SliverPadding(padding: EdgeInsets.only(bottom: MediaQuery.sizeOf(context).height * 0.20))
                     ],

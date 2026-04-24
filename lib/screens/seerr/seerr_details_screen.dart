@@ -66,6 +66,8 @@ class SeerrDetailsScreen extends ConsumerWidget {
     final externalUrls = state.buildExternalUrls();
     final officialTrailerUrl = state.officialTrailerUrl;
 
+    final isOx = state.isOxTmdbSource;
+
     final hasKnownStatus = currentPoster?.hasDisplayStatus ?? false;
     final requests = state.poster?.mediaInfo?.requests ?? [];
     final pendingRequests = requests.where((request) => request.requestStatus == SeerrRequestStatus.pending).toList();
@@ -74,15 +76,18 @@ class SeerrDetailsScreen extends ConsumerWidget {
 
     final canManageRequest = state.currentUser?.canManageRequests ?? false;
     final hasUsersRequests = requests.any((request) => request.requestedBy?.id == state.currentUser?.id);
-    final hasVisibleRequests = (canManageRequest || hasUsersRequests) && requests.isNotEmpty;
+    final hasVisibleRequests =
+        !isOx && (canManageRequest || hasUsersRequests) && requests.isNotEmpty;
 
-    final canRequestMore = hasKnownStatus
-        ? switch (currentPoster?.type) {
-            SeerrMediaType.movie => false,
-            SeerrMediaType.tvshow => true,
-            _ => false,
-          }
-        : true;
+    final canRequestMore = isOx
+        ? false
+        : (hasKnownStatus
+            ? switch (currentPoster?.type) {
+                SeerrMediaType.movie => false,
+                SeerrMediaType.tvshow => true,
+                _ => false,
+              }
+            : true);
 
     final mainButtonLabel = currentPoster?.type == SeerrMediaType.movie
         ? context.localized.request

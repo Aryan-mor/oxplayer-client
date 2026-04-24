@@ -112,7 +112,7 @@ const _$ThemeModeEnumMap = {
 };
 
 const _$ColorThemesEnumMap = {
-  ColorThemes.fladder: 'OXPlayer',
+  ColorThemes.fladder: 'fladder',
   ColorThemes.deepOrange: 'deepOrange',
   ColorThemes.amber: 'amber',
   ColorThemes.green: 'green',

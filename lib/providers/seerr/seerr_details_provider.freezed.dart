@@ -32,6 +32,9 @@ mixin _$SeerrDetailsModel {
   SeerrExternalIds? get externalIds;
   SeerrRatingsResponse? get ratings;
 
+  /// Filled when details were loaded via [Route /tmdb/seerr-bundle] (OX TMDB) instead of Seerr.
+  bool get isOxTmdbSource;
+
   /// Create a copy of SeerrDetailsModel
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -42,7 +45,7 @@ mixin _$SeerrDetailsModel {
 
   @override
   String toString() {
-    return 'SeerrDetailsModel(tmdbId: $tmdbId, mediaType: $mediaType, poster: $poster, genres: $genres, voteAverage: $voteAverage, contentRating: $contentRating, releaseDate: $releaseDate, recommended: $recommended, similar: $similar, people: $people, seasonStatuses: $seasonStatuses, currentUser: $currentUser, expandedSeasons: $expandedSeasons, episodesCache: $episodesCache, relatedVideos: $relatedVideos, externalIds: $externalIds, ratings: $ratings)';
+    return 'SeerrDetailsModel(tmdbId: $tmdbId, mediaType: $mediaType, poster: $poster, genres: $genres, voteAverage: $voteAverage, contentRating: $contentRating, releaseDate: $releaseDate, recommended: $recommended, similar: $similar, people: $people, seasonStatuses: $seasonStatuses, currentUser: $currentUser, expandedSeasons: $expandedSeasons, episodesCache: $episodesCache, relatedVideos: $relatedVideos, externalIds: $externalIds, ratings: $ratings, isOxTmdbSource: $isOxTmdbSource)';
   }
 }
 
@@ -69,7 +72,8 @@ abstract mixin class $SeerrDetailsModelCopyWith<$Res> {
       Map<int, List<SeerrEpisode>> episodesCache,
       List<SeerrRelatedVideo> relatedVideos,
       SeerrExternalIds? externalIds,
-      SeerrRatingsResponse? ratings});
+      SeerrRatingsResponse? ratings,
+      bool isOxTmdbSource});
 
   $SeerrUserModelCopyWith<$Res>? get currentUser;
 }
@@ -104,6 +108,7 @@ class _$SeerrDetailsModelCopyWithImpl<$Res>
     Object? relatedVideos = null,
     Object? externalIds = freezed,
     Object? ratings = freezed,
+    Object? isOxTmdbSource = null,
   }) {
     return _then(_self.copyWith(
       tmdbId: freezed == tmdbId
@@ -174,6 +179,10 @@ class _$SeerrDetailsModelCopyWithImpl<$Res>
           ? _self.ratings
           : ratings // ignore: cast_nullable_to_non_nullable
               as SeerrRatingsResponse?,
+      isOxTmdbSource: null == isOxTmdbSource
+          ? _self.isOxTmdbSource
+          : isOxTmdbSource // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 
@@ -302,7 +311,8 @@ extension SeerrDetailsModelPatterns on SeerrDetailsModel {
             Map<int, List<SeerrEpisode>> episodesCache,
             List<SeerrRelatedVideo> relatedVideos,
             SeerrExternalIds? externalIds,
-            SeerrRatingsResponse? ratings)?
+            SeerrRatingsResponse? ratings,
+            bool isOxTmdbSource)?
         $default, {
     required TResult orElse(),
   }) {
@@ -326,7 +336,8 @@ extension SeerrDetailsModelPatterns on SeerrDetailsModel {
             _that.episodesCache,
             _that.relatedVideos,
             _that.externalIds,
-            _that.ratings);
+            _that.ratings,
+            _that.isOxTmdbSource);
       case _:
         return orElse();
     }
@@ -364,7 +375,8 @@ extension SeerrDetailsModelPatterns on SeerrDetailsModel {
             Map<int, List<SeerrEpisode>> episodesCache,
             List<SeerrRelatedVideo> relatedVideos,
             SeerrExternalIds? externalIds,
-            SeerrRatingsResponse? ratings)
+            SeerrRatingsResponse? ratings,
+            bool isOxTmdbSource)
         $default,
   ) {
     final _that = this;
@@ -387,7 +399,8 @@ extension SeerrDetailsModelPatterns on SeerrDetailsModel {
             _that.episodesCache,
             _that.relatedVideos,
             _that.externalIds,
-            _that.ratings);
+            _that.ratings,
+            _that.isOxTmdbSource);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -424,7 +437,8 @@ extension SeerrDetailsModelPatterns on SeerrDetailsModel {
             Map<int, List<SeerrEpisode>> episodesCache,
             List<SeerrRelatedVideo> relatedVideos,
             SeerrExternalIds? externalIds,
-            SeerrRatingsResponse? ratings)?
+            SeerrRatingsResponse? ratings,
+            bool isOxTmdbSource)?
         $default,
   ) {
     final _that = this;
@@ -447,7 +461,8 @@ extension SeerrDetailsModelPatterns on SeerrDetailsModel {
             _that.episodesCache,
             _that.relatedVideos,
             _that.externalIds,
-            _that.ratings);
+            _that.ratings,
+            _that.isOxTmdbSource);
       case _:
         return null;
     }
@@ -474,7 +489,8 @@ class _SeerrDetailsModel extends SeerrDetailsModel {
       final Map<int, List<SeerrEpisode>> episodesCache = const {},
       final List<SeerrRelatedVideo> relatedVideos = const [],
       this.externalIds,
-      this.ratings})
+      this.ratings,
+      this.isOxTmdbSource = false})
       : _genres = genres,
         _recommended = recommended,
         _similar = similar,
@@ -576,6 +592,11 @@ class _SeerrDetailsModel extends SeerrDetailsModel {
   @override
   final SeerrRatingsResponse? ratings;
 
+  /// Filled when details were loaded via [Route /tmdb/seerr-bundle] (OX TMDB) instead of Seerr.
+  @override
+  @JsonKey()
+  final bool isOxTmdbSource;
+
   /// Create a copy of SeerrDetailsModel
   /// with the given fields replaced by the non-null parameter values.
   @override
@@ -586,7 +607,7 @@ class _SeerrDetailsModel extends SeerrDetailsModel {
 
   @override
   String toString() {
-    return 'SeerrDetailsModel(tmdbId: $tmdbId, mediaType: $mediaType, poster: $poster, genres: $genres, voteAverage: $voteAverage, contentRating: $contentRating, releaseDate: $releaseDate, recommended: $recommended, similar: $similar, people: $people, seasonStatuses: $seasonStatuses, currentUser: $currentUser, expandedSeasons: $expandedSeasons, episodesCache: $episodesCache, relatedVideos: $relatedVideos, externalIds: $externalIds, ratings: $ratings)';
+    return 'SeerrDetailsModel(tmdbId: $tmdbId, mediaType: $mediaType, poster: $poster, genres: $genres, voteAverage: $voteAverage, contentRating: $contentRating, releaseDate: $releaseDate, recommended: $recommended, similar: $similar, people: $people, seasonStatuses: $seasonStatuses, currentUser: $currentUser, expandedSeasons: $expandedSeasons, episodesCache: $episodesCache, relatedVideos: $relatedVideos, externalIds: $externalIds, ratings: $ratings, isOxTmdbSource: $isOxTmdbSource)';
   }
 }
 
@@ -615,7 +636,8 @@ abstract mixin class _$SeerrDetailsModelCopyWith<$Res>
       Map<int, List<SeerrEpisode>> episodesCache,
       List<SeerrRelatedVideo> relatedVideos,
       SeerrExternalIds? externalIds,
-      SeerrRatingsResponse? ratings});
+      SeerrRatingsResponse? ratings,
+      bool isOxTmdbSource});
 
   @override
   $SeerrUserModelCopyWith<$Res>? get currentUser;
@@ -651,6 +673,7 @@ class __$SeerrDetailsModelCopyWithImpl<$Res>
     Object? relatedVideos = null,
     Object? externalIds = freezed,
     Object? ratings = freezed,
+    Object? isOxTmdbSource = null,
   }) {
     return _then(_SeerrDetailsModel(
       tmdbId: freezed == tmdbId
@@ -721,6 +744,10 @@ class __$SeerrDetailsModelCopyWithImpl<$Res>
           ? _self.ratings
           : ratings // ignore: cast_nullable_to_non_nullable
               as SeerrRatingsResponse?,
+      isOxTmdbSource: null == isOxTmdbSource
+          ? _self.isOxTmdbSource
+          : isOxTmdbSource // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 

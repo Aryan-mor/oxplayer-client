@@ -3,7 +3,7 @@ icons_launcher:
   platforms:
     android:
       adaptive_foreground_image: "icons/production/oxplayer_icon.png"
-      adaptive_background_color: "#3a2101"
+      adaptive_background_color: "#4b1200"
       adaptive_monochrome_image: "icons/production/oxplayer_adaptive_icon.png"
       notification_image: icons/oxplayer_notification_icon.png
       enable: true

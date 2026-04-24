@@ -285,9 +285,11 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
       oxRefreshToken: exchanged.refreshToken ?? mergedCreds.oxRefreshToken,
     );
 
-    final imageUrl = ref
-        .read(imageUtilityProvider)
-        .getUserImageUrl(ar.user?.id ?? '');
+    // Use Telegram photoUrl instead of Jellyfin image URL
+    final imageUrl = exchanged.photoUrl ?? '';
+    // final imageUrl = ref
+    //     .read(imageUtilityProvider)
+    //     .getUserImageUrl(ar.user?.id ?? '');
     final newUser = AccountModel(
       name: ar.user?.name ?? '',
       id: ar.user?.id ?? '',

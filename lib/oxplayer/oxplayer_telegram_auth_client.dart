@@ -9,11 +9,13 @@ class OxplayerTelegramAuthResponse {
     required this.accessToken,
     required this.jellyfin,
     this.refreshToken,
+    this.photoUrl,
   });
 
   final String accessToken;
   final AuthenticationResult jellyfin;
   final String? refreshToken;
+  final String? photoUrl;
 }
 
 /// Calls the OXPlayer HTTP API to exchange Telegram Mini App [initData] for a session.
@@ -99,11 +101,15 @@ final class OxplayerTelegramAuthClient {
     }
 
     final refresh = decoded['refreshToken'] as String?;
+    
+    final userRaw = decoded['user'];
+    final photoUrl = userRaw is Map ? userRaw['photoUrl'] as String? : null;
 
     return OxplayerTelegramAuthResponse(
       accessToken: token,
       jellyfin: jellyfin,
       refreshToken: (refresh != null && refresh.isNotEmpty) ? refresh : null,
+      photoUrl: photoUrl,
     );
   }
 }

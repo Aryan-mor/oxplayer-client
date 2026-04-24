@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,13 +43,20 @@ class OxplayerWatchLaterNotifier extends StateNotifier<WatchLaterState> {
   final Ref ref;
   late final JellyService api = ref.read(jellyApiProvider);
 
+  /// Completes once _init() has finished so toggleWatchLater always waits for
+  /// the server lookup before deciding to create or reuse the playlist.
+  final Completer<void> _initCompleter = Completer<void>();
+
   OxplayerWatchLaterNotifier(this.ref) : super(const WatchLaterState()) {
     _init();
   }
 
   Future<void> _init() async {
     final user = ref.read(userProvider);
-    if (user == null) return;
+    if (user == null) {
+      _initCompleter.complete();
+      return;
+    }
 
     state = state.copyWith(isLoading: true);
     try {
@@ -69,6 +78,8 @@ class OxplayerWatchLaterNotifier extends StateNotifier<WatchLaterState> {
       }
     } catch (e) {
       state = state.copyWith(isLoading: false);
+    } finally {
+      if (!_initCompleter.isCompleted) _initCompleter.complete();
     }
   }
 
@@ -97,6 +108,9 @@ class OxplayerWatchLaterNotifier extends StateNotifier<WatchLaterState> {
     final user = ref.read(userProvider);
     if (user == null) return;
 
+    // Wait for _init() to finish so we always know whether the playlist already exists.
+    await _initCompleter.future;
+
     final itemId = item.id;
     if (state.itemsMap.containsKey(itemId)) {
       // Remove from watch later
@@ -115,32 +129,20 @@ class OxplayerWatchLaterNotifier extends StateNotifier<WatchLaterState> {
         }
       }
     } else {
-      // Add to watch later
+      // Add to watch later. The backend POST /Playlists is idempotent by name:
+      // it returns the existing playlist's ID if one already exists, so we never
+      // need to branch on whether state.playlistId is set — the server handles it.
       try {
-        String? playlistId = state.playlistId;
-        if (playlistId == null) {
-          // Create new playlist
-          final createResponse = await api.playlistsPost(
-            name: "Watch Later",
-            ids: [itemId],
-            body: null,
-          );
-          final newId = createResponse.body?.id;
-          if (newId != null) {
-            playlistId = newId;
-            state = state.copyWith(playlistId: playlistId);
-          }
-        } else {
-          // Add to existing
-          await api.playlistsPlaylistIdItemsPost(
-            playlistId: playlistId,
-            ids: [itemId],
-          );
-        }
-
-        if (playlistId != null) {
-          // Reload items to get the new entryId
-          await _loadPlaylistItems(playlistId);
+        final createResponse = await api.playlistsPost(
+          name: "Watch Later",
+          ids: [itemId],
+          body: null,
+        );
+        final resolvedPlaylistId = createResponse.body?.id ?? state.playlistId;
+        if (resolvedPlaylistId != null) {
+          state = state.copyWith(playlistId: resolvedPlaylistId);
+          // Reload items to get the up-to-date entryId map.
+          await _loadPlaylistItems(resolvedPlaylistId);
         }
       } catch (e) {
         // Handle error if needed

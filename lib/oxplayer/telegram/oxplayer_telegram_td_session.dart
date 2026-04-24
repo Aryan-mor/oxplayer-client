@@ -94,10 +94,43 @@ final class OxplayerTelegramTdSession {
     }
   }
 
-  Future<void> startQrLogin() => _td.startQrLogin();
+  Future<void> startQrLogin() async {
+    await _waitForPhoneNumberState();
+    return _td.startQrLogin();
+  }
 
-  Future<void> submitAuthenticationPhoneNumber(String phone) =>
-      _td.submitAuthenticationPhoneNumber(phone);
+  Future<void> submitAuthenticationPhoneNumber(String phone) async {
+    await _waitForPhoneNumberState();
+    return _td.submitAuthenticationPhoneNumber(phone);
+  }
+
+  /// Completer that resolves once TDLib reaches [AuthorizationStateWaitPhoneNumber].
+  /// Reused across calls so if TDLib already reached the state we return instantly.
+  Completer<void>? _waitPhoneCompleter;
+
+  /// Waits until TDLib reports [AuthorizationStateWaitPhoneNumber].
+  /// Must be called before [startQrLogin] or [submitAuthenticationPhoneNumber]
+  /// to avoid the "unexpected" TDLib error when commands arrive too early.
+  Future<void> _waitForPhoneNumberState() async {
+    if (_waitPhoneCompleter == null) {
+      _waitPhoneCompleter = Completer<void>();
+      _td.authorizationWaitPhoneNumber
+          .where((v) => v)
+          .first
+          .timeout(const Duration(seconds: 15))
+          .then((_) {
+            if (!_waitPhoneCompleter!.isCompleted) {
+              _waitPhoneCompleter!.complete();
+            }
+          })
+          .catchError((Object _) {
+            if (!_waitPhoneCompleter!.isCompleted) {
+              _waitPhoneCompleter!.complete(); // unblock on timeout
+            }
+          });
+    }
+    await _waitPhoneCompleter!.future;
+  }
 
   Future<void> submitAuthenticationCode(String code) =>
       _td.submitAuthenticationCode(code);
@@ -107,7 +140,35 @@ final class OxplayerTelegramTdSession {
 
   Future<void> resetLocalSessionForQrLogin() async {
     _clientInited = false;
-    await _td.resetLocalSessionForQrLogin();
+    _waitPhoneCompleter = null;
+    // Use forceDestroyAfterLogOut (kill isolate first, then destroy) to avoid
+    // the native crash where tdJsonClientDestroy races with a 1-second
+    // tdJsonClientReceive poll that is still in flight in the receive isolate.
+    if (_td.isInitialized) {
+      await _td.forceDestroyAfterLogOut();
+    }
+  }
+
+  /// Signs out from Telegram by sending [LogOut] to revoke the device session
+  /// on Telegram's servers. Then safely destroys the TDLib client by killing
+  /// the receive isolate first (prevents the native tdJsonClientDestroy crash).
+  Future<void> signOut() async {
+    if (kIsWeb) return;
+
+    if (_td.isInitialized) {
+      try {
+        // Revoke server-side device session.
+        await _td.send(const td_api.LogOut());
+        // Brief delay so TDLib can process LogOut before we destroy.
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      } catch (_) {
+        // Ignore — session may already be invalid.
+      }
+      // Kill isolate first, wait for receive drain, then destroy safely.
+      await _td.forceDestroyAfterLogOut();
+    }
+    _clientInited = false;
+    _waitPhoneCompleter = null;
   }
 
   Future<void> dispose() => _td.dispose();

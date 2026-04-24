@@ -251,15 +251,67 @@ class TelegramTdlibFacade implements TdlibFacade {
     if (kIsWeb) return;
     await _shutdownClient();
     try {
-      final support = await getApplicationSupportDirectory();
-      for (final name in ['tdlib', 'tdlib_files']) {
-        final directory = Directory('${support.path}/$name');
-        if (await directory.exists()) {
-          await directory.delete(recursive: true);
-        }
-      }
+      await _deleteLocalSessionFiles();
     } catch (error) {
       _tdlog('TDLib resetLocalSessionForQrLogin: $error');
+    }
+  }
+
+  /// Safely destroys the TDLib client after [LogOut] has already been sent.
+  /// Kills the receive isolate first (so it stops calling tdJsonClientReceive),
+  /// then waits for any in-progress 1-second receive poll to drain, and only
+  /// then calls tdJsonClientDestroy — preventing the native crash.
+  Future<void> forceDestroyAfterLogOut() async {
+    final id = _clientId;
+    if (id == null) return;
+
+    // 1. Stop the receive loop and cancel the stream subscription.
+    _receiveLoopRunning = false;
+    try { await _receiveSub?.cancel(); } catch (_) {}
+    _receiveSub = null;
+
+    // 2. Kill the receive isolate immediately so tdJsonClientReceive stops.
+    _receiveIsolate?.kill(priority: Isolate.immediate);
+    _receiveIsolate = null;
+    _receiveMainPort?.close();
+    _receiveMainPort = null;
+
+    // 3. Wait longer than the 1.0s tdJsonClientReceive timeout to ensure
+    //    no native receive call is still in flight before we destroy.
+    await Future<void>.delayed(const Duration(milliseconds: 1400));
+
+    // 4. Destroy the native client.
+    _clientId = null;
+    if (identical(_nativeClientOwner, this)) _nativeClientOwner = null;
+    try { tdJsonClientDestroy(id); } catch (e) { _tdlog('TDLib destroy: $e'); }
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+
+    // 5. Delete session files so trySilentRestore() returns false next launch.
+    try {
+      await _deleteLocalSessionFiles();
+    } catch (error) {
+      _tdlog('TDLib forceDestroyAfterLogOut files: $error');
+    }
+
+    // Reset internal state.
+    _paramsSent = false;
+    _transportTuningApplied = false;
+    _awaitingGetMeAfterReady = false;
+    _getMeRetryCount = 0;
+    _pendingApiId = null;
+    _pendingApiHash = null;
+    _dbDir = null;
+    _filesDir = null;
+  }
+
+  Future<void> _deleteLocalSessionFiles() async {
+    if (kIsWeb) return;
+    final support = await getApplicationSupportDirectory();
+    for (final name in ['tdlib', 'tdlib_files']) {
+      final directory = Directory('${support.path}/$name');
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
     }
   }
 
@@ -573,6 +625,9 @@ class TelegramTdlibFacade implements TdlibFacade {
       }
     } else if (state is td.AuthorizationStateClosed) {
       authDebugDedup('tdlib_auth_state', AuthDebugLevel.error, 'TDLib auth state: Closed.');
+      // Fail any pending ensureAuthorized() so trySilentRestore() returns
+      // false instead of hanging forever (e.g. after a LogOut call).
+      _failEnsureAuthorizedIfPending('AuthorizationStateClosed');
       final completer = _closeHandshakeCompleter;
       if (completer != null && !completer.isCompleted) {
         completer.complete();

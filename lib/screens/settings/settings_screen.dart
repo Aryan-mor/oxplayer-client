@@ -221,15 +221,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   );
                 },
               ),
-            SettingsListTile(
-              label: Text(context.localized.switchUser),
-              icon: IconsaxPlusLinear.arrow_swap_horizontal,
-              contentColor: Colors.greenAccent,
-              onTap: () async {
-                await ref.read(userProvider.notifier).logoutUser();
-                context.router.replaceAll(oxplayerSignOutRouteList());
-              },
-            ),
+
             SettingsListTile(
               label: Text(context.localized.logout),
               icon: IconsaxPlusLinear.logout,

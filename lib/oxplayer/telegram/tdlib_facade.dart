@@ -60,5 +60,7 @@ abstract class TdlibFacade {
 
   Future<void> resetLocalSessionForQrLogin();
 
+  Future<void> forceDestroyAfterLogOut();
+
   Future<void> dispose();
 }

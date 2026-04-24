@@ -64,5 +64,8 @@ class TelegramTdlibFacade implements TdlibFacade {
   Future<void> resetLocalSessionForQrLogin() async {}
 
   @override
+  Future<void> forceDestroyAfterLogOut() async {}
+
+  @override
   Future<void> dispose() async {}
 }

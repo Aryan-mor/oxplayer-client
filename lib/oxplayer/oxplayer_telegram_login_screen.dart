@@ -19,6 +19,7 @@ import 'package:fladder/screens/shared/fladder_logo.dart';
 import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/util/application_info.dart';
 import 'package:fladder/util/fladder_config.dart';
+import 'package:fladder/models/settings/arguments_model.dart';
 
 enum _OxLoginPane { hub, qr, phone }
 
@@ -103,19 +104,36 @@ class _OxplayerTelegramLoginScreenState
     final s = _tdSession!;
     _qrSub = s.qrLoginPayload.listen((payload) {
       if (!mounted) return;
-      setState(() => _qrPayload = payload);
+      setState(() {
+        _qrPayload = payload;
+        // QR code is ready — unblock the UI so the Back button can be tapped.
+        if (payload != null && payload.isNotEmpty) _busy = false;
+      });
     });
     _cloudPasswordSub = s.cloudPasswordChallenge.listen((c) {
       if (!mounted) return;
-      setState(() => _cloudPasswordChallenge = c);
+      setState(() {
+        _cloudPasswordChallenge = c;
+        // Cloud password is an interactive state — unblock the UI so the
+        // Continue button can be tapped.
+        if (c != null) _busy = false;
+      });
     });
     _smsCodeSub = s.smsCodeChallenge.listen((c) {
       if (!mounted) return;
-      setState(() => _smsCodeChallenge = c);
+      setState(() {
+        _smsCodeChallenge = c;
+        // SMS code entry is interactive — unblock the UI.
+        if (c != null) _busy = false;
+      });
     });
     _waitPhoneSub = s.authorizationWaitPhoneNumber.listen((waiting) {
       if (!mounted) return;
-      setState(() => _authorizationWaitPhoneNumber = waiting);
+      setState(() {
+        _authorizationWaitPhoneNumber = waiting;
+        // Phone number entry is interactive — unblock the UI.
+        if (waiting) _busy = false;
+      });
     });
     _authenticatedUserSub = s.authenticatedUserId.listen((id) {
       if (!mounted || id == 0 || _backendBridgeDone) return;
@@ -339,6 +357,9 @@ class _OxplayerTelegramLoginScreenState
       if (!mounted) return;
       setState(() => _flowError = error.toString());
     }
+    // Clear busy so AbsorbPointer doesn't block the phone input field.
+    // TDLib authorization continues in the background.
+    if (mounted) setState(() => _busy = false);
   }
 
   Future<void> _submitPhoneNumber() async {
@@ -401,7 +422,7 @@ class _OxplayerTelegramLoginScreenState
     _codeController.clear();
 
     setState(() {
-      _busy = false;
+      _busy = true; // block UI while old TDLib client is torn down
       _authorizationAttempt = null;
       _backendBridgeDone = false;
       _flowError = null;
@@ -413,6 +434,8 @@ class _OxplayerTelegramLoginScreenState
     });
 
     await session.resetLocalSessionForQrLogin();
+
+    if (mounted) setState(() => _busy = false);
   }
 
   Widget _buildHub(BuildContext context) {
@@ -447,6 +470,45 @@ class _OxplayerTelegramLoginScreenState
 
     final isDesktop = MediaQuery.sizeOf(context).width > 700;
 
+    final qrButtonPrimary = FilledButton.icon(
+      onPressed: (_busy || _bootstrapping) ? null : () => unawaited(_startQrAuthentication()),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      icon: const Icon(Icons.qr_code_2),
+      label: const Text('Login with QR code'),
+    );
+
+    final qrButtonSecondary = TextButton.icon(
+      onPressed: (_busy || _bootstrapping) ? null : () => unawaited(_startQrAuthentication()),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      icon: const Icon(Icons.qr_code_2),
+      label: const Text('Login with QR code'),
+    );
+
+    final phoneButtonPrimary = FilledButton.icon(
+      onPressed: (_busy || _bootstrapping) ? null : () => unawaited(_startPhoneAuthentication()),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      icon: const Icon(Icons.phone_iphone),
+      label: const Text('Login with number'),
+    );
+
+    final phoneButtonSecondary = TextButton.icon(
+      onPressed: (_busy || _bootstrapping) ? null : () => unawaited(_startPhoneAuthentication()),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      icon: const Icon(Icons.phone_iphone),
+      label: const Text('Login with number'),
+    );
+
+    final Widget primaryAuthBtn = leanBackMode ? qrButtonPrimary : phoneButtonPrimary;
+    final Widget secondaryAuthBtn = leanBackMode ? phoneButtonSecondary : qrButtonSecondary;
+
     final buttons = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -465,23 +527,9 @@ class _OxplayerTelegramLoginScreenState
           style: TextStyle(color: Colors.grey, fontSize: 13),
         ),
         const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: (_busy || _bootstrapping) ? null : _startQrAuthentication,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          icon: const Icon(Icons.qr_code_2),
-          label: const Text('Login with QR code'),
-        ),
+        primaryAuthBtn,
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: (_busy || _bootstrapping) ? null : _startPhoneAuthentication,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          icon: const Icon(Icons.phone_iphone),
-          label: const Text('Login with number'),
-        ),
+        secondaryAuthBtn,
         if (_flowError != null) ...[
           const SizedBox(height: 16),
           Text(
@@ -573,7 +621,7 @@ class _OxplayerTelegramLoginScreenState
           ),
         const SizedBox(height: 24),
         OutlinedButton(
-          onPressed: _busy ? null : _resetTelegramFlow,
+          onPressed: _busy ? null : () => unawaited(_resetTelegramFlow()),
           child: const Text('Back'),
         ),
       ],
@@ -603,7 +651,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: _phoneSubmitting ? null : _submitPhoneNumber,
+          onPressed: _phoneSubmitting ? null : () => unawaited(_submitPhoneNumber()),
           child: _phoneSubmitting
               ? const SizedBox(
                   height: 20,
@@ -614,7 +662,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: _resetTelegramFlow,
+          onPressed: () => unawaited(_resetTelegramFlow()),
           child: const Text('Back'),
         ),
       ],
@@ -649,7 +697,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: _codeSubmitting ? null : _submitCode,
+          onPressed: _codeSubmitting ? null : () => unawaited(_submitCode()),
           child: _codeSubmitting
               ? const SizedBox(
                   height: 20,
@@ -660,7 +708,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: _resetTelegramFlow,
+          onPressed: () => unawaited(_resetTelegramFlow()),
           child: const Text('Back'),
         ),
       ],
@@ -699,7 +747,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: _passwordSubmitting ? null : _submitPassword,
+          onPressed: _passwordSubmitting ? null : () => unawaited(_submitPassword()),
           child: _passwordSubmitting
               ? const SizedBox(
                   height: 20,
@@ -710,7 +758,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: _resetTelegramFlow,
+          onPressed: () => unawaited(_resetTelegramFlow()),
           child: const Text('Back'),
         ),
       ],
@@ -740,10 +788,11 @@ class _OxplayerTelegramLoginScreenState
         _pane == _OxLoginPane.qr;
     final showCode =
         _cloudPasswordChallenge == null && _smsCodeChallenge != null;
+    // Show the phone input as soon as the user picks that pane — don't wait
+    // for TDLib's WaitPhoneNumber event (which causes a loading-spinner gap).
     final showPhone = _cloudPasswordChallenge == null &&
         _smsCodeChallenge == null &&
         !showQr &&
-        _authorizationWaitPhoneNumber &&
         _pane == _OxLoginPane.phone;
     final showProgress = _busy &&
         !showQr &&

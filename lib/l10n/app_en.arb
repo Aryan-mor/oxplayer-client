@@ -366,7 +366,7 @@
   "@login": {},
   "logout": "Log out",
   "@logout": {},
-  "logoutUserPopupContent": "This will log out {userName} and delete the user from the app.\nYou will have to log back in on {serverName}.",
+  "logoutUserPopupContent": "This will log out {userName} and delete the user from the app.",
   "@logoutUserPopupContent": {
     "description": "Pop-up for logging out the user description",
     "placeholders": {

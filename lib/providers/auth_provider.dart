@@ -9,6 +9,10 @@ import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/models/login_screen_model.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:flutter/foundation.dart';
+import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
+import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/favourites_provider.dart';
@@ -183,7 +187,31 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
   Future<Response?> logOutUser() async {
     final currentUser = ref.read(userProvider);
     state = state.copyWith(serverLoginModel: null);
+
+    // Zero out the refresh token in SharedPreferences BEFORE removal so the
+    // splash gate cannot reuse it if something else fails later.
+    if (currentUser != null) {
+      final zeroed = currentUser.copyWith(
+        credentials: currentUser.credentials.copyWith(oxRefreshToken: ''),
+      );
+      await ref.read(sharedUtilityProvider).addAccount(zeroed);
+    }
+
     await ref.read(sharedUtilityProvider).removeAccount(currentUser);
+
+    // Sign out from Telegram to revoke the device session server-side and
+    // wipe local TDLib database files so trySilentRestore() returns false.
+    if (OxplayerConfig.isEnabled && !kIsWeb) {
+      try {
+        final session = OxplayerTelegramTdSession(
+          tdlib: OxplayerTelegramTdRuntime.facade,
+        );
+        await session.signOut();
+      } catch (e) {
+        // Non-fatal: log the error but continue the logout flow.
+        debugPrint('[OX logout] Telegram signOut error: $e');
+      }
+    }
 
     try {
       await ref.read(seerrApiProvider).logout();

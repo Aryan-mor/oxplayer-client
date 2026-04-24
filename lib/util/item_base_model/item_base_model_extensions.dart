@@ -31,6 +31,8 @@ import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/refresh_state.dart';
 import 'package:fladder/widgets/pop_up/delete_file.dart';
 import 'package:fladder/widgets/shared/item_actions.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_watch_later_provider.dart';
 
 extension ItemBaseModelsBooleans on List<ItemBaseModel> {
   Map<FladderItemType, List<ItemBaseModel>> get groupedItems {
@@ -96,6 +98,7 @@ enum ItemActions {
   mediaInfo,
   identify,
   download,
+  watchLater,
 }
 
 extension ItemBaseModelExtensions on ItemBaseModel {
@@ -226,6 +229,22 @@ extension ItemBaseModelExtensions on ItemBaseModel {
           },
           label: Text(userData.isFavourite ? context.localized.removeAsFavorite : context.localized.addAsFavorite),
         ),
+      if (OxplayerConfig.isEnabled && !exclude.contains(ItemActions.watchLater))
+        () {
+          final watchLaterState = ref.read(oxplayerWatchLaterProvider);
+          final isWatchLater = watchLaterState.itemsMap.containsKey(id);
+          return ItemActionButton(
+            icon: Icon(isWatchLater ? IconsaxPlusBold.clock : IconsaxPlusLinear.clock),
+            action: () async {
+              try {
+                await ref.read(oxplayerWatchLaterProvider.notifier).toggleWatchLater(this);
+              } finally {
+                context.refreshData();
+              }
+            },
+            label: Text(isWatchLater ? "Remove from Watch Later" : "Add to Watch Later"),
+          );
+        }(),
       ...otherActions,
       ItemActionDivider(),
       if (!exclude.contains(ItemActions.editMetaData) && isAdmin)

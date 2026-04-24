@@ -6,8 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:fladder/models/items/images_models.dart';
-import 'package:fladder/models/seerr/seerr_dashboard_model.dart';
+
 import 'package:fladder/oxplayer/ox_tmdb_seerr_session.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
@@ -197,24 +196,7 @@ class _TmdbPosterTile extends ConsumerWidget {
 
   final _TmdbSuggestion poster;
 
-  SeerrDashboardPosterModel _minimalSeerrPoster() {
-    return SeerrDashboardPosterModel(
-      id: 'ox-sug-${poster.tmdbId}',
-      type: poster.mediaType == 'tv' ? SeerrMediaType.tvshow : SeerrMediaType.movie,
-      tmdbId: poster.tmdbId,
-      title: poster.title,
-      overview: '',
-      images: ImagesData(
-        primary: poster.posterPath != null
-            ? ImageData(path: poster.posterPath!, key: 'ox-sug-${poster.tmdbId}')
-            : null,
-      ),
-      mediaStatus: SeerrMediaStatus.unknown,
-      requestStatus: null,
-      jellyfinItemId: null,
-      releaseYear: poster.year,
-    );
-  }
+
 
   Future<void> _openSeerrDetails(BuildContext context, WidgetRef ref) async {
     final credentials = ref.read(userProvider)?.credentials;
@@ -251,12 +233,9 @@ class _TmdbPosterTile extends ConsumerWidget {
     }
 
     if (!context.mounted) return;
+    final id = 'tmdb-${poster.mediaType == 'tv' ? 'tv' : 'movie'}-${poster.tmdbId}';
     await context.router.push(
-      SeerrDetailsRoute(
-        mediaType: poster.mediaType == 'tv' ? 'tvshow' : 'movie',
-        tmdbId: poster.tmdbId,
-        poster: _minimalSeerrPoster(),
-      ),
+      DetailsRoute(id: id),
     );
   }
 

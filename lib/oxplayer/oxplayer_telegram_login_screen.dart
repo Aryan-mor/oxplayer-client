@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -100,6 +101,16 @@ class _OxplayerTelegramLoginScreenState
     super.dispose();
   }
 
+  /// Dismiss the IME (numeric/phone) so the next step can show the correct keyboard.
+  void _dismissKeyboard() {
+    if (!mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    // Android sometimes keeps the numeric phone keyboard up until the platform is told to hide.
+    try {
+      SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    } catch (_) {}
+  }
+
   void _startTdListenersOnce() {
     if (kIsWeb || _tdListenersStarted || _tdSession == null) return;
     _tdListenersStarted = true;
@@ -114,12 +125,22 @@ class _OxplayerTelegramLoginScreenState
     });
     _cloudPasswordSub = s.cloudPasswordChallenge.listen((c) {
       if (!mounted) return;
+      if (c != null) {
+        // Two-step: leave numeric code keyboard before the password field (next frame) requests focus.
+        _dismissKeyboard();
+      }
       setState(() {
         _cloudPasswordChallenge = c;
         // Cloud password is an interactive state — unblock the UI so the
         // Continue button can be tapped.
         if (c != null) _busy = false;
       });
+      if (c != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _dismissKeyboard();
+        });
+      }
     });
     _smsCodeSub = s.smsCodeChallenge.listen((c) {
       if (!mounted) return;
@@ -381,7 +402,10 @@ class _OxplayerTelegramLoginScreenState
         FladderSnack.show('Telegram: $e', context: context);
       }
     } finally {
-      if (mounted) setState(() => _phoneSubmitting = false);
+      if (mounted) {
+        _dismissKeyboard();
+        setState(() => _phoneSubmitting = false);
+      }
     }
   }
 
@@ -398,7 +422,10 @@ class _OxplayerTelegramLoginScreenState
         FladderSnack.show('Telegram: $e', context: context);
       }
     } finally {
-      if (mounted) setState(() => _codeSubmitting = false);
+      if (mounted) {
+        _dismissKeyboard();
+        setState(() => _codeSubmitting = false);
+      }
     }
   }
 

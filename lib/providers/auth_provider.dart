@@ -226,6 +226,21 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
     clearAllProviders();
   }
 
+  /// Clears cached home/library UI state without clearing [userProvider].
+  ///
+  /// [applyOxplayerTelegramAuthResponse] used to call [switchUser] (which clears the
+  /// active user) before attaching the new session. A second concurrent TDLib
+  /// `authenticatedUserId` event could re-enter the bridge, call [switchUser] again,
+  /// and null the user right after the first navigation — [AuthGuard] then sent
+  /// users back to `/splash` / login.
+  void clearJellyfinDataCachesOnly() {
+    ref.read(dashboardProvider.notifier).clear();
+    ref.read(viewsProvider.notifier).clear();
+    ref.read(favouritesProvider.notifier).clear();
+    ref.read(libraryScreenProvider.notifier).clear();
+    ref.read(seerrDashboardProvider.notifier).clear();
+  }
+
   ServerLoginModel? get oxplayerServerLoginModel => state.serverLoginModel;
 
   /// OXPlayer Telegram login: attach the issued Jellyfin token to the current [serverLoginModel] session.
@@ -257,7 +272,7 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
   Future<void> applyOxplayerTelegramAuthResponse(
     OxplayerTelegramAuthResponse exchanged,
   ) async {
-    await switchUser();
+    clearJellyfinDataCachesOnly();
 
     final ar = exchanged.jellyfin;
     final token = exchanged.accessToken.isNotEmpty

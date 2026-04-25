@@ -68,13 +68,23 @@ final class OxplayerTelegramTdSession {
   }
 
   /// Returns true when an on-disk TDLib session is already authorized.
+  ///
+  /// [ensureAuthorized] can otherwise block (e.g. 2FA password, slow GetMe) while the splash
+  /// screen has no UI for that. Used only for a best-effort restore before falling back to HTTP.
+  static const _kSilentRestoreMaxWait = Duration(seconds: 25);
+
   Future<bool> trySilentRestore() async {
     if (kIsWeb) return false;
     await initClient();
     try {
-      await _td.ensureAuthorized();
+      await _td.ensureAuthorized().timeout(
+        _kSilentRestoreMaxWait,
+        onTimeout: () => throw TimeoutException('TDLib.ensureAuthorized', _kSilentRestoreMaxWait),
+      );
       return true;
     } on TdlibInteractiveLoginRequired {
+      return false;
+    } on TimeoutException {
       return false;
     } catch (_) {
       return false;

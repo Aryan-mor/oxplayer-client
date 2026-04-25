@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,6 +22,9 @@ enum OxplayerSplashGateResult {
   needTelegramLogin,
 }
 
+/// Failsafe only (no process kill). Hitting this usually means TDLib/HTTP is wedged; user can retry.
+const Duration kOxplayerSplashSessionGateMaxWait = Duration(seconds: 90);
+
 /// Validates **Telegram (TDLib)** then obtains a **new API token** (`POST /auth/refresh` when possible,
 /// otherwise WebApp initData + `POST /auth/telegram`) before the first Dashboard load.
 ///
@@ -29,6 +34,22 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
     return OxplayerSplashGateResult.proceedToDashboard;
   }
 
+  return _oxplayerRunSplashSessionGateImpl(ref).timeout(
+    kOxplayerSplashSessionGateMaxWait,
+    onTimeout: () {
+      if (kDebugMode) {
+        debugPrint(
+          '[OX] oxplayerRunSplashSessionGate: exceeded $kOxplayerSplashSessionGateMaxWait',
+        );
+      }
+      return OxplayerSplashGateResult.needTelegramLogin;
+    },
+  );
+}
+
+/// Prefer **`POST /auth/refresh` first** so returning from the Android back stack does not block on
+/// TDLib ([ensureAuthorized] / 2FA / GetMe) when a refresh token is still valid.
+Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref) async {
   final api = OxplayerEnv.apiBaseUrl;
   final media = OxplayerEnv.effectiveMediaServerUrl;
   if (api == null || media == null) {
@@ -46,6 +67,28 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
     return OxplayerSplashGateResult.needTelegramLogin;
   }
 
+  final app = ref.read(applicationInfoProvider);
+  final deviceName = '${app.name} / ${defaultTargetPlatform.name}';
+  var saved = ref.read(sharedUtilityProvider).getActiveAccount();
+  var refresh = saved?.credentials.oxRefreshToken.trim() ?? '';
+
+  if (refresh.isNotEmpty) {
+    try {
+      final identity = await OxplayerTelegramTdSession.resolveDeviceIdentity(
+        defaultDeviceName: deviceName,
+      );
+      final exchanged = await OxplayerTelegramAuthClient(apiBase: api).refreshAccessToken(
+        refreshToken: refresh,
+        deviceId: identity.deviceId,
+      );
+      await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
+      ref.read(lockScreenActiveProvider.notifier).update((s) => false);
+      return OxplayerSplashGateResult.proceedToDashboard;
+    } catch (_) {
+      // TDLib or initData exchange may still work.
+    }
+  }
+
   try {
     final td = OxplayerTelegramTdSession();
     await OxplayerTelegramTdSession.initPlugin();
@@ -54,17 +97,14 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
       return OxplayerSplashGateResult.needTelegramLogin;
     }
 
-    final app = ref.read(applicationInfoProvider);
-    final deviceName = '${app.name} / ${defaultTargetPlatform.name}';
-    final identity = await OxplayerTelegramTdSession.resolveDeviceIdentity(
-      defaultDeviceName: deviceName,
-    );
-
-    final saved = ref.read(sharedUtilityProvider).getActiveAccount();
-    final refresh = saved?.credentials.oxRefreshToken.trim() ?? '';
+    saved = ref.read(sharedUtilityProvider).getActiveAccount();
+    refresh = saved?.credentials.oxRefreshToken.trim() ?? '';
 
     if (refresh.isNotEmpty) {
       try {
+        final identity = await OxplayerTelegramTdSession.resolveDeviceIdentity(
+          defaultDeviceName: deviceName,
+        );
         final exchanged = await OxplayerTelegramAuthClient(apiBase: api).refreshAccessToken(
           refreshToken: refresh,
           deviceId: identity.deviceId,

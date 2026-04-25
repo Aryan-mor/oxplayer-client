@@ -36,9 +36,11 @@ abstract final class OxplayerBootstrap {
       await OxplayerTelegramTdSession.initPlugin();
       final session = OxplayerTelegramTdSession();
       await session.initClient();
-      final restored = await session.trySilentRestore();
+      // Intentionally do not await [trySilentRestore] here: it can block on TDLib
+      // (e.g. transient 2FA / GetMe) and races the splash auto-login gate after
+      // back-press. Splash tries HTTP refresh first, then restore + [authenticateWithOxApi].
       if (kDebugMode) {
-        debugPrint('[OX TDLib] bootstrap warm-up silentRestore=$restored');
+        debugPrint('[OX TDLib] bootstrap warm-up: init only (no silentRestore)');
       }
     } catch (e, st) {
       if (kDebugMode) {

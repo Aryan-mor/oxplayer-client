@@ -46,6 +46,8 @@ class _OxplayerTelegramLoginScreenState
   bool _busy = false;
   bool _handledRouteInitData = false;
   bool _backendBridgeDone = false;
+  /// Prevents double [applyOxplayerTelegramAuthResponse] from TDLib + bootstrap paths.
+  bool _tdToBackendInFlight = false;
   bool _tdListenersStarted = false;
 
   OxplayerTelegramTdSession? _tdSession;
@@ -146,7 +148,10 @@ class _OxplayerTelegramLoginScreenState
   }
 
   Future<void> _bridgeTdToBackend() async {
-    if (_backendBridgeDone || !mounted || kIsWeb || _tdSession == null) return;
+    if (_backendBridgeDone || _tdToBackendInFlight || !mounted || kIsWeb || _tdSession == null) {
+      return;
+    }
+    _tdToBackendInFlight = true;
     setState(() => _busy = true);
     try {
       final app = ref.read(applicationInfoProvider);
@@ -165,6 +170,7 @@ class _OxplayerTelegramLoginScreenState
         FladderSnack.show('$e', context: context);
       }
     } finally {
+      _tdToBackendInFlight = false;
       if (mounted) setState(() => _busy = false);
     }
   }

@@ -241,11 +241,18 @@ flutter:
         - asset: assets/fonts/opensans/OpenSans-Italic.ttf
           style: italic
 
+# Native splash: 512px source; prefer PNG with alpha so the logo sits on [color] only.
 flutter_native_splash:
   color: "#210000"
   color_dark: "#210000"
-  image: icons/production/oxplayer_icon.png
-  image_dark: icons/production/oxplayer_icon.png
+  image: icons/production/oxplayer_icon_512.png
+  image_dark: icons/production/oxplayer_icon_512.png
   android: true
   ios: false
   web: false
+  # API 31+ (Android 12, including TV)
+  android_12:
+    color: "#210000"
+    color_dark: "#210000"
+    image: icons/production/oxplayer_icon_512.png
+    image_dark: icons/production/oxplayer_icon_512.png

@@ -54,7 +54,13 @@ class EnumBox<T> extends StatelessWidget {
                       ),
                       child: currentWidget!,
                     )
-                  : Text(current ?? "", textAlign: TextAlign.start),
+                  : Text(
+                      current ?? "",
+                      textAlign: TextAlign.start,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                    ),
             ),
             const SizedBox(width: 6),
             if (itemList.length > 1)

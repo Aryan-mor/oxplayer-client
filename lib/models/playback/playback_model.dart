@@ -44,12 +44,18 @@ import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_playback_resolver.dart';
+import 'package:fladder/oxplayer/oxplayer_verified_streams_client.dart';
 
 class Media {
   final String url;
 
+  /// Library DB `Media.id` (same as `oxplayer://telegram/{id}` in Jellyfin `MediaSourceInfo.path`).
+  /// Preserved when the client replaces that locator with an HTTP stream URL.
+  final String? libraryMediaFileId;
+
   const Media({
     required this.url,
+    this.libraryMediaFileId,
   });
 }
 
@@ -446,10 +452,12 @@ class PlaybackModelHelper {
           queryParameters: directOptions,
         );
 
+        String? libraryMediaFileId;
         var playUrl = mediaPath ?? playbackUrl;
         if (OxplayerConfig.isEnabled &&
             mediaPath != null &&
             mediaPath.startsWith('oxplayer://telegram/')) {
+          libraryMediaFileId = parseOxplayerTelegramMediaId(mediaPath);
           final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
             oxplayerLocatorUri: mediaPath,
             ref: ref,
@@ -467,7 +475,7 @@ class PlaybackModelHelper {
           chapters: chapters,
           playbackInfo: playbackInfo,
           trickPlay: trickPlay,
-          media: Media(url: playUrl),
+          media: Media(url: playUrl, libraryMediaFileId: libraryMediaFileId),
           mediaStreams: mediaStreamsWithUrls,
           bitRateOptions: qualityOptions,
         );
@@ -612,8 +620,10 @@ class PlaybackModelHelper {
 
       final mediaPath = isValidVideoUrl(mediaSource.path ?? "");
 
+      String? libraryMediaFileId;
       var playUrl = mediaPath ?? directPlay;
       if (OxplayerConfig.isEnabled && mediaPath != null && mediaPath.startsWith('oxplayer://telegram/')) {
+        libraryMediaFileId = parseOxplayerTelegramMediaId(mediaPath);
         final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
           oxplayerLocatorUri: mediaPath,
           ref: ref,
@@ -631,7 +641,7 @@ class PlaybackModelHelper {
         chapters: playbackModel.chapters,
         playbackInfo: playbackInfo,
         trickPlay: playbackModel.trickPlay,
-        media: Media(url: playUrl),
+        media: Media(url: playUrl, libraryMediaFileId: libraryMediaFileId),
         mediaStreams: mediaStreamsWithUrls,
         bitRateOptions: playbackModel.bitRateOptions,
       );

@@ -51,6 +51,12 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
   Stream<PlayerState>? get stateStream => _player?.stateStream;
   PlayerState? get lastState => _player?.lastState;
 
+  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream =>
+      _player?.muxedSubtitleDiscoveryStream;
+
+  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream =>
+      _player?.muxedAudioDiscoveryStream;
+
   Widget? subtitleWidget(bool showOverlay, {GlobalKey? controlsKey}) =>
       _player?.subtitles(showOverlay, controlsKey: controlsKey);
   Widget? videoWidget(Key key, BoxFit fit) => _player?.videoWidget(key, fit);
@@ -97,7 +103,9 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
 
   Future<void> dispose() async {
     _subtitleSettingsSubscription?.close();
-    _player?.dispose();
+    final p = _player;
+    _player = null;
+    await p?.dispose();
   }
 
   Future<void> setup(BasePlayer newPlayer) async {

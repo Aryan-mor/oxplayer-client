@@ -6,6 +6,10 @@ import 'package:flutter/material.dart';
 
 import 'package:fvp/fvp.dart' as fvp;
 import 'package:fvp/mdk.dart';
+
+import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
+import 'package:fladder/util/muxed_audio_from_player.dart';
+import 'package:fladder/util/muxed_subtitle_from_player.dart';
 import 'package:image/image.dart' as img;
 import 'package:video_player/video_player.dart';
 
@@ -23,14 +27,65 @@ class LibMDK extends BasePlayer {
 
   bool externalSubEnabled = false;
 
+  StreamController<List<SubStreamModel>>? _muxedSubtitleTracksController;
+  StreamController<List<AudioStreamModel>>? _muxedAudioTracksController;
+  String _lastMdkMuxedCombinedSig = '';
+
   final StreamController<PlayerState> _stateController = StreamController.broadcast();
 
   @override
   Stream<PlayerState> get stateStream => _stateController.stream;
 
   @override
+  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream =>
+      _muxedSubtitleTracksController?.stream;
+
+  @override
+  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream =>
+      _muxedAudioTracksController?.stream;
+
+  void _ensureMuxedSubtitleController() {
+    _muxedSubtitleTracksController ??= StreamController<List<SubStreamModel>>.broadcast();
+  }
+
+  void _ensureMuxedAudioController() {
+    _muxedAudioTracksController ??= StreamController<List<AudioStreamModel>>.broadcast();
+  }
+
+  void _emitMdkMuxedIfChanged() {
+    _ensureMuxedSubtitleController();
+    _ensureMuxedAudioController();
+    final info = _controller?.getMediaInfo();
+    final rawA = info?.audio?.length;
+    final rawS = info?.subtitle?.length;
+    final audioMuxed = audioStreamsFromMdkAudioInfos(info?.audio);
+    final firstSub = 1 + audioMuxed.length;
+    final subMuxed = subStreamsFromMdkSubtitleInfos(info?.subtitle, firstJellyfinIndex: firstSub);
+
+    final audioSig = audioMuxed.map((e) => e.demuxerTrackId ?? '').join('|');
+    final subSig = subMuxed.map((e) => e.id).join('|');
+    final combined = '$audioSig#$subSig#$firstSub';
+    if (combined == _lastMdkMuxedCombinedSig) return;
+    _lastMdkMuxedCombinedSig = combined;
+
+    oxMuxedStreamsLog(
+      'MDK getMediaInfo: controller=${_controller != null} raw audio=$rawA sub=$rawS '
+      '→ muxed audio=${audioMuxed.length} sub=${subMuxed.length} firstSubJellyIdx=$firstSub',
+    );
+
+    final ac = _muxedAudioTracksController;
+    if (ac != null && !ac.isClosed && audioMuxed.isNotEmpty) {
+      ac.add(audioMuxed);
+    }
+    final sc = _muxedSubtitleTracksController;
+    if (sc != null && !sc.isClosed && subMuxed.isNotEmpty) {
+      sc.add(subMuxed);
+    }
+  }
+
+  @override
   Future<void> init(VideoPlayerSettingsModel settings) async {
-    dispose();
+    await dispose();
 
     final advancedOptions = {
       'ffmpeg.enable.all': '1',
@@ -58,10 +113,17 @@ class LibMDK extends BasePlayer {
         if (settings.enableAdvancedVideoOptions) ...advancedOptions,
       },
     );
+    _ensureMuxedSubtitleController();
+    _ensureMuxedAudioController();
   }
 
   @override
   Future<void> dispose() async {
+    await _muxedSubtitleTracksController?.close();
+    _muxedSubtitleTracksController = null;
+    await _muxedAudioTracksController?.close();
+    _muxedAudioTracksController = null;
+    _lastMdkMuxedCombinedSig = '';
     final oldController = _controller;
     _controller = null;
     oldController?.dispose();
@@ -69,6 +131,7 @@ class LibMDK extends BasePlayer {
 
   @override
   Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero}) async {
+    _lastMdkMuxedCombinedSig = '';
     _controller?.dispose();
 
     final validUrl = isValidUrl(url);
@@ -92,6 +155,7 @@ class LibMDK extends BasePlayer {
       min: const Duration(seconds: 15).inMilliseconds,
       max: const Duration(seconds: 30).inMilliseconds,
     );
+    _emitMdkMuxedIfChanged();
     return setState(lastState.update(
       buffering: true,
     ));
@@ -103,6 +167,7 @@ class LibMDK extends BasePlayer {
   }
 
   void updateState() {
+    _emitMdkMuxedIfChanged();
     setState(lastState.update(
       playing: _controller?.value.isPlaying ?? false,
       completed: _controller?.value.isCompleted ?? false,
@@ -146,7 +211,11 @@ class LibMDK extends BasePlayer {
   @override
   Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async {
     final wantedAudioStream = model ?? playbackModel.defaultAudioStream;
+    final hasAdvertisedAudio = (playbackModel.mediaStreams?.audioStreams ?? []).isNotEmpty;
     if (wantedAudioStream == AudioStreamModel.no() || wantedAudioStream == null) {
+      if (!hasAdvertisedAudio) {
+        return -1;
+      }
       _controller?.setAudioTracks([-1]);
       return -1;
     } else {
@@ -165,6 +234,10 @@ class LibMDK extends BasePlayer {
   Future<int> setSubtitleTrack(SubStreamModel? model, PlaybackModel playbackModel) async {
     final wantedSubtitle = model ?? playbackModel.defaultSubStream;
     if (wantedSubtitle == null || wantedSubtitle == SubStreamModel.no()) {
+      final hasAdvertisedSubs = (playbackModel.mediaStreams?.subStreams ?? []).isNotEmpty;
+      if (!hasAdvertisedSubs) {
+        return -1;
+      }
       externalSubEnabled = false;
       _controller?.setSubtitleTracks([-1]);
       return -1;

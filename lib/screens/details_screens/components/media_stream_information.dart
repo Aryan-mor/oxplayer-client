@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/items/media_streams_model.dart';
+import 'package:fladder/oxplayer/oxplayer_media_source_caption.dart';
 import 'package:fladder/screens/details_screens/components/label_title_item.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/widgets/shared/enum_selection.dart';
@@ -42,11 +43,8 @@ class MediaStreamInformation extends ConsumerWidget {
             current: mediaStream.currentVersionStream?.name ?? "",
             itemBuilder: (context) => mediaStream.versionStreams
                 .map((e) => ItemActionButton(
-                      selected: mediaStream.currentVersionStream == e,
-                      label: textWidget(
-                        context,
-                        label: e.name,
-                      ),
+                      selected: (mediaStream.versionStreamIndex ?? 0) == e.index,
+                      label: oxVersionQualityAndCaptionLabel(context, e),
                       action: () => onVersionIndexChanged?.call(e.index),
                     ))
                 .toList(),
@@ -104,6 +102,8 @@ class MediaStreamInformation extends ConsumerWidget {
   Widget textWidget(BuildContext context, {required String label}) {
     return Text(
       label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),

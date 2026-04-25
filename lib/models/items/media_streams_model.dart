@@ -7,10 +7,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
+import 'package:fladder/oxplayer/oxplayer_media_source_caption.dart';
 import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/video_properties.dart';
+
+/// Hides `unknown` / `und` / `unknown2`-style tokens from audio track labels.
+String _audioLangForJoinedTitle(String language) {
+  final s = language.trim();
+  if (s.isEmpty) return '';
+  final compact = s.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  if (compact == 'und' || compact == 'mis' || compact == 'zxx' || compact == 'un') return '';
+  if (RegExp(r'^unknown\d*$').hasMatch(compact)) return '';
+  return s;
+}
+
+String _audioChannelLayoutForUi(String channelLayout) {
+  final s = channelLayout.trim();
+  if (s.isEmpty) return '';
+  final compact = s.replaceAll(RegExp(r'\s+'), '');
+  if (RegExp(r'^unknown\d*$', caseSensitive: false).hasMatch(compact)) return '';
+  return s;
+}
 
 class MediaStreamsModel {
   final int? versionStreamIndex;
@@ -112,8 +131,12 @@ class MediaStreamsModel {
             ?.mapIndexed(
               (index, element) {
                 final streams = element.mediaStreams ?? [];
+                final nameParts = parseOxMediaSourceNameParts(element.name);
+                final qualityLabel =
+                    nameParts.qualityLabel.isNotEmpty ? nameParts.qualityLabel : (element.name ?? "");
                 return VersionStreamModel(
-                    name: element.name ?? "",
+                    name: qualityLabel,
+                    oxTelegramCaption: nameParts.telegramCaption,
                     index: index,
                     id: element.id,
                     defaultAudioStreamIndex: element.defaultAudioStreamIndex,
@@ -211,6 +234,8 @@ class AudioAndSubStreamModel extends StreamModel {
 
 class VersionStreamModel {
   final String name;
+  /// Telegram message caption for this upload (from API `MediaSourceInfo.Name` suffix).
+  final String? oxTelegramCaption;
   final int index;
   final String? id;
   final int? defaultAudioStreamIndex;
@@ -229,6 +254,7 @@ class VersionStreamModel {
 
   VersionStreamModel({
     required this.name,
+    this.oxTelegramCaption,
     required this.index,
     this.id,
     required this.defaultAudioStreamIndex,
@@ -295,6 +321,9 @@ extension SortByExternalExtension<T extends StreamModel> on Iterable<T> {
 class AudioStreamModel extends AudioAndSubStreamModel {
   final String channelLayout;
 
+  /// When set, matches the demuxer/player track id (e.g. libmpv [AudioTrack.id]) for selection.
+  final String? demuxerTrackId;
+
   AudioStreamModel({
     required super.displayTitle,
     required super.name,
@@ -304,6 +333,7 @@ class AudioStreamModel extends AudioAndSubStreamModel {
     required super.index,
     required super.language,
     required this.channelLayout,
+    this.demuxerTrackId,
   });
 
   factory AudioStreamModel.fromMediaStream(dto.MediaStream stream) {
@@ -316,6 +346,7 @@ class AudioStreamModel extends AudioAndSubStreamModel {
       channelLayout: stream.channelLayout ?? "",
       isExternal: stream.isExternal ?? false,
       index: stream.index ?? -1,
+      demuxerTrackId: null,
     );
   }
 
@@ -327,11 +358,16 @@ class AudioStreamModel extends AudioAndSubStreamModel {
     }
   }
 
-  String get title =>
-      [name, language, codec, channelLayout].nonNulls.where((element) => element.isNotEmpty).join(' - ');
+  String get title {
+    final lang = _audioLangForJoinedTitle(language);
+    final ch = _audioChannelLayoutForUi(channelLayout);
+    return [name, lang, codec, ch].nonNulls.where((element) => element.isNotEmpty).join(' - ');
+  }
 
   String get shortTitle {
-    final parts = [language, channelLayout].nonNulls.where((element) => element.isNotEmpty).toList();
+    final lang = _audioLangForJoinedTitle(language);
+    final ch = _audioChannelLayoutForUi(channelLayout);
+    final parts = [lang, ch].nonNulls.where((element) => element.isNotEmpty).toList();
     if (parts.isEmpty) {
       return displayTitle;
     } else {
@@ -348,7 +384,32 @@ class AudioStreamModel extends AudioAndSubStreamModel {
     super.isDefault = false,
     super.isExternal = false,
     super.index = -1,
+    this.demuxerTrackId = null,
   });
+
+  AudioStreamModel copyWith({
+    String? name,
+    String? displayTitle,
+    String? language,
+    String? codec,
+    bool? isDefault,
+    bool? isExternal,
+    int? index,
+    String? channelLayout,
+    String? demuxerTrackId,
+  }) {
+    return AudioStreamModel(
+      name: name ?? this.name,
+      displayTitle: displayTitle ?? this.displayTitle,
+      language: language ?? this.language,
+      codec: codec ?? this.codec,
+      isDefault: isDefault ?? this.isDefault,
+      isExternal: isExternal ?? this.isExternal,
+      index: index ?? this.index,
+      channelLayout: channelLayout ?? this.channelLayout,
+      demuxerTrackId: demuxerTrackId ?? this.demuxerTrackId,
+    );
+  }
 }
 
 class SubStreamModel extends AudioAndSubStreamModel {

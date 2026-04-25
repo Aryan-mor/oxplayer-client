@@ -16,6 +16,9 @@ import 'package:fladder/models/settings/subtitle_settings_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
 import 'package:fladder/providers/settings/subtitle_settings_provider.dart';
 import 'package:fladder/screens/video_player/video_player.dart' as video_screen;
+import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
+import 'package:fladder/util/muxed_audio_from_player.dart';
+import 'package:fladder/util/muxed_subtitle_from_player.dart';
 import 'package:fladder/util/subtitle_position_calculator.dart';
 import 'package:fladder/wrappers/players/base_player.dart';
 import 'package:fladder/wrappers/players/player_states.dart';
@@ -37,9 +40,51 @@ class LibMPV extends BasePlayer {
   final Duration _currentRetryDuration = const Duration(seconds: 5);
   Completer<void>? _loadCompleter;
 
+  StreamController<List<SubStreamModel>>? _muxedSubtitleTracksController;
+  StreamController<List<AudioStreamModel>>? _muxedAudioTracksController;
+  StreamSubscription<mpv.Tracks>? _muxedTracksSubscription;
+
+  @override
+  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream =>
+      _muxedSubtitleTracksController?.stream;
+
+  @override
+  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream =>
+      _muxedAudioTracksController?.stream;
+
+  void _emitMuxedTracks(mpv.Tracks tracks) {
+    final audioMuxed = audioStreamsFromMpvMuxedTracks(tracks.audio);
+    // Align with Jellyfin indices: video=0, muxed audio starts at 1 (no fake server audio row).
+    final firstSubIdx = 1 + audioMuxed.length;
+    final subMuxed = subStreamsFromMpvMuxedTracks(tracks.subtitle, firstJellyfinIndex: firstSubIdx);
+
+    oxMuxedStreamsLog(
+      'MPV tracks: raw audio=${tracks.audio.length} sub=${tracks.subtitle.length} '
+      '→ muxed audio=${audioMuxed.length} sub=${subMuxed.length} firstSubJellyIdx=$firstSubIdx',
+    );
+    if (tracks.subtitle.isNotEmpty && subMuxed.isEmpty) {
+      for (var i = 0; i < tracks.subtitle.length && i < 6; i++) {
+        final t = tracks.subtitle[i];
+        oxMuxedStreamsLog(
+          'MPV sub[$i] id=${t.id} uri=${t.uri} data=${t.data} codec=${t.codec} lang=${t.language}',
+        );
+      }
+    }
+
+    final ac = _muxedAudioTracksController;
+    if (ac != null && !ac.isClosed && audioMuxed.isNotEmpty) {
+      ac.add(audioMuxed);
+    }
+
+    final sc = _muxedSubtitleTracksController;
+    if (sc != null && !sc.isClosed && subMuxed.isNotEmpty) {
+      sc.add(subMuxed);
+    }
+  }
+
   @override
   Future<void> init(VideoPlayerSettingsModel settings) async {
-    dispose();
+    await dispose();
 
     mpv.MediaKit.ensureInitialized();
 
@@ -67,6 +112,11 @@ class LibMPV extends BasePlayer {
       _player!.stream.volume.listen((value) => setState(lastState.update(volume: value)));
       _player!.stream.rate.listen((value) => setState(lastState.update(rate: value)));
       _player!.stream.buffer.listen((value) => setState(lastState.update(buffer: value)));
+
+      _muxedSubtitleTracksController = StreamController<List<SubStreamModel>>.broadcast();
+      _muxedAudioTracksController = StreamController<List<AudioStreamModel>>.broadcast();
+      _muxedTracksSubscription = _player!.stream.tracks.listen(_emitMuxedTracks);
+      _emitMuxedTracks(_player!.state.tracks);
     }
 
     if (_player?.platform is mpv.NativePlayer) {
@@ -79,6 +129,12 @@ class LibMPV extends BasePlayer {
 
   @override
   Future<void> dispose() async {
+    await _muxedTracksSubscription?.cancel();
+    _muxedTracksSubscription = null;
+    await _muxedSubtitleTracksController?.close();
+    _muxedSubtitleTracksController = null;
+    await _muxedAudioTracksController?.close();
+    _muxedAudioTracksController = null;
     _onCompleted?.cancel();
     _onCompleted = null;
     _player?.stop();
@@ -199,9 +255,21 @@ class LibMPV extends BasePlayer {
   Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async {
     final wantedAudioStream = model ?? playbackModel.defaultAudioStream;
     if (wantedAudioStream == null) return -1;
+    final hasAdvertisedAudio = (playbackModel.mediaStreams?.audioStreams ?? []).isNotEmpty;
     if (wantedAudioStream.index == AudioStreamModel.no().index) {
+      if (!hasAdvertisedAudio) {
+        return -1;
+      }
       await _player?.setAudioTrack(mpv.AudioTrack.no());
     } else {
+      final id = wantedAudioStream.demuxerTrackId;
+      if (id != null && id.isNotEmpty) {
+        final match = audioTracks.firstWhereOrNull((t) => t.id == id && !t.uri);
+        if (match != null) {
+          await _player?.setAudioTrack(match);
+          return wantedAudioStream.index;
+        }
+      }
       final internalTracks = audioTracks.getRange(2, audioTracks.length).toList();
       final audioTrack =
           internalTracks.elementAtOrNull((playbackModel.audioStreams?.indexOf(wantedAudioStream) ?? -1) - 1);
@@ -220,16 +288,29 @@ class LibMPV extends BasePlayer {
     if (_player == null) return -1;
     final wantedSubtitle = model ?? playbackModel.defaultSubStream;
     if (wantedSubtitle == null || wantedSubtitle.index == SubStreamModel.no().index) {
+      final hasAdvertisedSubs = (playbackModel.mediaStreams?.subStreams ?? []).isNotEmpty;
+      if (!hasAdvertisedSubs) {
+        return -1;
+      }
       await _player?.setSubtitleTrack(mpv.SubtitleTrack.no());
       return -1;
     }
     _currentSubtitleCodec = wantedSubtitle.codec;
+    if (wantedSubtitle.isExternal && wantedSubtitle.url != null) {
+      await _player?.setSubtitleTrack(mpv.SubtitleTrack.uri(wantedSubtitle.url!));
+      return wantedSubtitle.index;
+    }
+    final match = subTracks.firstWhereOrNull(
+      (t) => t.id == wantedSubtitle.id && !t.uri,
+    );
+    if (match != null) {
+      await _player?.setSubtitleTrack(match);
+      return wantedSubtitle.index;
+    }
     final internalTrack = subTracks.getRange(2, subTracks.length).toList();
     final index = playbackModel.subStreams?.sublist(1).indexWhere((element) => element.id == wantedSubtitle.id);
     final subTrack = internalTrack.elementAtOrNull(index ?? -1);
-    if (wantedSubtitle.isExternal && wantedSubtitle.url != null && subTrack == null) {
-      await _player?.setSubtitleTrack(mpv.SubtitleTrack.uri(wantedSubtitle.url!));
-    } else if (subTrack != null) {
+    if (subTrack != null) {
       await _player?.setSubtitleTrack(subTrack);
     }
     return wantedSubtitle.index;

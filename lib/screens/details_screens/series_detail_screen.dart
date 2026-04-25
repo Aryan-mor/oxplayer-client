@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/providers/items/series_details_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -218,7 +219,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           );
                           ref.read(providerId.notifier).fetchDetails(widget.item);
                         },
-                        episodes: details.availableEpisodes ?? [],
+                        episodes: dedupeOxEpisodesForPosters(
+                          details.availableEpisodes ?? [],
+                          preferEpisodeId: currentEpisode?.id,
+                        ),
                       );
                     }),
                   if (details.seasons?.isNotEmpty ?? false)

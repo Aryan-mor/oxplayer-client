@@ -6,6 +6,7 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:intl/intl.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/items/episode_details_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/screens/details_screens/components/media_stream_information.dart';
@@ -71,8 +72,15 @@ class _ItemDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
       ),
       onRefresh: () async => await ref.read(providerInstance.notifier).fetchDetails(widget.item),
       backDrops: details.episode?.images ?? details.series?.images,
-      content: (detailsContext, padding) => seasonDetails != null && episodeDetails != null
-          ? Padding(
+      content: (detailsContext, padding) {
+        if (seasonDetails == null || episodeDetails == null) {
+          return Container();
+        }
+        final sameSeasonDeduped = dedupeOxEpisodesForPosters(
+          details.episodes.where((element) => element.season == episodeDetails.season).toList(),
+          preferEpisodeId: episodeDetails.id,
+        );
+        return Padding(
               padding: const EdgeInsets.only(bottom: 64),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.start,
@@ -195,7 +203,7 @@ class _ItemDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                       people: actors.guestActors,
                       contentPadding: padding,
                     ),
-                  if (details.episodes.length > 1)
+                  if (sameSeasonDeduped.length > 1)
                     EpisodePosters(
                       contentPadding: padding,
                       label: detailsContext.localized
@@ -212,7 +220,7 @@ class _ItemDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                         detailsContext,
                         ref,
                       ),
-                      episodes: details.episodes.where((element) => element.season == episodeDetails.season).toList(),
+                      episodes: sameSeasonDeduped,
                     ),
                   if (details.series?.overview.externalUrls?.isNotEmpty == true)
                     Padding(
@@ -223,8 +231,8 @@ class _ItemDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                     )
                 ].addPadding(const EdgeInsets.symmetric(vertical: 16)),
               ),
-            )
-          : Container(),
+            );
+      },
     );
   }
 }

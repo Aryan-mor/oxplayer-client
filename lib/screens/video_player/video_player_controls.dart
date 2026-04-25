@@ -367,6 +367,7 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                                     }))?.capitalize() ??
                                     "",
                                 maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
@@ -381,6 +382,7 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                                     }))?.capitalize() ??
                                     "",
                                 maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           )

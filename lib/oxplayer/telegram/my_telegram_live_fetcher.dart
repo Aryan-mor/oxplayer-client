@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:tdlib/td_api.dart' as td;
 import 'package:flutter/foundation.dart';
 
@@ -10,6 +12,21 @@ void _mtLiveLog(String m) {
   if (_kMyTelegramLiveFetcherVerboseLog) {
     debugPrint('[MyTelegram live-fetch] $m');
   }
+}
+
+const Duration _kSearchChatMessagesTimeout = Duration(seconds: 55);
+
+Future<T> _tdSendWithTimeout<T>(
+  Future<T> future, {
+  required String label,
+}) {
+  return future.timeout(
+    _kSearchChatMessagesTimeout,
+    onTimeout: () {
+      _mtLiveLog('TIMEOUT ($label) after ${_kSearchChatMessagesTimeout.inSeconds}s — using fallback/empty for this step');
+      throw TimeoutException('TDLib $label');
+    },
+  );
 }
 
 /// [searchChatMessages] with an arbitrary [SearchMessagesFilter] (JSON shape for [offset]).
@@ -391,15 +408,24 @@ final class MyTelegramLiveMediaFetcher {
     var reachedStart = false;
 
     for (var i = 0; i < _historyFallbackMaxPages; i++) {
-      final hist = await _td.send(
-        td.GetChatHistory(
-          chatId: chatId,
-          fromMessageId: fromMessageId,
-          offset: 0,
-          limit: _historyFallbackLimit,
-          onlyLocal: false,
-        ),
-      );
+      final td.TdObject hist;
+      try {
+        hist = await _tdSendWithTimeout(
+          _td.send(
+            td.GetChatHistory(
+              chatId: chatId,
+              fromMessageId: fromMessageId,
+              offset: 0,
+              limit: _historyFallbackLimit,
+              onlyLocal: false,
+            ),
+          ),
+          label: 'GetChatHistory(fallback p=${i + 1})',
+        );
+      } on TimeoutException {
+        _mtLiveLog('history-fallback page=${i + 1} TIMEOUT; returning partial');
+        break;
+      }
       final msgs = hist is td.Messages ? hist.messages : const <td.Message>[];
       _mtLiveLog(
         'history-fallback page=${i + 1} from=$fromMessageId got=${msgs.length} forum=$isForum thread=$effectiveThreadId',
@@ -498,13 +524,29 @@ final class MyTelegramLiveMediaFetcher {
     final searchAnchor =
         (continueFromMessageId ?? 0) > 0 ? (continueFromMessageId ?? 0) : 0;
 
-    final rawVideo = await _sendSearchFiltered(
-      chatId: chatId,
-      filter: const td.SearchMessagesFilterVideo(),
-      effectiveThreadId: effectiveThreadId,
-      omitMessageThreadId: omit,
-      continueFromMessageId: searchAnchor > 0 ? searchAnchor : null,
-    );
+    final fromForSearch = searchAnchor > 0 ? searchAnchor : null;
+    _mtLiveLog('search video+doc steps anchor=$searchAnchor (fromId=${fromForSearch ?? 0})');
+    final td.TdObject rawVideo;
+    try {
+      rawVideo = await _tdSendWithTimeout(
+        _sendSearchFiltered(
+          chatId: chatId,
+          filter: const td.SearchMessagesFilterVideo(),
+          effectiveThreadId: effectiveThreadId,
+          omitMessageThreadId: omit,
+          continueFromMessageId: fromForSearch,
+        ),
+        label: 'searchChatMessages(Video)',
+      );
+    } on TimeoutException {
+      _mtLiveLog('search Video failed — history fallback for anchor=$searchAnchor');
+      return _fallbackFromHistory(
+        chatId: chatId,
+        effectiveThreadId: effectiveThreadId,
+        isForum: isForum,
+        searchAnchor: searchAnchor,
+      );
+    }
     var videoMsgs = _tdMessagesFromSearchResult(rawVideo);
     if (isForum && effectiveThreadId > 0) {
       videoMsgs = _filterTdMessagesForForumTopic(videoMsgs, topicId: effectiveThreadId, isForum: isForum);
@@ -512,18 +554,26 @@ final class MyTelegramLiveMediaFetcher {
 
     var docMsgs = const <td.Message>[];
     if (videoMsgs.length < _tdLimit) {
-      final rawDoc = await _sendSearchFiltered(
-        chatId: chatId,
-        filter: const td.SearchMessagesFilterDocument(),
-        effectiveThreadId: effectiveThreadId,
-        omitMessageThreadId: omit,
-        continueFromMessageId: searchAnchor > 0 ? searchAnchor : null,
-      );
-      var dm = _tdMessagesFromSearchResult(rawDoc);
-      if (isForum && effectiveThreadId > 0) {
-        dm = _filterTdMessagesForForumTopic(dm, topicId: effectiveThreadId, isForum: isForum);
+      try {
+        final rawDoc = await _tdSendWithTimeout(
+          _sendSearchFiltered(
+            chatId: chatId,
+            filter: const td.SearchMessagesFilterDocument(),
+            effectiveThreadId: effectiveThreadId,
+            omitMessageThreadId: omit,
+            continueFromMessageId: fromForSearch,
+          ),
+          label: 'searchChatMessages(Document)',
+        );
+        var dm = _tdMessagesFromSearchResult(rawDoc);
+        if (isForum && effectiveThreadId > 0) {
+          dm = _filterTdMessagesForForumTopic(dm, topicId: effectiveThreadId, isForum: isForum);
+        }
+        docMsgs = dm;
+      } on TimeoutException {
+        _mtLiveLog('search Document timed out; using video search results only');
+        docMsgs = const [];
       }
-      docMsgs = dm;
     }
 
     final videoRows = _rowsFromLiveVideoMessages(videoMsgs, chatId);

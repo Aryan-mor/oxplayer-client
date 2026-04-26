@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/oxplayer/my_telegram/my_telegram_index_refresh.dart';
+import 'package:fladder/oxplayer/my_telegram/my_telegram_live_cache.dart';
+import 'package:fladder/oxplayer/my_telegram/my_telegram_merge_media_rows.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_ui_widgets.dart';
 import 'package:fladder/oxplayer/telegram/my_telegram_live_fetcher.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
@@ -47,8 +49,11 @@ class MyTelegramChatMediaScreen extends ConsumerStatefulWidget {
 }
 
 class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+    with TickerProviderStateMixin {
+  TabController? _tabController;
+  var _bootstrapDone = false;
+  /// `true` only if we have at least one indexed OX [File] for this key (or thread), so we show a tab.
+  var _hasIndexedFileRows = false;
   final _indexedItems = <OxChatMediaRow>[];
   final _liveItems = <OxChatMediaRow>[];
   int? _nextLive;
@@ -61,57 +66,332 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
   bool _liveInFlight = false;
   String? _error;
 
+  int get _mtThreadKey => widget.messageThreadId;
+
   @override
   void initState() {
     super.initState();
-    final showIndexed = widget.libraryIndexed;
-    _tabController = TabController(
-      length: showIndexed ? 2 : 1,
-      vsync: this,
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _mtMediaLog('(1) init chatId=${widget.tdlibChatId} indexed=${widget.libraryIndexed} thread=${widget.messageThreadId}');
-      if (showIndexed) {
-        _loadIndexed();
-      } else {
-        setState(() => _loadingIndexed = false);
-      }
-      _loadLive();
+      unawaited(_bootstrap());
     });
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    if (!widget.libraryIndexed) {
+      _tabController = TabController(length: 1, vsync: this);
+      _hasIndexedFileRows = false;
+      if (mounted) {
+        setState(() => _bootstrapDone = true);
+      }
+      await _restoreLiveCache();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loadingLive = _liveItems.isEmpty;
+        _loadingIndexed = false;
+      });
+      if (_liveItems.isNotEmpty) {
+        unawaited(_refreshHeadMerge());
+      } else {
+        unawaited(_fetchLiveFromNetwork(isAppend: false));
+      }
+      return;
+    }
+    // Chat marked indexed: probe for actual File rows (may be 0 in this thread or global)
+    setState(() {
+      _loadingIndexed = true;
+      _loadingLive = true;
+    });
+    final api = ref.read(oxplayerUserChatsClientProvider);
+    if (api == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = 'Not signed in';
+        _loadingIndexed = false;
+        _loadingLive = false;
+        _hasIndexedFileRows = false;
+        _tabController = TabController(length: 1, vsync: this);
+        _bootstrapDone = true;
+      });
+      return;
+    }
+    try {
+      final probe = await api
+          .fetchIndexedChatMedia(
+            tdlibChatId: widget.tdlibChatId,
+            messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
+            limit: 1,
+            offset: 0,
+          )
+          .timeout(
+            const Duration(seconds: 25),
+            onTimeout: () => const OxChatMediaPage(items: [], total: 0, hasMoreHistory: false),
+          );
+      if (!mounted) {
+        return;
+      }
+      final has = probe.items.isNotEmpty || probe.total > 0;
+      _hasIndexedFileRows = has;
+      if (has) {
+        _tabController = TabController(length: 2, initialIndex: 1, vsync: this);
+      } else {
+        _tabController = TabController(length: 1, vsync: this);
+      }
+      setState(() {
+        _bootstrapDone = true;
+        _loadingIndexed = has;
+      });
+      if (has) {
+        unawaited(_loadIndexed());
+      } else {
+        setState(() => _loadingIndexed = false);
+      }
+      await _restoreLiveCache();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loadingLive = _liveItems.isEmpty;
+      });
+      if (_liveItems.isNotEmpty) {
+        unawaited(_refreshHeadMerge());
+      } else {
+        unawaited(_fetchLiveFromNetwork(isAppend: false));
+      }
+    } catch (e) {
+      _mtMediaLog('bootstrap error: $e');
+      if (!mounted) {
+        return;
+      }
+      _tabController = TabController(length: 1, vsync: this);
+      setState(() {
+        _error = '$_error\n$e';
+        _bootstrapDone = true;
+        _hasIndexedFileRows = false;
+        _loadingIndexed = false;
+        _loadingLive = false;
+      });
+    }
+  }
+
+  /// Restore Live tab from disk (instant); head merge runs separately.
+  Future<void> _restoreLiveCache() async {
+    if (kIsWeb) {
+      return;
+    }
+    final c = await MyTelegramLiveCache.load(widget.tdlibChatId, _mtThreadKey);
+    if (!mounted || c.items.isEmpty) {
+      return;
+    }
+    setState(() {
+      _liveItems
+        ..clear()
+        ..addAll(c.items);
+      _nextLive = c.nextId;
+    });
+  }
+
+  Future<void> _persistLiveCache() async {
+    if (kIsWeb || _liveItems.isEmpty) {
+      return;
+    }
+    await MyTelegramLiveCache.save(
+      widget.tdlibChatId,
+      _mtThreadKey,
+      items: _liveItems,
+      nextLive: _nextLive,
+    );
+  }
+
+  /// Fresh first page, merged on top of existing cache / list (keeps [load more] cursor when set).
+  Future<void> _refreshHeadMerge() async {
+    if (_liveInFlight || kIsWeb || !OxplayerConfig.isEnabled) {
+      return;
+    }
+    final beforeNext = _nextLive;
+    _mtMediaLog('(3h) _refreshHeadMerge start next=$beforeNext items=${_liveItems.length}');
+    _liveInFlight = true;
+    try {
+      await OxplayerTelegramTdSession().initClient();
+      await OxplayerTelegramTdSession().td.ensureAuthorized();
+      final fetcher = MyTelegramLiveMediaFetcher(OxplayerTelegramTdSession().td);
+      final page = await fetcher.fetchPage(
+        tdlibChatId: widget.tdlibChatId,
+        messageThreadId: widget.messageThreadId,
+        continueFromMessageId: null,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (page.items.isEmpty) {
+        setState(() {
+          _loadingLive = false;
+        });
+        return;
+      }
+      final was = List<OxChatMediaRow>.from(_liveItems);
+      setState(() {
+        _liveItems
+          ..clear()
+          ..addAll(mergeOxChatMediaRowsByMessageIdPreferNewerList(page.items, was));
+        if (beforeNext != null) {
+          _nextLive = beforeNext;
+        } else {
+          _nextLive = page.nextHistoryFromMessageId;
+        }
+        _hasMoreLive = _hasMoreLive || page.hasMoreHistory;
+        _loadingLive = false;
+      });
+      await _persistLiveCache();
+      _mtMediaLog('(3h) _refreshHeadMerge done merged=${_liveItems.length} next=$_nextLive');
+    } catch (e) {
+      _mtMediaLog('(3h) _refreshHeadMerge ERROR: $e');
+      if (mounted) {
+        setState(() {
+          _loadingLive = false;
+        });
+      }
+    } finally {
+      _liveInFlight = false;
+    }
+  }
+
+  /// [isAppend] true: append using [_nextLive] as cursor. [isAppend] false: replace with first page.
+  Future<void> _fetchLiveFromNetwork({
+    required bool isAppend,
+  }) async {
+    if (_liveInFlight) {
+      _mtMediaLog('(3) skip _fetch (in flight)');
+      return;
+    }
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() {
+          _loadingLive = false;
+          _hasMoreLive = false;
+        });
+      }
+      return;
+    }
+    if (!OxplayerConfig.isEnabled) {
+      if (mounted) {
+        setState(() {
+          _loadingLive = false;
+        });
+      }
+      return;
+    }
+    _liveInFlight = true;
+    _mtMediaLog('(3) _fetch fromMessageId=${isAppend ? _nextLive : 'null( head )'}');
+    if (mounted) {
+      setState(() => _loadingLive = true);
+    }
+    try {
+      await OxplayerTelegramTdSession().initClient();
+      await OxplayerTelegramTdSession().td.ensureAuthorized();
+      final fetcher = MyTelegramLiveMediaFetcher(OxplayerTelegramTdSession().td);
+      final page = await fetcher.fetchPage(
+        tdlibChatId: widget.tdlibChatId,
+        messageThreadId: widget.messageThreadId,
+        continueFromMessageId: isAppend ? _nextLive : null,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        if (isAppend) {
+          _liveItems.addAll(page.items);
+        } else {
+          _liveItems
+            ..clear()
+            ..addAll(page.items);
+        }
+        _nextLive = page.nextHistoryFromMessageId;
+        _hasMoreLive = page.hasMoreHistory;
+        _loadingLive = false;
+      });
+      unawaited(_persistLiveCache());
+      _mtMediaLog('(3) _fetch done +items=${page.items.length} next=$_nextLive hasMore=$_hasMoreLive');
+    } catch (e) {
+      _mtMediaLog('(3) _fetch ERROR: $e');
+      if (mounted) {
+        setState(() {
+          _loadingLive = false;
+          _error = '$_error\n$e';
+        });
+      }
+    } finally {
+      _liveInFlight = false;
+    }
+  }
+
+  Future<void> _loadMoreLive() async {
+    if (_nextLive == null) {
+      return;
+    }
+    await _fetchLiveFromNetwork(isAppend: true);
+  }
+
+  /// Full reload (pull): reset live tail + re-fetch head, indexed reset.
+  Future<void> _pullFullRefresh() async {
+    setState(() {
+      _offIndexed = 0;
+      _nextLive = null;
+    });
+    if (_hasIndexedFileRows) {
+      setState(() {
+        _indexedItems.clear();
+        _offIndexed = 0;
+      });
+      await _loadIndexed();
+    } else {
+      setState(() => _loadingIndexed = false);
+    }
+    setState(() {
+      _liveItems.clear();
+      _nextLive = null;
+    });
+    await _fetchLiveFromNetwork(isAppend: false);
   }
 
   Future<void> _loadIndexed() async {
     if (_indexedInFlight) {
-      _mtMediaLog('(2) skip _loadIndexed (already in-flight)');
       return;
     }
     _indexedInFlight = true;
     final api = ref.read(oxplayerUserChatsClientProvider);
     if (api == null) {
-      _mtMediaLog('(2) _loadIndexed: api client is null');
-      setState(() {
-        _loadingIndexed = false;
-        _error = 'Not signed in';
-      });
+      if (mounted) {
+        setState(() {
+          _loadingIndexed = false;
+          _error = 'Not signed in';
+        });
+      }
       _indexedInFlight = false;
       return;
     }
-    _mtMediaLog('(2) _loadIndexed start offset=$_offIndexed');
-    setState(() => _loadingIndexed = true);
+    if (mounted) {
+      setState(() => _loadingIndexed = true);
+    }
     try {
       final page = await api.fetchIndexedChatMedia(
         tdlibChatId: widget.tdlibChatId,
-        messageThreadId: widget.messageThreadId == 0 ? null : widget.messageThreadId,
+        messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
         limit: 40,
         offset: _offIndexed,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         if (_offIndexed == 0) {
           _indexedItems
@@ -124,9 +404,7 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
         _offIndexed += page.items.length;
         _loadingIndexed = false;
       });
-      _mtMediaLog('(2) _loadIndexed done items=${page.items.length} nextOffset=$_offIndexed hasMore=$_hasMoreIndexed');
     } catch (e) {
-      _mtMediaLog('(2) _loadIndexed ERROR: $e');
       if (mounted) {
         setState(() {
           _loadingIndexed = false;
@@ -138,62 +416,58 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
     }
   }
 
-  Future<void> _loadLive() async {
-    if (_liveInFlight) {
-      _mtMediaLog('(3) skip _loadLive (already in-flight)');
+  Future<void> _onIngestBumped() async {
+    if (!widget.libraryIndexed) {
       return;
     }
-    _liveInFlight = true;
-    if (kIsWeb) {
-      _mtMediaLog('(3) _loadLive web — disabled');
-      setState(() {
-        _loadingLive = false;
-        _hasMoreLive = false;
-      });
-      _liveInFlight = false;
+    final api = ref.read(oxplayerUserChatsClientProvider);
+    if (api == null) {
       return;
     }
-    if (!OxplayerConfig.isEnabled) {
-      _mtMediaLog('(3) _loadLive ox disabled');
-      setState(() => _loadingLive = false);
-      _liveInFlight = false;
-      return;
-    }
-    _mtMediaLog('(3) _loadLive start fromMessageId=$_nextLive');
-    setState(() => _loadingLive = true);
-    try {
-      await OxplayerTelegramTdSession().initClient();
-      await OxplayerTelegramTdSession().td.ensureAuthorized();
-      final fetcher = MyTelegramLiveMediaFetcher(OxplayerTelegramTdSession().td);
-      final page = await fetcher.fetchPage(
-        tdlibChatId: widget.tdlibChatId,
-        messageThreadId: widget.messageThreadId,
-        continueFromMessageId: _nextLive,
-      );
-      if (!mounted) return;
-      setState(() {
-        if (_nextLive == null) {
-          _liveItems
-            ..clear()
-            ..addAll(page.items);
-        } else {
-          _liveItems.addAll(page.items);
-        }
-        _nextLive = page.nextHistoryFromMessageId;
-        _hasMoreLive = page.hasMoreHistory;
-        _loadingLive = false;
-      });
-      _mtMediaLog('(3) _loadLive done items=${page.items.length} next=$_nextLive hasMore=$_hasMoreLive');
-    } catch (e) {
-      _mtMediaLog('(3) _loadLive ERROR: $e');
+    if (_hasIndexedFileRows) {
       if (mounted) {
         setState(() {
-          _loadingLive = false;
-          _error = '$_error\n$e';
+          _offIndexed = 0;
+          _indexedItems.clear();
         });
+        await _loadIndexed();
       }
-    } finally {
-      _liveInFlight = false;
+      return;
+    }
+    // Was single-tab: first ingest; upgrade to two tabs if the server has rows
+    try {
+      final p = await api.fetchIndexedChatMedia(
+        tdlibChatId: widget.tdlibChatId,
+        messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
+        limit: 1,
+        offset: 0,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (p.items.isEmpty && p.total == 0) {
+        return;
+      }
+      // [SingleTickerProvider] only allows one [TabController] per State. We use
+      // [TickerProviderStateMixin] and replace the controller after the current frame
+      // so [TabBar]/[TabBarView] are not mid-build when the old controller is disposed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final old = _tabController;
+        setState(() {
+          _hasIndexedFileRows = true;
+          _tabController = TabController(length: 2, initialIndex: 1, vsync: this);
+          _offIndexed = 0;
+          _indexedItems.clear();
+          _loadingIndexed = true;
+        });
+        old?.dispose();
+        unawaited(_loadIndexed());
+      });
+    } catch (e, st) {
+      _mtMediaLog('onIngestBumped: $e\n$st');
     }
   }
 
@@ -219,22 +493,30 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(myTelegramIndexedIngestBumpedProvider, (prev, next) {
-      if (widget.libraryIndexed) {
-        setState(() {
-          _offIndexed = 0;
-          _indexedItems.clear();
-        });
-        unawaited(_loadIndexed());
-      }
+      unawaited(_onIngestBumped());
     });
     final l = context.localized;
-    final showIndexed = widget.libraryIndexed;
+    if (!_bootstrapDone) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.chatTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final hasDual = _hasIndexedFileRows;
+    final tab = _tabController;
+    if (hasDual && tab == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.chatTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.chatTitle),
-        bottom: showIndexed
+        bottom: hasDual
             ? TabBar(
-                controller: _tabController,
+                key: const ValueKey<String>('mt_media_dual_tabs'),
+                controller: tab,
                 tabs: [
                   Tab(text: l.myTelegramIndexed),
                   Tab(text: l.myTelegramLive),
@@ -242,11 +524,12 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
               )
             : null,
       ),
-      body: _error != null
+      body: _error != null && _liveItems.isEmpty && _indexedItems.isEmpty
           ? Center(child: Text(_error!))
-          : showIndexed
+          : hasDual
               ? TabBarView(
-                  controller: _tabController,
+                  key: const ValueKey<String>('mt_media_dual_view'),
+                  controller: tab,
                   children: [
                     _buildMediaGrid(
                       items: _indexedItems,
@@ -258,7 +541,7 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
                       items: _liveItems,
                       loading: _loadingLive,
                       hasMore: _hasMoreLive,
-                      onLoadMore: _loadLive,
+                      onLoadMore: _loadMoreLive,
                     ),
                   ],
                 )
@@ -266,7 +549,7 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
                   items: _liveItems,
                   loading: _loadingLive,
                   hasMore: _hasMoreLive,
-                  onLoadMore: _loadLive,
+                  onLoadMore: _loadMoreLive,
                 ),
     );
   }
@@ -295,26 +578,7 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
     final cross = myTelegramPosterGridCrossAxisCount(context, ref);
     final ar = myTelegramVideoGridChildAspectRatio(context, ref);
     return PullToRefresh(
-      onRefresh: () async {
-        _mtMediaLog('(4) pull-to-refresh start');
-        setState(() {
-          _offIndexed = 0;
-          _nextLive = null;
-        });
-        if (widget.libraryIndexed) {
-          setState(() {
-            _indexedItems.clear();
-            _offIndexed = 0;
-          });
-          await _loadIndexed();
-        }
-        setState(() {
-          _liveItems.clear();
-          _nextLive = null;
-        });
-        await _loadLive();
-        _mtMediaLog('(4) pull-to-refresh done');
-      },
+      onRefresh: _pullFullRefresh,
       refreshOnStart: false,
       child: (ctx) {
         return CustomScrollView(

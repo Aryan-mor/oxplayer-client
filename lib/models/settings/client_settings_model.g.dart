@@ -64,6 +64,11 @@ _ClientSettingsModel _$ClientSettingsModelFromJson(Map<String, dynamic> json) =>
                 KeyCombination.fromJson(e as Map<String, dynamic>)),
           ) ??
           const {},
+      myTelegramVisibleBuckets:
+          (json['myTelegramVisibleBuckets'] as List<dynamic>?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              const ['chats', 'groups', 'supergroups', 'channels', 'bots'],
     );
 
 Map<String, dynamic> _$ClientSettingsModelToJson(
@@ -103,6 +108,7 @@ Map<String, dynamic> _$ClientSettingsModelToJson(
       'libraryPageSize': instance.libraryPageSize,
       'shortcuts': instance.shortcuts
           .map((k, e) => MapEntry(_$GlobalHotKeysEnumMap[k]!, e)),
+      'myTelegramVisibleBuckets': instance.myTelegramVisibleBuckets,
     };
 
 const _$ThemeModeEnumMap = {

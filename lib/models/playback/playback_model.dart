@@ -45,6 +45,7 @@ import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_playback_resolver.dart';
 import 'package:fladder/oxplayer/oxplayer_verified_streams_client.dart';
+import 'package:fladder/oxplayer/my_telegram/oxplayer_my_telegram_playback_model.dart';
 
 class Media {
   final String url;
@@ -253,6 +254,17 @@ class PlaybackModelHelper {
       };
 
       if (firstItemToPlay == null) return null;
+
+      if (OxplayerConfig.isEnabled) {
+        final hub = await tryCreateOxTelegramHubPlaybackModel(
+          ref: ref,
+          firstItemToPlay: firstItemToPlay,
+          libraryQueue: queue,
+        );
+        if (hub != null) {
+          return hub;
+        }
+      }
 
       final fullItemResponse = await api.usersUserIdItemsItemIdGet(itemId: firstItemToPlay.id);
 

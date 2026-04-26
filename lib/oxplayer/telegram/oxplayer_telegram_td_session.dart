@@ -198,6 +198,33 @@ final class OxplayerTelegramTdSession {
     }
   }
 
+  /// TDLib [chatId] of the private chat with [OxplayerEnv.botUsername], or `null` if unconfigured
+  /// or the bot could not be resolved (same resolution path as [fetchSignedInitData]).
+  Future<int?> resolveMainBotPrivateChatId() async {
+    if (kIsWeb) return null;
+    try {
+      await _td.ensureAuthorized();
+    } catch (_) {
+      return null;
+    }
+    final botUser = OxplayerEnv.botUsername;
+    if (botUser == null || botUser.isEmpty) {
+      return null;
+    }
+    final resolved = await _td.send(td_api.SearchPublicChat(username: botUser));
+    if (resolved is! td_api.Chat || resolved.type is! td_api.ChatTypePrivate) {
+      return null;
+    }
+    final botUserId = (resolved.type as td_api.ChatTypePrivate).userId;
+    final privateChat = await _td.send(
+      td_api.CreatePrivateChat(userId: botUserId, force: false),
+    );
+    if (privateChat is! td_api.Chat) {
+      return null;
+    }
+    return privateChat.id;
+  }
+
   /// Same pipeline as oxplayer-android [DataRepository._fetchSignedInitData]: TDLib obtains signed WebApp initData.
   Future<String> fetchSignedInitData() async {
     await _td.ensureAuthorized();

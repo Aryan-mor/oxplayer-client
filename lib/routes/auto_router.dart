@@ -94,6 +94,11 @@ final List<AutoRoute> detailsRoutes = [
   AutoRoute(page: LiveTvRoute.page, path: 'live-tv'),
   AutoRoute(page: SeerrSearchRoute.page, path: 'seerr-search'),
   AutoRoute(page: SeerrDetailsRoute.page, path: 'seerr/:mediaType/:tmdbId'),
+  AutoRoute(page: MyTelegramHubRoute.page, path: 'my-telegram'),
+  AutoRoute(page: MyTelegramConfigRoute.page, path: 'my-telegram/config'),
+  AutoRoute(page: MyTelegramChatMediaRoute.page, path: 'my-telegram/chat'),
+  AutoRoute(page: MyTelegramVideoDetailRoute.page, path: 'my-telegram/video'),
+  AutoRoute(page: MyTelegramForumTopicsRoute.page, path: 'my-telegram/forum'),
 ];
 
 final List<AutoRoute> _defaultRoutes = [

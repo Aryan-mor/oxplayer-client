@@ -519,13 +519,21 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  mediaPlayback.position.readAbleDuration,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Flexible(
+                  child: Text(
+                    mediaPlayback.position.readAbleDuration,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                Text(
-                  "-${(mediaPlayback.duration - mediaPlayback.position).readAbleDuration}",
-                  style: Theme.of(context).textTheme.bodyMedium,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    "-${(mediaPlayback.duration - mediaPlayback.position).readAbleDuration}",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

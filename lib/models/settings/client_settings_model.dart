@@ -94,6 +94,15 @@ abstract class ClientSettingsModel with _$ClientSettingsModel {
     String? lastViewedUpdate,
     int? libraryPageSize,
     @Default({}) Map<GlobalHotKeys, KeyCombination> shortcuts,
+    /// API `bucket` names to show as sections on the My Telegram hub (default: all).
+    @Default([
+      'chats',
+      'groups',
+      'supergroups',
+      'channels',
+      'bots',
+    ])
+    List<String> myTelegramVisibleBuckets,
   }) = _ClientSettingsModel;
 
   static ClientSettingsModel defaultModel() {

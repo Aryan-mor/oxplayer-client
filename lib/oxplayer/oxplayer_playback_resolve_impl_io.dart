@@ -462,6 +462,41 @@ Future<String?> _resolveToStreamOrFileUrl({
   return null;
 }
 
+/// Same pipeline as [resolveOxplayerTelegramLocatorToPlayableUrl] after a [td.File] is known
+/// (range loopback, readable prefix, or full file) — **without** a library / `oxplayer://` row.
+/// [GetMessage] → extract file → [_resolveToStreamOrFileUrl].
+Future<String?> resolveTelegramMessageToPlayableUrl({
+  required td.Message message,
+}) async {
+  if (kIsWeb) {
+    oxTelegramLocalStreamLog('my_tg.resolve', 'ABORT web');
+    return null;
+  }
+  await OxplayerDotenv.ensureLoaded();
+  final ready = await OxplayerTelegramTdSession.ensureReadyForPlayback();
+  if (!ready) {
+    oxTelegramLocalStreamLog('my_tg.resolve', 'tdlib not ready');
+    return null;
+  }
+  final file = _extractPlayableFileFromMessage(message);
+  if (file == null) {
+    oxTelegramLocalStreamLog('my_tg.resolve', 'no File in message content');
+    return null;
+  }
+  final tdlib = OxplayerTelegramTdRuntime.facade;
+  final url = await _resolveToStreamOrFileUrl(
+    tdlib: tdlib,
+    resolvedFile: file,
+    messageForMime: message,
+  );
+  if (url != null) {
+    oxTelegramLocalStreamLog('my_tg.resolve', 'OK len=${url.length}');
+  } else {
+    oxTelegramLocalStreamLog('my_tg.resolve', 'FAIL');
+  }
+  return url;
+}
+
 Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   required String oxplayerLocatorUri,
   required Ref ref,

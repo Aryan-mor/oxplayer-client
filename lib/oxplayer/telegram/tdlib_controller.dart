@@ -21,6 +21,30 @@ void _tdlog(String message) {
   debugPrint(message);
 }
 
+/// Debug aid: root `@type` after sanitize, plus a hint for `updateChatLastMessage` / reply markup.
+String _tdlibReceivePeekForLog(String raw) {
+  try {
+    final s = sanitizeTdlibJson(raw);
+    final d = jsonDecode(s);
+    if (d is! Map) {
+      return 'shape=${d.runtimeType}';
+    }
+    final t = d['@type']?.toString() ?? 'null-@type';
+    if (t == 'updateChatLastMessage') {
+      final last = d['last_message'];
+      if (last is Map) {
+        final rm = last['reply_markup'];
+        if (rm is Map) {
+          return '$t reply_markup=${rm['@type']}';
+        }
+      }
+    }
+    return t;
+  } catch (e) {
+    return 'peek error: $e';
+  }
+}
+
 const _kDownloadConnectionsCount = 16;
 const _kMaxGetMeRetries = 2;
 
@@ -38,6 +62,7 @@ class TelegramTdlibFacade implements TdlibFacade {
 
   int? _clientId;
   bool _receiveLoopRunning = false;
+  int _tdReceiveSuccessCount = 0;
   Completer<void>? _closeHandshakeCompleter;
   Isolate? _receiveIsolate;
   ReceivePort? _receiveMainPort;
@@ -374,8 +399,16 @@ class TelegramTdlibFacade implements TdlibFacade {
       }
       if (message is! String) return;
       try {
-        final obj = convertToObject(sanitizeTdlibJson(message));
+        final sanitized = sanitizeTdlibJson(message);
+        final obj = convertToObject(sanitized);
         if (obj == null) return;
+
+        _tdReceiveSuccessCount += 1;
+        if (_tdReceiveSuccessCount <= 6) {
+          _tdlog('[TDLib rx] ok #$_tdReceiveSuccessCount ${obj.runtimeType}');
+        } else if (_tdReceiveSuccessCount % 500 == 0) {
+          _tdlog('[TDLib rx] ok #$_tdReceiveSuccessCount (stream healthy)');
+        }
 
         final extraStr = obj.extra?.toString();
         if (extraStr != null && _pendingRequests.containsKey(extraStr)) {
@@ -400,12 +433,23 @@ class TelegramTdlibFacade implements TdlibFacade {
           _handleSessionUser(obj);
         }
       } catch (error, stackTrace) {
-        debugPrint('TDLib receive dispatch error: $error\n$stackTrace');
+        final peek = _tdlibReceivePeekForLog(message);
+        final len = message.length;
+        final head = len > 600 ? '${message.substring(0, 600)}…' : message;
+        _tdlog(
+          '[TDLib rx] DISPATCH_FAIL step=convertToObject peek=$peek rawLen=$len',
+        );
+        _tdlog('TDLib receive dispatch error: $error\n$stackTrace');
+        _tdlog('[TDLib rx] raw head (max 600ch): $head');
         try {
           final decoded = jsonDecode(sanitizeTdlibJson(message));
           if (decoded is Map<String, dynamic>) {
             final extraStr = decoded['@extra']?.toString();
             if (extraStr != null) {
+              _tdlog(
+                '[TDLib rx] failing update had @extra=$extraStr — '
+                'completing matching pending request with error',
+              );
               final completer = _pendingRequests.remove(extraStr);
               if (completer != null && !completer.isCompleted) {
                 completer.completeError(StateError('TDLib JSON parse failed: $error'));

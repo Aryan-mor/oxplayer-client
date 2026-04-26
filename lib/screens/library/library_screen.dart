@@ -6,6 +6,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/models/collection_types.dart';
 import 'package:fladder/models/library_filter_model.dart';
 import 'package:fladder/models/recommended_model.dart';
@@ -109,6 +110,21 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> with SingleTicker
                         ref.read(libraryScreenProvider.notifier).selectLibrary(view);
                         refreshKey?.currentState?.show();
                       },
+                    ),
+                  ),
+                if (OxplayerConfig.isEnabled)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: padding,
+                      child: Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          leading: const Icon(IconsaxPlusLinear.message),
+                          title: Text(context.localized.myTelegramTitle),
+                          subtitle: Text(context.localized.myTelegramConfigureChats),
+                          onTap: () => context.pushRoute(const MyTelegramHubRoute()),
+                        ),
+                      ),
                     ),
                   ),
                 if (selectedView != null)

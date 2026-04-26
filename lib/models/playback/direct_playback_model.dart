@@ -18,6 +18,10 @@ import 'package:fladder/util/duration_extensions.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
 
 class DirectPlaybackModel extends PlaybackModel {
+  /// When false, skips [Sessions/Playing] start/progress/stop. Use for local-only
+  /// sources (e.g. My Telegram TDLib files) that are not in the Jellyfin library.
+  final bool reportJellyfinSessions;
+
   DirectPlaybackModel({
     required super.item,
     required super.media,
@@ -28,6 +32,7 @@ class DirectPlaybackModel extends PlaybackModel {
     super.trickPlay,
     super.queue,
     super.bitRateOptions,
+    this.reportJellyfinSessions = true,
   });
 
   @override
@@ -58,6 +63,9 @@ class DirectPlaybackModel extends PlaybackModel {
 
   @override
   Future<PlaybackModel?> playbackStarted(Duration position, Ref ref) async {
+    if (!reportJellyfinSessions) {
+      return null;
+    }
     await ref.read(jellyApiProvider).sessionsPlayingPost(
           body: PlaybackStartInfo(
             canSeek: true,
@@ -81,6 +89,9 @@ class DirectPlaybackModel extends PlaybackModel {
   Future<PlaybackModel?> playbackStopped(Duration position, Duration? totalDuration, Ref ref) async {
     ref.read(playBackModel.notifier).update((state) => null);
 
+    if (!reportJellyfinSessions) {
+      return null;
+    }
     await ref.read(jellyApiProvider).sessionsPlayingStoppedPost(
           body: PlaybackStopInfo(
             itemId: item.id,
@@ -95,6 +106,9 @@ class DirectPlaybackModel extends PlaybackModel {
 
   @override
   Future<PlaybackModel?> updatePlaybackPosition(Duration position, bool isPlaying, Ref ref) async {
+    if (!reportJellyfinSessions) {
+      return null;
+    }
     final api = ref.read(jellyApiProvider);
     await api.sessionsPlayingProgressPost(
       body: PlaybackProgressInfo(
@@ -126,7 +140,8 @@ class DirectPlaybackModel extends PlaybackModel {
   }
 
   @override
-  String toString() => 'DirectPlaybackModel(item: $item, playbackInfo: $playbackInfo)';
+  String toString() =>
+      'DirectPlaybackModel(item: $item, playbackInfo: $playbackInfo, reportJellyfinSessions: $reportJellyfinSessions)';
 
   @override
   DirectPlaybackModel copyWith({
@@ -140,6 +155,7 @@ class DirectPlaybackModel extends PlaybackModel {
     ValueGetter<TrickPlayModel?>? trickPlay,
     List<ItemBaseModel>? queue,
     Map<Bitrate, bool>? bitRateOptions,
+    bool? reportJellyfinSessions,
   }) {
     return DirectPlaybackModel(
       item: item ?? this.item,
@@ -151,6 +167,7 @@ class DirectPlaybackModel extends PlaybackModel {
       trickPlay: trickPlay != null ? trickPlay() : this.trickPlay,
       queue: queue ?? this.queue,
       bitRateOptions: bitRateOptions ?? this.bitRateOptions,
+      reportJellyfinSessions: reportJellyfinSessions ?? this.reportJellyfinSessions,
     );
   }
 }

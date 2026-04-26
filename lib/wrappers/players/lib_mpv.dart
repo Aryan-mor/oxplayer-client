@@ -190,8 +190,11 @@ class LibMPV extends BasePlayer {
         subDuration?.cancel();
       }
 
+      // Do not require duration>0: loopback/HTTP (e.g. Ox Telegram range server) can report
+      // buffering==false before MPV has probed duration, which left load stuck and retried
+      // [open] every 5s.
       subBuffering = _player?.stream.buffering.listen((event) {
-        if (event == false && (_player?.state.duration ?? Duration.zero) > Duration.zero) {
+        if (event == false) {
           onReady();
         }
       });

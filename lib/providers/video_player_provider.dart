@@ -265,6 +265,11 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
 
   Future<void> updateDuration(Duration duration) async {
     mediaState.update((state) {
+      // libmpv can emit 0 briefly over loopback/HTTP while demuxing; do not clobber a
+      // duration we already have (e.g. seeded from Telegram or a prior probe).
+      if (duration <= Duration.zero && state.duration > const Duration(seconds: 5)) {
+        return state;
+      }
       return (state.duration - duration).inSeconds.abs() < 1
           ? state
           : state.copyWith(

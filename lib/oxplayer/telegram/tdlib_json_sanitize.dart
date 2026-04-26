@@ -86,6 +86,9 @@ void _walk(dynamic node) {
 			_patchPoll(node);
 		} else if (t == 'pollOption') {
 			_patchPollOption(node);
+		} else if (t == 'targetChatChosen') {
+			// Newer libtdjson may send nulls; tdlib 1.6.x TargetChatChosen requires bools.
+			_patchTargetChatChosen(node);
 		}
 		node.forEach((_, v) => _walk(v));
 	} else if (node is List) {
@@ -465,6 +468,18 @@ void _patchUsernames(Map<String, dynamic> m) {
 List<String> _sanitizeStringList(dynamic value) {
 	if (value is! List) return <String>[];
 	return value.whereType<String>().toList();
+}
+
+void _patchTargetChatChosen(Map<String, dynamic> m) {
+	const keys = <String>[
+		'allow_user_chats',
+		'allow_bot_chats',
+		'allow_group_chats',
+		'allow_channel_chats',
+	];
+	for (final k in keys) {
+		if (m[k] == null) m[k] = false;
+	}
 }
 
 void _patchProfilePhoto(Map<String, dynamic> p) {

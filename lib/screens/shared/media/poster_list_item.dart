@@ -134,6 +134,9 @@ class PosterListItem extends ConsumerWidget {
                             margin: EdgeInsets.zero,
                             child: FladderImage(
                               image: poster.getPosters?.primary ?? poster.getPosters?.backDrop?.lastOrNull,
+                              oxMediaId: OxplayerConfig.isEnabled
+                                  ? poster.oxMediaIdForGeneralVideoThumb
+                                  : null,
                               placeHolder: OxplayerConfig.isEnabled ? const OxplayerTmdbEmptyImagePlaceholder() : null,
                             ),
                           ),

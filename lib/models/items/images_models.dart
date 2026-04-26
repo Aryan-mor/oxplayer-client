@@ -42,12 +42,13 @@ class ImagesData {
   });
 
   bool get isEmpty {
-    if (primary == null && backDrop == null) return true;
-    return false;
+    if (primary != null) return false;
+    if (backDrop != null && backDrop!.isNotEmpty) return false;
+    return true;
   }
 
   ImageData? get firstOrNull {
-    return primary ?? backDrop?[0];
+    return primary ?? backDrop?.firstOrNull;
   }
 
   ImageData? get randomBackDrop => (backDrop?..shuffle())?.firstOrNull ?? primary;
@@ -64,9 +65,15 @@ class ImagesData {
     if (itemid == null) return null;
     final imageProvider = ref.read(imageUtilityProvider);
     final tmdbPrimary = _oxTmdbPrimaryImageUrl(item);
+    final pids = item.providerIds;
+    final isOxGeneral =
+        pids != null && pids['OX'] != null && pids['OX'].toString() == 'general_video';
+    // OX general video: prefer TMDB (if any); do not use Jellyfin `/Items/.../Images` (404) — use local TDLib in [FladderImage.oxMediaId].
+    final useJellyfinPrimary = !isOxGeneral && (item.imageTags?['Primary'] != null);
+    final hasServerPrimary = tmdbPrimary != null || useJellyfinPrimary;
 
     final newImgesData = ImagesData(
-      primary: (tmdbPrimary != null || item.imageTags?['Primary'] != null)
+      primary: hasServerPrimary
           ? ImageData(
               path: tmdbPrimary ??
                   (getOriginalSize

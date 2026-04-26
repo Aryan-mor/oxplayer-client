@@ -9,6 +9,7 @@ import 'package:fladder/screens/shared/media/components/poster_overlays.dart';
 import 'package:fladder/screens/shared/media/components/poster_placeholder.dart';
 import 'package:fladder/theme.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/util/fladder_image.dart';
 import 'package:fladder/util/focus_provider.dart';
 import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
@@ -85,6 +86,7 @@ class PosterImage extends ConsumerWidget {
             image: primaryPosters
                 ? poster.images?.primary
                 : poster.getPosters?.primary ?? poster.getPosters?.backDrop?.lastOrNull,
+            oxMediaId: OxplayerConfig.isEnabled ? poster.oxMediaIdForGeneralVideoThumb : null,
             placeHolder: PosterPlaceholder(item: poster),
           ),
         ),

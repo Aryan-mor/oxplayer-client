@@ -81,6 +81,19 @@ extension ItemBaseModelsBooleans on List<ItemBaseModel> {
   }
 }
 
+extension ItemBaseModelOxGeneralVideo on ItemBaseModel {
+  /// OX [ProviderIds] from Jellyfin: `OX=general_video`, `OXMedia=<db media id>`.
+  String? get oxMediaIdForGeneralVideoThumb {
+    if (this is! MovieModel) return null;
+    final p = (this as MovieModel).providerIds;
+    if (p == null) return null;
+    if (p['OX']?.toString() != 'general_video') return null;
+    final id = p['OXMedia']?.toString().trim();
+    if (id == null || id.isEmpty) return null;
+    return id;
+  }
+}
+
 enum ItemActions {
   play,
   openShow,

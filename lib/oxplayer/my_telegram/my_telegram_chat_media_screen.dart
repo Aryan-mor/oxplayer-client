@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -5,6 +7,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
+import 'package:fladder/oxplayer/my_telegram/my_telegram_index_refresh.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_ui_widgets.dart';
 import 'package:fladder/oxplayer/telegram/my_telegram_live_fetcher.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
@@ -215,6 +218,15 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(myTelegramIndexedIngestBumpedProvider, (prev, next) {
+      if (widget.libraryIndexed) {
+        setState(() {
+          _offIndexed = 0;
+          _indexedItems.clear();
+        });
+        unawaited(_loadIndexed());
+      }
+    });
     final l = context.localized;
     final showIndexed = widget.libraryIndexed;
     return Scaffold(
@@ -281,7 +293,7 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
       );
     }
     final cross = myTelegramPosterGridCrossAxisCount(context, ref);
-    final ar = myTelegramVideoGridChildAspectRatio(context);
+    final ar = myTelegramVideoGridChildAspectRatio(context, ref);
     return PullToRefresh(
       onRefresh: () async {
         _mtMediaLog('(4) pull-to-refresh start');

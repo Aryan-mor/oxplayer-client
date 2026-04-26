@@ -9,7 +9,12 @@ import 'package:tdlib/td_api.dart' as tda;
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 
-/// Loads a still from [td.GetMessage] — minithumbnail (fast) or full [Thumbnail] file.
+/// Loads a still from [td.GetMessage].
+///
+/// **Quality:** Prefers the full [Thumbnail] JPEG (Telegram’s real preview, cached on disk by
+/// TDLib). [Minithumbnail] is only a brief low-res placeholder while the file downloads, or
+/// a fallback if there is no [Thumbnail] file. Previously we showed minithumbnail only, which
+/// is always very small.
 class TdlibMessageVideoThumbnail extends StatefulWidget {
   const TdlibMessageVideoThumbnail({
     super.key,
@@ -54,6 +59,22 @@ class _TdlibMessageVideoThumbnailState extends State<TdlibMessageVideoThumbnail>
         WidgetsBinding.instance.addPostFrameCallback((_) => _load());
       }
     }
+  }
+
+  /// Returns a local path if TDLib already has the file (including from a previous session).
+  Future<String?> _pathIfFileReadyOnDisk(TdlibFacade td, {required int fileId}) async {
+    if (fileId == 0) return null;
+    final o = await td.send(tda.GetFile(fileId: fileId));
+    if (o is! tda.File) return null;
+    final path = o.local.path.trim();
+    if (path.isEmpty) return null;
+    if (o.local.isDownloadingCompleted) {
+      return File(path).existsSync() ? path : null;
+    }
+    if (o.size > 0 && o.local.downloadedSize >= o.size) {
+      return File(path).existsSync() ? path : null;
+    }
+    return null; // not ready yet; caller will [DownloadFile] + [GetFile] poll
   }
 
   Future<String?> _waitForThumbPath(
@@ -113,45 +134,61 @@ class _TdlibMessageVideoThumbnailState extends State<TdlibMessageVideoThumbnail>
         return;
       }
 
+      Uint8List? miniBytes;
       if (mini != null && mini.data.isNotEmpty) {
-        Uint8List? b;
         try {
-          b = base64Decode(mini.data.replaceAll(RegExp(r'\s'), ''));
+          miniBytes = base64Decode(mini.data.replaceAll(RegExp(r'\s'), ''));
         } catch (_) {
-          b = null;
+          miniBytes = null;
         }
-        if (b != null && b.isNotEmpty && mounted) {
-          setState(() {
-            _bytes = b;
-            _loaded = true;
-          });
-          return;
+        if (miniBytes != null && miniBytes.isEmpty) {
+          miniBytes = null;
         }
       }
 
       if (thumb != null) {
         final fileId = thumb.file.id;
         if (fileId != 0) {
-          try {
-            await td.send(
-              tda.DownloadFile(
-                fileId: fileId,
-                priority: 1,
-                offset: 0,
-                limit: 0,
-                synchronous: false,
-              ),
-            );
-          } catch (_) {}
-          final p = await _waitForThumbPath(td, fileId: fileId);
+          if (miniBytes != null && mounted) {
+            setState(() {
+              _bytes = miniBytes;
+              _filePath = null;
+              _loaded = true;
+            });
+          }
+          var p = await _pathIfFileReadyOnDisk(td, fileId: fileId);
+          if (p == null) {
+            try {
+              await td.send(
+                tda.DownloadFile(
+                  fileId: fileId,
+                  priority: 32,
+                  offset: 0,
+                  limit: 0,
+                  synchronous: false,
+                ),
+              );
+            } catch (_) {}
+            p = await _waitForThumbPath(td, fileId: fileId);
+          }
           if (p != null && File(p).existsSync() && mounted) {
             setState(() {
               _filePath = p;
+              _bytes = null;
               _loaded = true;
             });
             return;
           }
         }
+      }
+
+      if (miniBytes != null && mounted) {
+        setState(() {
+          _bytes = miniBytes;
+          _filePath = null;
+          _loaded = true;
+        });
+        return;
       }
     } catch (_) {
       // leave placeholder
@@ -167,6 +204,7 @@ class _TdlibMessageVideoThumbnailState extends State<TdlibMessageVideoThumbnail>
       return Image.memory(
         _bytes!,
         fit: widget.fit,
+        filterQuality: FilterQuality.high,
         gaplessPlayback: true,
         errorBuilder: (_, __, ___) => _placeholder(context),
       );
@@ -175,6 +213,8 @@ class _TdlibMessageVideoThumbnailState extends State<TdlibMessageVideoThumbnail>
       return Image.file(
         File(_filePath!),
         fit: widget.fit,
+        filterQuality: FilterQuality.high,
+        isAntiAlias: true,
         errorBuilder: (_, __, ___) => _placeholder(context),
       );
     }

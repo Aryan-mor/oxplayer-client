@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:tdlib/td_api.dart' as tda;
 
+import 'package:fladder/oxplayer/my_telegram/my_telegram_index_refresh.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_formatters.dart';
 import 'package:fladder/oxplayer/my_telegram/oxplayer_my_telegram_playback_model.dart';
 import 'package:fladder/oxplayer/my_telegram/oxplayer_telegram_index_forward_to_bot.dart';
@@ -237,6 +238,8 @@ class _MyTelegramVideoDetailScreenState extends ConsumerState<MyTelegramVideoDet
         return;
       }
       if (r.upserted > 0) {
+        ref.read(myTelegramIndexedIngestBumpedProvider.notifier).state =
+            ref.read(myTelegramIndexedIngestBumpedProvider) + 1;
         unawaited(
           tryForwardIndexedMessageToEnvBot(
             fromChatId: int.parse(widget.tdlibChatId),
@@ -287,6 +290,24 @@ class _MyTelegramVideoDetailScreenState extends ConsumerState<MyTelegramVideoDet
                     ),
             ),
           ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: (kIsWeb || _playInFlight || _indexing) ? null : _onPlay,
+            icon: const Icon(IconsaxPlusLinear.play),
+            label: Text(l.myTelegramPlay),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: (_playInFlight || _indexing) ? null : _onAddToIndex,
+            icon: _indexing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(IconsaxPlusLinear.save_2),
+            label: Text(l.myTelegramAddToLibraryIndex),
+          ),
           const SizedBox(height: 20),
           Text(
             (widget.caption?.trim().isNotEmpty == true)
@@ -330,24 +351,6 @@ class _MyTelegramVideoDetailScreenState extends ConsumerState<MyTelegramVideoDet
               value: '${widget.messageThreadId}',
             ),
           ],
-          const SizedBox(height: 28),
-          FilledButton.icon(
-            onPressed: (kIsWeb || _playInFlight || _indexing) ? null : _onPlay,
-            icon: const Icon(IconsaxPlusLinear.play),
-            label: Text(l.myTelegramPlay),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: (_playInFlight || _indexing) ? null : _onAddToIndex,
-            icon: _indexing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(IconsaxPlusLinear.save_2),
-            label: Text(l.myTelegramAddToLibraryIndex),
-          ),
         ],
       ),
     );

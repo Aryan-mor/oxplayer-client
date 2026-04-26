@@ -785,6 +785,7 @@ class MyTelegramForumTopicsRoute
     _i40.Key? key,
     required String chatTitle,
     required String tdlibChatId,
+    bool chatIsIndexed = false,
     List<_i37.PageRouteInfo>? children,
   }) : super(
           MyTelegramForumTopicsRoute.name,
@@ -792,6 +793,7 @@ class MyTelegramForumTopicsRoute
             key: key,
             chatTitle: chatTitle,
             tdlibChatId: tdlibChatId,
+            chatIsIndexed: chatIsIndexed,
           ),
           initialChildren: children,
         );
@@ -806,6 +808,7 @@ class MyTelegramForumTopicsRoute
         key: args.key,
         chatTitle: args.chatTitle,
         tdlibChatId: args.tdlibChatId,
+        chatIsIndexed: args.chatIsIndexed,
       );
     },
   );
@@ -816,6 +819,7 @@ class MyTelegramForumTopicsRouteArgs {
     this.key,
     required this.chatTitle,
     required this.tdlibChatId,
+    this.chatIsIndexed = false,
   });
 
   final _i40.Key? key;
@@ -824,9 +828,11 @@ class MyTelegramForumTopicsRouteArgs {
 
   final String tdlibChatId;
 
+  final bool chatIsIndexed;
+
   @override
   String toString() {
-    return 'MyTelegramForumTopicsRouteArgs{key: $key, chatTitle: $chatTitle, tdlibChatId: $tdlibChatId}';
+    return 'MyTelegramForumTopicsRouteArgs{key: $key, chatTitle: $chatTitle, tdlibChatId: $tdlibChatId, chatIsIndexed: $chatIsIndexed}';
   }
 
   @override
@@ -835,11 +841,16 @@ class MyTelegramForumTopicsRouteArgs {
     if (other is! MyTelegramForumTopicsRouteArgs) return false;
     return key == other.key &&
         chatTitle == other.chatTitle &&
-        tdlibChatId == other.tdlibChatId;
+        tdlibChatId == other.tdlibChatId &&
+        chatIsIndexed == other.chatIsIndexed;
   }
 
   @override
-  int get hashCode => key.hashCode ^ chatTitle.hashCode ^ tdlibChatId.hashCode;
+  int get hashCode =>
+      key.hashCode ^
+      chatTitle.hashCode ^
+      tdlibChatId.hashCode ^
+      chatIsIndexed.hashCode;
 }
 
 /// generated route for

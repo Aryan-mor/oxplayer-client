@@ -16,10 +16,13 @@ class MyTelegramForumTopicsScreen extends ConsumerStatefulWidget {
     super.key,
     required this.chatTitle,
     required this.tdlibChatId,
+    this.chatIsIndexed = false,
   });
 
   final String chatTitle;
   final String tdlibChatId;
+  /// When true, [MyTelegramChatMediaScreen] shows Indexed + Live; matches hub `isIndexed` for the chat.
+  final bool chatIsIndexed;
 
   @override
   ConsumerState<MyTelegramForumTopicsScreen> createState() => _MyTelegramForumTopicsScreenState();
@@ -96,7 +99,7 @@ class _MyTelegramForumTopicsScreenState extends ConsumerState<MyTelegramForumTop
                             MyTelegramChatMediaRoute(
                               chatTitle: widget.chatTitle,
                               tdlibChatId: widget.tdlibChatId,
-                              libraryIndexed: false,
+                              libraryIndexed: widget.chatIsIndexed,
                               messageThreadId: 0,
                               isForum: true,
                             ),
@@ -112,7 +115,7 @@ class _MyTelegramForumTopicsScreenState extends ConsumerState<MyTelegramForumTop
                                 MyTelegramChatMediaRoute(
                                   chatTitle: top.info.name.trim().isEmpty ? '…' : top.info.name.trim(),
                                   tdlibChatId: widget.tdlibChatId,
-                                  libraryIndexed: false,
+                                  libraryIndexed: widget.chatIsIndexed,
                                   messageThreadId: top.info.messageThreadId,
                                   isForum: true,
                                 ),

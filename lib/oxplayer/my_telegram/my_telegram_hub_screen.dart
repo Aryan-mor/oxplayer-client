@@ -237,6 +237,7 @@ class _MyTelegramHubBodyState extends ConsumerState<_MyTelegramHubBody> {
                                             MyTelegramForumTopicsRoute(
                                               chatTitle: row.title,
                                               tdlibChatId: idStr,
+                                              chatIsIndexed: row.isIndexed,
                                             ),
                                           );
                                         } else {

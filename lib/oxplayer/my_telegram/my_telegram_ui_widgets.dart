@@ -19,9 +19,20 @@ int myTelegramPosterGridCrossAxisCount(BuildContext context, WidgetRef ref) {
   return size.toInt().clamp(2, 12);
 }
 
-/// Slightly shorter than a raw poster cell so two title lines fit (library-style grid).
-double myTelegramVideoGridChildAspectRatio(BuildContext context) {
-  return AdaptiveLayout.poster(context).ratio * 0.72;
+/// Grid `childAspectRatio` (width / height) for [MyTelegramVideoPosterTile]: 16:9 video area
+/// plus a fixed title block (2 lines + optional date). Matches
+/// [SliverGridDelegateWithFixedCrossAxisCount] + [SliverPadding] 8 in My Telegram media.
+double myTelegramVideoGridChildAspectRatio(BuildContext context, WidgetRef ref) {
+  final w = MediaQuery.sizeOf(context).width;
+  const sliverHPad = 8.0 * 2;
+  const spacing = 8.0;
+  final cross = myTelegramPosterGridCrossAxisCount(context, ref);
+  final innerW = w - sliverHPad;
+  final cellW = (innerW - (cross - 1) * spacing) / cross;
+  final thumbH = cellW * 9.0 / 16.0;
+  // SizedBox(4) + 2 title lines + optional 1 sub line
+  const textBlockH = 4.0 + 36.0 + 4.0 + 14.0;
+  return cellW / (thumbH + textBlockH);
 }
 
 class MyTelegramFolderTile extends StatelessWidget {
@@ -149,12 +160,14 @@ class MyTelegramVideoPosterTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Material(
-              color: scheme.surfaceContainer,
-              shape: FladderTheme.smallShape,
-              clipBehavior: Clip.antiAlias,
+          Material(
+            color: scheme.surfaceContainer,
+            shape: FladderTheme.smallShape,
+            clipBehavior: Clip.antiAlias,
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

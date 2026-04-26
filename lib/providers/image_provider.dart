@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/providers/api_provider.dart';
+import 'package:fladder/providers/user_provider.dart';
 
 const _defaultHeight = 576;
 const _defaultWidth = 384;
@@ -17,13 +18,19 @@ class ImageNotifier {
     required this.ref,
   });
 
+  String? get _accessToken => ref.read(userProvider)?.credentials.token;
+
   String get currentServerUrl {
     return ref.read(serverUrlProvider) ?? "";
   }
 
   String getUserImageUrl(String id) {
     final typeValue = ImageType.primary.value ?? 'Primary';
-    return buildServerUrl(ref, pathSegments: ['Users', id, 'Images', typeValue]);
+    return buildServerUrl(
+      ref,
+      pathSegments: ['Users', id, 'Images', typeValue],
+      queryParameters: jellyfinImageQueryParams(_accessToken, null),
+    );
   }
 
   String getItemsImageUrl(String? itemId,
@@ -38,11 +45,14 @@ class ImageNotifier {
       return buildServerUrl(
         ref,
         pathSegments: ['Items', itemId, 'Images', typeValue],
-        queryParameters: {
-          'fillHeight': maxHeight.toString(),
-          'fillWidth': maxWidth.toString(),
-          'quality': quality.toString(),
-        },
+        queryParameters: jellyfinImageQueryParams(
+          _accessToken,
+          {
+            'fillHeight': maxHeight.toString(),
+            'fillWidth': maxWidth.toString(),
+            'quality': quality.toString(),
+          },
+        ),
       );
     } catch (e) {
       return "";
@@ -53,7 +63,11 @@ class ImageNotifier {
     try {
       if (itemId == null) return "";
       final typeValue = type.value ?? 'Primary';
-      return buildServerUrl(ref, pathSegments: ['Items', itemId, 'Images', typeValue]);
+      return buildServerUrl(
+        ref,
+        pathSegments: ['Items', itemId, 'Images', typeValue],
+        queryParameters: jellyfinImageQueryParams(_accessToken, null),
+      );
     } catch (e) {
       return "";
     }
@@ -68,9 +82,10 @@ class ImageNotifier {
       return buildServerUrl(
         ref,
         pathSegments: ['Items', itemId, 'Images', 'Backdrop', index.toString()],
-        queryParameters: {
-          'tag': hash,
-        },
+        queryParameters: jellyfinImageQueryParams(
+          _accessToken,
+          {'tag': hash},
+        ),
       );
     } catch (e) {
       return "";
@@ -89,12 +104,15 @@ class ImageNotifier {
       return buildServerUrl(
         ref,
         pathSegments: ['Items', itemId, 'Images', 'Backdrop', index.toString()],
-        queryParameters: {
-          'tag': hash,
-          'fillHeight': maxHeight.toString(),
-          'fillWidth': maxWidth.toString(),
-          'quality': quality.toString(),
-        },
+        queryParameters: jellyfinImageQueryParams(
+          _accessToken,
+          {
+            'tag': hash,
+            'fillHeight': maxHeight.toString(),
+            'fillWidth': maxWidth.toString(),
+            'quality': quality.toString(),
+          },
+        ),
       );
     } catch (e) {
       return "";
@@ -110,11 +128,14 @@ class ImageNotifier {
       return buildServerUrl(
         ref,
         pathSegments: ['Items', itemId, 'Images', 'Chapter', index.toString()],
-        queryParameters: {
-          'fillHeight': maxHeight.toString(),
-          'fillWidth': maxWidth.toString(),
-          'quality': quality.toString(),
-        },
+        queryParameters: jellyfinImageQueryParams(
+          _accessToken,
+          {
+            'fillHeight': maxHeight.toString(),
+            'fillWidth': maxWidth.toString(),
+            'quality': quality.toString(),
+          },
+        ),
       );
     } catch (e) {
       return "";

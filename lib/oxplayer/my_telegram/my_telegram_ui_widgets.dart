@@ -7,6 +7,7 @@ import 'package:fladder/oxplayer/my_telegram/my_telegram_formatters.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
 import 'package:fladder/oxplayer/telegram/telegram_message_thumbnail.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
+import 'package:fladder/util/http_url_validation.dart';
 import 'package:fladder/theme.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 
@@ -103,7 +104,7 @@ class _FolderThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final u = photoUrl?.trim();
-    if (u != null && u.isNotEmpty && (u.startsWith('http://') || u.startsWith('https://'))) {
+    if (u != null && u.isNotEmpty && isUsableHttpImageUrl(u)) {
       return ClipRRect(
         borderRadius: FladderTheme.smallShape.borderRadius,
         child: Image.network(

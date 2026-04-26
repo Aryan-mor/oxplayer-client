@@ -14,6 +14,7 @@ import 'package:fladder/oxplayer/oxplayer_cache_manager.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/image_provider.dart';
 import 'package:fladder/util/custom_cache_manager.dart';
+import 'package:fladder/util/http_url_validation.dart';
 
 /// OxPlayer API: direct TMDB CDN URL in [BaseItemDto.externalUrls] (bypasses Jellyfin `/Items/.../Images`).
 const String _kOxTmdbImagePrimaryName = 'TmdbImagePrimary';
@@ -23,7 +24,7 @@ String? _oxTmdbPrimaryImageUrl(dto.BaseItemDto item) {
   if (urls == null) return null;
   for (final e in urls) {
     final u = e.url?.trim();
-    if (e.name == _kOxTmdbImagePrimaryName && u != null && u.startsWith('http')) {
+    if (e.name == _kOxTmdbImagePrimaryName && u != null && isUsableHttpImageUrl(u)) {
       return u;
     }
   }
@@ -194,8 +195,7 @@ class ImagesData {
     Size primary = const Size(500, 500),
   }) {
     final tag = item.primaryImageTag?.trim();
-    final tmdbDirect =
-        tag != null && (tag.startsWith('http://') || tag.startsWith('https://')) ? tag : null;
+    final tmdbDirect = tag != null && isUsableHttpImageUrl(tag) ? tag : null;
 
     return ImagesData(
       primary: (tmdbDirect != null ||
@@ -264,7 +264,7 @@ class ImageData {
   });
 
   ImageProvider get imageProvider {
-    if (path.startsWith("http")) {
+    if (path.startsWith("http") && isUsableHttpImageUrl(path)) {
       return CachedNetworkImageProvider(
         path,
         cacheKey: key,
@@ -273,6 +273,9 @@ class ImageData {
             : CustomCacheManager.instance,
         errorListener: OxplayerConfig.isEnabled ? _silenceImageError : null,
       );
+    }
+    if (path.startsWith("http") && !isUsableHttpImageUrl(path)) {
+      return transparentPlaceholderImageProvider;
     } else {
       return Image.file(
         key: Key(key),
@@ -282,7 +285,7 @@ class ImageData {
   }
 
   ImageProvider get nonCachedImageProvider {
-    if (path.startsWith("http")) {
+    if (path.startsWith("http") && isUsableHttpImageUrl(path)) {
       return CachedNetworkImageProvider(
         path,
         cacheKey: UniqueKey().toString(),
@@ -291,6 +294,9 @@ class ImageData {
             : CustomCacheManager.instance,
         errorListener: OxplayerConfig.isEnabled ? _silenceImageError : null,
       );
+    }
+    if (path.startsWith("http") && !isUsableHttpImageUrl(path)) {
+      return transparentPlaceholderImageProvider;
     } else {
       return Image.file(
         key: Key(key),

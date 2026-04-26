@@ -219,6 +219,20 @@ Uri? tryParseServerBaseUri(String? url) {
   return parsed;
 }
 
+/// Jellyfin [Items] / [Users] image and chapter URL query, for use with clients that
+/// do **not** go through [JellyRequest] (e.g. [CachedNetworkImage]). Pass
+/// [accessToken] from [UserCredentials.token], same as download URLs.
+Map<String, String?> jellyfinImageQueryParams(
+  String? accessToken, [
+  Map<String, String?>? more,
+]) {
+  final o = <String, String?>{...?more};
+  if (accessToken != null && accessToken.isNotEmpty) {
+    o['api_key'] = accessToken;
+  }
+  return o;
+}
+
 Uri? serverBaseUri(Ref ref) => tryParseServerBaseUri(ref.read(serverUrlProvider));
 
 Uri? buildServerUriFromBase(

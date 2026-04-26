@@ -7,6 +7,7 @@ class TdlibInteractiveLoginRequired implements Exception {
   String toString() => 'Telegram session is not ready yet.';
 }
 
+
 class TdlibCloudPasswordChallenge {
   const TdlibCloudPasswordChallenge({required this.hint});
 
@@ -59,6 +60,8 @@ abstract class TdlibFacade {
   Future<void> submitAuthenticationCode(String code);
 
   Future<void> resetLocalSessionForQrLogin();
+
+  Future<void> restartPreservingSession();
 
   Future<void> forceDestroyAfterLogOut();
 

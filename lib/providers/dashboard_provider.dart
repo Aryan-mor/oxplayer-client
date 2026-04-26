@@ -4,6 +4,8 @@ import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/models/home_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/channel_model.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/live_tv_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -24,28 +26,31 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
 
   Future<void> fetchNextUpAndResume() async {
     if (state.loading) return;
+    if (ref.read(effectiveOfflineModeProvider)) return;
     state = state.copyWith(loading: true);
-    final viewTypes =
-        ref.read(viewsProvider.select((value) => value.dashboardViews)).map((e) => e.collectionType).toSet().toList();
-    final limit = 16;
+    try {
+      await oxplayerTrackSwrRequest(ref, () async {
+        final viewTypes =
+            ref.read(viewsProvider.select((value) => value.dashboardViews)).map((e) => e.collectionType).toSet().toList();
+        final limit = 16;
 
-    final imagesToFetch = {
-      ImageType.logo,
-      ImageType.primary,
-      ImageType.backdrop,
-      ImageType.banner,
-    }.toList();
+        final imagesToFetch = {
+          ImageType.logo,
+          ImageType.primary,
+          ImageType.backdrop,
+          ImageType.banner,
+        }.toList();
 
-    final fieldsToFetch = {
-      ItemFields.parentid,
-      ItemFields.mediastreams,
-      ItemFields.mediasources,
-      ItemFields.candelete,
-      ItemFields.candownload,
-      ItemFields.primaryimageaspectratio,
-      ItemFields.overview,
-      ItemFields.airtime,
-    };
+        final fieldsToFetch = {
+          ItemFields.parentid,
+          ItemFields.mediastreams,
+          ItemFields.mediasources,
+          ItemFields.candelete,
+          ItemFields.candownload,
+          ItemFields.primaryimageaspectratio,
+          ItemFields.overview,
+          ItemFields.airtime,
+        };
 
     if (viewTypes.containsAny([CollectionType.livetv])) {
       List<ChannelModel> channels = (await api.liveTvChannelsGet(limit: limit))
@@ -126,7 +131,11 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
             .toList() ??
         [];
 
-    state = state.copyWith(nextUp: next, loading: false);
+        state = state.copyWith(nextUp: next, loading: false);
+      });
+    } catch (_) {
+      state = state.copyWith(loading: false);
+    }
   }
 
   void clear() {

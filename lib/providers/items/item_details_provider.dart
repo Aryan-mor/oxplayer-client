@@ -1,4 +1,6 @@
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,8 +17,17 @@ class ItemDetailsNotifier extends StateNotifier<ItemBaseModel?> {
   late final JellyService api = ref.read(jellyApiProvider);
 
   Future<ItemBaseModel?> fetchDetails(String itemId) async {
-    final response = await api.usersUserIdItemsItemIdGet(itemId: itemId);
-    if (response.body == null) return null;
-    return response.bodyOrThrow;
+    if (ref.read(effectiveOfflineModeProvider)) return state;
+    try {
+      final item = await oxplayerTrackSwrRequest(ref, () async {
+        final response = await api.usersUserIdItemsItemIdGet(itemId: itemId);
+        if (response.body == null) return null;
+        return response.bodyOrThrow;
+      });
+      state = item;
+      return item;
+    } catch (_) {
+      return state;
+    }
   }
 }

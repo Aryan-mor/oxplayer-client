@@ -11,9 +11,9 @@ import 'package:fladder/oxplayer/my_telegram/my_telegram_index_refresh.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_live_cache.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_merge_media_rows.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_ui_widgets.dart';
+import 'package:fladder/oxplayer/providers/ox_my_telegram_swr_providers.dart';
 import 'package:fladder/oxplayer/telegram/my_telegram_live_fetcher.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
-import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
@@ -68,6 +68,18 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
 
   int get _mtThreadKey => widget.messageThreadId;
 
+  MyTelegramIndexedMediaQuery _indexedQuery({
+    int limit = 40,
+    required int offset,
+  }) {
+    return MyTelegramIndexedMediaQuery(
+      tdlibChatId: widget.tdlibChatId,
+      messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -109,29 +121,10 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
       _loadingIndexed = true;
       _loadingLive = true;
     });
-    final api = ref.read(oxplayerUserChatsClientProvider);
-    if (api == null) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _error = 'Not signed in';
-        _loadingIndexed = false;
-        _loadingLive = false;
-        _hasIndexedFileRows = false;
-        _tabController = TabController(length: 1, vsync: this);
-        _bootstrapDone = true;
-      });
-      return;
-    }
     try {
-      final probe = await api
-          .fetchIndexedChatMedia(
-            tdlibChatId: widget.tdlibChatId,
-            messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
-            limit: 1,
-            offset: 0,
-          )
+      final probe = await ref
+          .read(myTelegramIndexedMediaSwrProvider(_indexedQuery(limit: 1, offset: 0)).future)
+          .then((value) => value.data)
           .timeout(
             const Duration(seconds: 25),
             onTimeout: () => const OxChatMediaPage(items: [], total: 0, hasMoreHistory: false),
@@ -368,27 +361,27 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
       return;
     }
     _indexedInFlight = true;
-    final api = ref.read(oxplayerUserChatsClientProvider);
-    if (api == null) {
-      if (mounted) {
-        setState(() {
-          _loadingIndexed = false;
-          _error = 'Not signed in';
-        });
-      }
-      _indexedInFlight = false;
-      return;
-    }
     if (mounted) {
       setState(() => _loadingIndexed = true);
     }
     try {
-      final page = await api.fetchIndexedChatMedia(
-        tdlibChatId: widget.tdlibChatId,
-        messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
-        limit: 40,
-        offset: _offIndexed,
-      );
+      final query = _indexedQuery(offset: _offIndexed);
+      if (_offIndexed == 0) {
+        ref.invalidate(myTelegramIndexedMediaSwrProvider(query));
+      }
+      final snapshot = await ref.read(myTelegramIndexedMediaSwrProvider(query).future);
+      final page = snapshot.data;
+      if (snapshot.isRefreshing && _offIndexed == 0) {
+        unawaited(Future<void>.delayed(const Duration(milliseconds: 800), () async {
+          if (!mounted) return;
+          ref.invalidate(myTelegramIndexedMediaSwrProvider(query));
+          setState(() {
+            _indexedItems.clear();
+            _offIndexed = 0;
+          });
+          await _loadIndexed();
+        }));
+      }
       if (!mounted) {
         return;
       }
@@ -420,10 +413,6 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
     if (!widget.libraryIndexed) {
       return;
     }
-    final api = ref.read(oxplayerUserChatsClientProvider);
-    if (api == null) {
-      return;
-    }
     if (_hasIndexedFileRows) {
       if (mounted) {
         setState(() {
@@ -436,12 +425,9 @@ class _MyTelegramChatMediaScreenState extends ConsumerState<MyTelegramChatMediaS
     }
     // Was single-tab: first ingest; upgrade to two tabs if the server has rows
     try {
-      final p = await api.fetchIndexedChatMedia(
-        tdlibChatId: widget.tdlibChatId,
-        messageThreadId: _mtThreadKey == 0 ? null : _mtThreadKey,
-        limit: 1,
-        offset: 0,
-      );
+      final query = _indexedQuery(limit: 1, offset: 0);
+      ref.invalidate(myTelegramIndexedMediaSwrProvider(query));
+      final p = await ref.read(myTelegramIndexedMediaSwrProvider(query).future).then((value) => value.data);
       if (!mounted) {
         return;
       }

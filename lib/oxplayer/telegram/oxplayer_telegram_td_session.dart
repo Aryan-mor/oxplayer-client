@@ -72,6 +72,7 @@ final class OxplayerTelegramTdSession {
   /// [ensureAuthorized] can otherwise block (e.g. 2FA password, slow GetMe) while the splash
   /// screen has no UI for that. Used only for a best-effort restore before falling back to HTTP.
   static const _kSilentRestoreMaxWait = Duration(seconds: 25);
+  static const _kSilentRestoreFirstAttemptWait = Duration(seconds: 8);
 
   Future<bool> trySilentRestore() async {
     if (kIsWeb) return false;
@@ -88,6 +89,41 @@ final class OxplayerTelegramTdSession {
       return false;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<bool> trySilentRestoreWithRestart() async {
+    if (kIsWeb) return false;
+    await initClient();
+    try {
+      await _td.ensureAuthorized().timeout(
+        _kSilentRestoreFirstAttemptWait,
+        onTimeout: () => throw TimeoutException(
+          'TDLib.ensureAuthorized first attempt',
+          _kSilentRestoreFirstAttemptWait,
+        ),
+      );
+      return true;
+    } on TdlibInteractiveLoginRequired {
+      return false;
+    } on TimeoutException {
+      debugPrint('[OX TDLib] silent restore timed out; restarting TDLib client once.');
+      try {
+        await _td.restartPreservingSession();
+      } catch (e) {
+        debugPrint('[OX TDLib] restartPreservingSession failed: $e');
+      }
+      _clientInited = false;
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      return trySilentRestore();
+    } catch (e) {
+      debugPrint('[OX TDLib] silent restore failed; restarting TDLib client once: $e');
+      try {
+        await _td.restartPreservingSession();
+      } catch (_) {}
+      _clientInited = false;
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      return trySilentRestore();
     }
   }
 

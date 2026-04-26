@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_client.dart';
+import 'package:fladder/oxplayer/providers/ox_my_telegram_swr_providers.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
-import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_ui_widgets.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
@@ -63,75 +63,25 @@ class _MyTelegramHubBodyState extends ConsumerState<_MyTelegramHubBody> {
       return;
     }
     _loadInFlight = true;
-    final t0 = DateTime.now();
-    _mtHubLog('(1) _load() start');
-    final api = ref.read(oxplayerUserChatsClientProvider);
-    if (api == null) {
-      _mtHubLog('(2) oxplayerUserChatsClient is null — not signed in or OX API URL missing');
-      if (mounted) {
-        setState(() {
-          _error = 'Not signed in';
-          _loading = false;
-        });
-      }
-      _loadInFlight = false;
-      return;
-    }
-    _mtHubLog('(2) HTTP client ready');
-    final visible = ref.read(clientSettingsProvider).myTelegramVisibleBuckets.toSet();
-    final out = <String, List<OxUserChatRow>>{};
-    final buckets = oxUserChatBucketApiValues
-        .where(visible.contains)
-        .toList();
-    _mtHubLog('(3) visible buckets: $buckets (from settings: $visible)');
-    if (buckets.isEmpty) {
-      _mtHubLog('(4) no buckets selected — end loading, empty state');
-      if (mounted) {
-        setState(() {
-          _byBucket
-            ..clear()
-            ..addAll(out);
-          _error = null;
-          _loading = false;
-        });
-      }
-      _loadInFlight = false;
-      return;
-    }
     setState(() {
       _loading = true;
       _error = null;
     });
-    _mtHubLog('(4) fetching ${buckets.length} bucket(s)…');
     try {
-      var i = 0;
-      for (final b in buckets) {
-        i += 1;
-        final t1 = DateTime.now();
-        _mtHubLog('(4.$i) start bucket=$b');
-        final page = await api.fetchUserChats(
-          bucket: b,
-          showInVideoOnly: true,
-          limit: 200,
-          offset: 0,
-        );
-        out[b] = page.items;
-        _mtHubLog(
-          '(4.$i) done bucket=$b items=${page.items.length} total=${page.total} '
-          'in ${DateTime.now().difference(t1).inMilliseconds}ms',
-        );
-      }
-      _mtHubLog('(5) success in ${DateTime.now().difference(t0).inMilliseconds}ms');
+      ref.invalidate(myTelegramHubSwrProvider);
+      final snapshot = await ref.read(myTelegramHubSwrProvider.future);
+      _mtHubLog('(1) SWR load items=${snapshot.data.values.fold<int>(0, (p, e) => p + e.length)}');
       if (mounted) {
         setState(() {
           _byBucket
             ..clear()
-            ..addAll(out);
+            ..addAll(snapshot.data);
+          _error = snapshot.error?.toString();
           _loading = false;
         });
       }
     } catch (e, st) {
-      _mtHubLog('(5) ERROR after ${DateTime.now().difference(t0).inMilliseconds}ms: $e\n$st');
+      _mtHubLog('(2) ERROR: $e\n$st');
       if (mounted) {
         setState(() {
           _error = '$e';
@@ -157,6 +107,21 @@ class _MyTelegramHubBodyState extends ConsumerState<_MyTelegramHubBody> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<OxplayerSwrSnapshot<MyTelegramHubBuckets>>>(
+      myTelegramHubSwrProvider,
+      (previous, next) {
+        next.whenData((snapshot) {
+          if (!mounted) return;
+          setState(() {
+            _byBucket
+              ..clear()
+              ..addAll(snapshot.data);
+            _error = snapshot.error?.toString();
+            _loading = false;
+          });
+        });
+      },
+    );
     final l = context.localized;
     return Scaffold(
       appBar: AppBar(

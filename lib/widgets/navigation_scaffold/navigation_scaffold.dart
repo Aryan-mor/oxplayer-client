@@ -85,9 +85,10 @@ class _NavigationScaffoldState extends ConsumerState<NavigationScaffold> {
     final bottomViewPadding = isDesktop ? 12.0 : viewPaddingOf.bottom;
     final isHomeScreen = currentIndex != -1;
 
-    final isOffline = ref.watch(effectiveOfflineModeProvider);
+    final appStatus = ref.watch(oxplayerAppStatusProvider);
+    final showStatusBanner = appStatus.shouldShowBanner;
 
-    final offlineMessageHeight = isOffline && !isDesktop ? 12 : 0;
+    final offlineMessageHeight = showStatusBanner && !isDesktop ? 12 : 0;
 
     final calculatedBottomViewPadding =
         showPlayerBar ? floatingPlayerHeight(context) + bottomViewPadding : bottomViewPadding;
@@ -196,7 +197,7 @@ class _NavigationScaffoldState extends ConsumerState<NavigationScaffold> {
               alignment: Alignment.topCenter,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 250),
-                opacity: isOffline ? 1 : 0,
+                opacity: showStatusBanner ? 1 : 0,
                 child: Container(
                   height: kToolbarHeight + offlineMessageHeight,
                   alignment: Alignment.bottomCenter,

@@ -10,6 +10,8 @@ import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/library_filters_model.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/models/seerr_credentials_model.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/image_provider.dart';
@@ -34,36 +36,39 @@ class User extends _$User {
 
   Future<Response<AccountModel>?> updateInformation() async {
     if (state == null) return null;
-    var response = await api.usersMeGet();
-    var quickConnectStatus = await api.quickConnectEnabled();
-    var systemConfiguration = await api.systemConfigurationGet();
+    if (ref.read(effectiveOfflineModeProvider)) return null;
+    return oxplayerTrackSwrRequest(ref, () async {
+      var response = await api.usersMeGet();
+      var quickConnectStatus = await api.quickConnectEnabled();
+      var systemConfiguration = await api.systemConfigurationGet();
 
-    final customConfig = await api.getCustomConfig();
+      final customConfig = await api.getCustomConfig();
 
-    // Only generate Jellyfin image URL if avatar is not already set (e.g., from Telegram photoUrl)
-    var imageUrl = (state?.avatar?.isNotEmpty ?? false)
-        ? state!.avatar
-        : ref.read(imageUtilityProvider).getUserImageUrl(response.body?.id ?? "");
+      // Only generate Jellyfin image URL if avatar is not already set (e.g., from Telegram photoUrl)
+      var imageUrl = state!.avatar.isNotEmpty
+          ? state!.avatar
+          : ref.read(imageUtilityProvider).getUserImageUrl(response.body?.id ?? "");
 
-    final user = response.body;
-    if (user == null) return null;
+      final user = response.body;
+      if (user == null) return null;
 
-    if (response.isSuccessful && response.body != null) {
-      userState = state?.copyWith(
-        name: user.name ?? state?.name ?? "",
-        policy: user.policy,
-        avatar: imageUrl,
-        serverConfiguration: systemConfiguration.body,
-        userConfiguration: user.configuration,
-        quickConnectState: quickConnectStatus.body ?? false,
-        latestItemsExcludes: user.configuration?.latestItemsExcludes ?? [],
-        userSettings: customConfig.body,
-        hasConfiguredPassword: user.hasConfiguredPassword ?? false,
-        hasPassword: user.hasPassword ?? false,
-      );
-      return response.copyWith(body: state);
-    }
-    return null;
+      if (response.isSuccessful && response.body != null) {
+        userState = state?.copyWith(
+          name: user.name ?? state?.name ?? "",
+          policy: user.policy,
+          avatar: imageUrl,
+          serverConfiguration: systemConfiguration.body,
+          userConfiguration: user.configuration,
+          quickConnectState: quickConnectStatus.body ?? false,
+          latestItemsExcludes: user.configuration?.latestItemsExcludes ?? [],
+          userSettings: customConfig.body,
+          hasConfiguredPassword: user.hasConfiguredPassword ?? false,
+          hasPassword: user.hasPassword ?? false,
+        );
+        return response.copyWith(body: state);
+      }
+      return null;
+    });
   }
 
   void setRememberAudioSelections() async {

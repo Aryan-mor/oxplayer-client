@@ -282,10 +282,17 @@ class TelegramTdlibFacade implements TdlibFacade {
     }
   }
 
+  @override
+  Future<void> restartPreservingSession() async {
+    if (kIsWeb) return;
+    await _shutdownClient();
+  }
+
   /// Safely destroys the TDLib client after [LogOut] has already been sent.
   /// Kills the receive isolate first (so it stops calling tdJsonClientReceive),
   /// then waits for any in-progress 1-second receive poll to drain, and only
   /// then calls tdJsonClientDestroy — preventing the native crash.
+  @override
   Future<void> forceDestroyAfterLogOut() async {
     final id = _clientId;
     if (id == null) return;

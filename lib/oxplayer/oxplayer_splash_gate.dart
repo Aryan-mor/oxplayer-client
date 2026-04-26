@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/providers/auth_provider.dart';
@@ -24,6 +26,61 @@ enum OxplayerSplashGateResult {
 
 /// Failsafe only (no process kill). Hitting this usually means TDLib/HTTP is wedged; user can retry.
 const Duration kOxplayerSplashSessionGateMaxWait = Duration(seconds: 90);
+
+final oxplayerBackgroundSessionRefreshProvider =
+    Provider<OxplayerBackgroundSessionRefresh>((ref) {
+  return OxplayerBackgroundSessionRefresh(ref);
+});
+
+class OxplayerBackgroundSessionRefresh {
+  OxplayerBackgroundSessionRefresh(this.ref);
+
+  final Ref ref;
+  Future<void>? _inFlight;
+
+  Future<void> start() {
+    final current = _inFlight;
+    if (current != null) return current;
+
+    final future = _run();
+    _inFlight = future;
+    future.whenComplete(() => _inFlight = null);
+    return future;
+  }
+
+  Future<void> _run() async {
+    if (!OxplayerConfig.isEnabled || kIsWeb) {
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.online;
+      return;
+    }
+
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.contains(ConnectivityResult.none)) {
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.idle;
+      return;
+    }
+
+    ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.connecting;
+
+    try {
+      final result = await _oxplayerRunSplashSessionGateImpl(ref).timeout(
+        kOxplayerSplashSessionGateMaxWait,
+      );
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          result == OxplayerSplashGateResult.proceedToDashboard
+              ? OxplayerBackgroundAuthStatus.online
+              : OxplayerBackgroundAuthStatus.error;
+    } catch (e) {
+      ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = e;
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.error;
+    }
+  }
+}
 
 /// Validates **Telegram (TDLib)** then obtains a **new API token** (`POST /auth/refresh` when possible,
 /// otherwise WebApp initData + `POST /auth/telegram`) before the first Dashboard load.
@@ -49,7 +106,7 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
 
 /// Prefer **`POST /auth/refresh` first** so returning from the Android back stack does not block on
 /// TDLib ([ensureAuthorized] / 2FA / GetMe) when a refresh token is still valid.
-Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref) async {
+Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(dynamic ref) async {
   final api = OxplayerEnv.apiBaseUrl;
   final media = OxplayerEnv.effectiveMediaServerUrl;
   if (api == null || media == null) {
@@ -74,6 +131,8 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref
 
   if (refresh.isNotEmpty) {
     try {
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.refreshing;
       final identity = await OxplayerTelegramTdSession.resolveDeviceIdentity(
         defaultDeviceName: deviceName,
       );
@@ -90,10 +149,12 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref
   }
 
   try {
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.connecting;
     final td = OxplayerTelegramTdSession();
     await OxplayerTelegramTdSession.initPlugin();
     await td.initClient();
-    if (!await td.trySilentRestore()) {
+    if (!await td.trySilentRestoreWithRestart()) {
       return OxplayerSplashGateResult.needTelegramLogin;
     }
 
@@ -102,6 +163,8 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref
 
     if (refresh.isNotEmpty) {
       try {
+        ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+            OxplayerBackgroundAuthStatus.refreshing;
         final identity = await OxplayerTelegramTdSession.resolveDeviceIdentity(
           defaultDeviceName: deviceName,
         );
@@ -115,6 +178,8 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref
       } catch (_) {}
     }
 
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.refreshing;
     final exchanged = await td.authenticateWithOxApi(deviceName: deviceName);
     await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
     ref.read(lockScreenActiveProvider.notifier).update((s) => false);

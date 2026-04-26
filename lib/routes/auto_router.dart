@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/login/lock_screen.dart';
@@ -197,6 +198,24 @@ class AuthGuard extends AutoRouteGuard {
         debugPrint('[OX AuthGuard] redirect Login -> OxplayerTelegramLoginRoute');
       }
       await resolver.redirectUntil(OxplayerTelegramLoginRoute());
+      return;
+    }
+
+    final oxOffline = OxplayerConfig.isEnabled &&
+        ref.read(effectiveOfflineModeProvider) &&
+        ref.read(userProvider) != null;
+    final offlineAllowedRoute = resolver.routeName == SyncedRoute.name ||
+        resolver.routeName == SplashRoute().routeName ||
+        resolver.routeName == const LockRoute().routeName ||
+        resolver.routeName == LoginRoute().routeName ||
+        resolver.routeName == OxplayerTelegramLoginRoute.name;
+    if (oxOffline && !offlineAllowedRoute) {
+      if (kDebugMode) {
+        debugPrint('[OX AuthGuard] offline redirect -> SyncedRoute from ${resolver.routeName}');
+      }
+      await resolver.redirectUntil(
+        const HomeRoute(children: [SyncedRoute()]),
+      );
       return;
     }
 

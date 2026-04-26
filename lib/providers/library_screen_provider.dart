@@ -11,6 +11,8 @@ import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/recommended_model.dart';
 import 'package:fladder/models/view_model.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
@@ -85,15 +87,20 @@ class LibraryScreen extends _$LibraryScreen {
   }
 
   Future<Response?> loadLibrary(ViewModel viewModel) async {
-    if (state.viewType.contains(LibraryViewType.recommended)) {
-      await loadRecommendations(viewModel);
-    }
-    if (state.viewType.contains(LibraryViewType.favourites)) {
-      await loadFavourites(viewModel);
-    }
-    if (state.viewType.contains(LibraryViewType.genres)) {
-      await loadGenres(viewModel);
-    }
+    if (ref.read(effectiveOfflineModeProvider)) return null;
+    try {
+      await oxplayerTrackSwrRequest(ref, () async {
+        if (state.viewType.contains(LibraryViewType.recommended)) {
+          await loadRecommendations(viewModel);
+        }
+        if (state.viewType.contains(LibraryViewType.favourites)) {
+          await loadFavourites(viewModel);
+        }
+        if (state.viewType.contains(LibraryViewType.genres)) {
+          await loadGenres(viewModel);
+        }
+      });
+    } catch (_) {}
     return null;
   }
 

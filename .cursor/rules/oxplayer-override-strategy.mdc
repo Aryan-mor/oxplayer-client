@@ -21,6 +21,7 @@ Do **not** scatter OX logic across `lib/screens/`, `lib/providers/`, `lib/widget
 ```
 lib/
   oxplayer/               ← OX-only code
+    providers/            ← OX + Riverpod API state (new; see "Riverpod" below)
     telegram/             ← TDLib / Telegram session helpers
     oxplayer_config.dart  ← OxplayerConfig.isEnabled flag
     oxplayer_env.dart     ← all env/config values
@@ -28,8 +29,27 @@ lib/
     oxplayer_navigation.dart ← route overrides
     ...
   screens/                ← upstream Fladder (touch as little as possible)
-  providers/              ← upstream Fladder
+  providers/              ← upstream Fladder (Jellyfin + shared @riverpod)
 ```
+
+## OX + Riverpod for HTTP / API (retouch and new OX work)
+
+For **new or refactored** OX code that calls the OX server (`/me/chats*`, future OX-only REST), use **[Riverpod](https://riverpod.dev/)** (`@riverpod` from `package:riverpod_annotation`) so async state, **loading / error / data**, **invalidation**, and tests stay out of widget `build` methods. Upstream **Fladder** can stay on hand-written `Provider`s in `lib/providers/`; OX can evolve toward the same code-gen style already used in this repo (e.g. `lib/providers/seerr_*.dart`).
+
+### Substructure (under `lib/oxplayer/`)
+
+| Location | Role |
+|----------|------|
+| `oxplayer/providers/ox_my_telegram_api.dart` | Scaffolding: re-exports pattern for the signed-in `OxplayerUserChatsClient?`. Add new `@riverpod` functions/classes **next to** this file (e.g. `my_telegram_indexed_media.dart`) as features grow. |
+| `oxplayer/providers/*.g.dart` | **Generated** — do not hand-edit; run `dart run build_runner build` after changing `@riverpod` sources. |
+| OX **screens** in `oxplayer/**/` | `ref.watch` / `ref.listen` providers; **no** direct `http.get` / raw client calls in deep widgets — take `Ref` / `WidgetRef` at the top of the OX feature and delegate to a provider. |
+| `oxplayerUserChatsClientProvider` | Remains the low-level `Provider` for the authed `OxplayerUserChatsClient`; OX Riverpod notifiers can `ref.watch` that or the scaffold `myTelegramOxChatsClientProvider` in `ox_my_telegram_api.g.dart`. |
+
+### Patterns to follow
+
+- Prefer **`@riverpod` + `part '*.g.dart'`** for anything that fetches, paginates, or must **invalidate** after an action (e.g. ingest) — use `ref.invalidate(...)` on a **family** provider or bump a `AsyncNotifier` instead of ad-hoc `StateProvider` counters when the refactor is done.
+- **TDLib** (sessions, `GetMessage`) can stay in `oxplayer/telegram/`; **snapshot** the results in Riverpod when the UI needs a reactive list.
+- The **“API on the server”** rule *below* still applies: wrong or missing DTOs are fixed in `oxplayer/apps/api/`, not papered over in a Riverpod layer.
 
 ## Patching upstream files
 

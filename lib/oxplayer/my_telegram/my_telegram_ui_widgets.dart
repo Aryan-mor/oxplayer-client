@@ -30,8 +30,9 @@ double myTelegramVideoGridChildAspectRatio(BuildContext context, WidgetRef ref) 
   final innerW = w - sliverHPad;
   final cellW = (innerW - (cross - 1) * spacing) / cross;
   final thumbH = cellW * 9.0 / 16.0;
-  // SizedBox(4) + 2 title lines + optional 1 sub line
-  const textBlockH = 4.0 + 36.0 + 4.0 + 14.0;
+  // SizedBox(4) + 2 title lines (strut ~40) + gap + [labelSmall] sub — must match
+  // [MyTelegramVideoPosterTile] to avoid SliverGrid overflow under the last line.
+  const textBlockH = 4.0 + 40.0 + 2.0 + 16.0;
   return cellW / (thumbH + textBlockH);
 }
 
@@ -206,15 +207,33 @@ class MyTelegramVideoPosterTile extends StatelessWidget {
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            strutStyle: const StrutStyle(
+              fontSize: 14,
+              height: 1.25,
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
           ),
-          if (sub != null)
+          if (sub != null) ...[
+            const SizedBox(height: 2),
             Text(
               sub,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.outline),
+              strutStyle: const StrutStyle(
+                fontSize: 12,
+                height: 1.2,
+                leadingDistribution: TextLeadingDistribution.even,
+              ),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.outline,
+                    height: 1.2,
+                  ),
             ),
+          ],
         ],
       ),
     );

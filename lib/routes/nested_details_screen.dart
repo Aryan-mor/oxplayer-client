@@ -49,13 +49,16 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
 
   Future<void> updateWidget() async {
     Future.microtask(() async {
+      if (!mounted) return;
       if (widget.item != null) {
         setState(() {
           currentWidget = widget.item!.detailScreenWidget;
         });
       } else {
-        final response = await ref.read(itemDetailsProvider.notifier).fetchDetails(widget.id);
-        if (context.mounted) {
+        final response = await ref
+            .read(itemDetailsProvider.notifier)
+            .fetchDetails(widget.id);
+        if (mounted) {
           if (response != null) {
             setState(() {
               currentWidget = response.detailScreenWidget;
@@ -77,14 +80,17 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           tag: widget.tag ?? UniqueKey(),
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface.withValues(alpha: 1.0),
+              color:
+                  Theme.of(context).colorScheme.surface.withValues(alpha: 1.0),
             ),
             //Small offset to match detailscaffold
             child: Transform.translate(
               offset: const Offset(0, -5),
               child: FladderImage(
                 image: widget.item?.getPosters?.primary,
-                placeHolder: OxplayerConfig.isEnabled ? const OxplayerTmdbEmptyImagePlaceholder() : null,
+                placeHolder: OxplayerConfig.isEnabled
+                    ? const OxplayerTmdbEmptyImagePlaceholder()
+                    : null,
               ),
             ),
           ),

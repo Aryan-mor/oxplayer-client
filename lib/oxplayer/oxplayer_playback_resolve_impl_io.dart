@@ -67,7 +67,8 @@ Future<void> _providerOpenChatBestEffort(TdlibFacade tdlib, int chatId) async {
       _providerTmeLog('OpenChat(chatId=$chatId) OK');
     }
   } on td.TdError catch (e) {
-    _providerTmeLog('OpenChat(chatId=$chatId) TdError code=${e.code} message=${e.message}');
+    _providerTmeLog(
+        'OpenChat(chatId=$chatId) TdError code=${e.code} message=${e.message}');
   }
 }
 
@@ -77,7 +78,8 @@ Future<({td.Message? msg, td.TdError? err})> _providerGetMessageOnce(
   required int messageId,
 }) async {
   try {
-    final msgObj = await tdlib.send(td.GetMessage(chatId: chatId, messageId: messageId));
+    final msgObj =
+        await tdlib.send(td.GetMessage(chatId: chatId, messageId: messageId));
     return (msg: msgObj is td.Message ? msgObj : null, err: null);
   } on td.TdError catch (e) {
     return (msg: null, err: e);
@@ -133,6 +135,7 @@ class _OxLibraryDetailDto {
   _OxLibraryDetailDto({required this.files, this.providerBackupPostUrl});
 
   final List<_OxLibraryFileDto> files;
+
   /// From API `media.providerBackupPostUrl` — public `t.me/...` backup post link.
   final String? providerBackupPostUrl;
 
@@ -142,27 +145,35 @@ class _OxLibraryDetailDto {
     final filesRaw = dec['files'];
     if (filesRaw is! List) return null;
     final mediaRaw = dec['media'];
-    String? trimmedBackup =
-        mediaRaw is Map ? (mediaRaw['providerBackupPostUrl'] ?? mediaRaw['provider_backup_post_url'])?.toString().trim() : null;
+    String? trimmedBackup = mediaRaw is Map
+        ? (mediaRaw['providerBackupPostUrl'] ??
+                mediaRaw['provider_backup_post_url'])
+            ?.toString()
+            .trim()
+        : null;
     if (trimmedBackup != null && trimmedBackup.isEmpty) trimmedBackup = null;
     final files = <_OxLibraryFileDto>[];
     for (final f in filesRaw) {
       final p = _OxLibraryFileDto.tryParse(f);
       if (p != null) files.add(p);
     }
-    return _OxLibraryDetailDto(files: files, providerBackupPostUrl: trimmedBackup);
+    return _OxLibraryDetailDto(
+        files: files, providerBackupPostUrl: trimmedBackup);
   }
 }
 
-Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(Ref ref, String globalId) async {
+Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(
+    Ref ref, String globalId) async {
   final serverUrl = ref.read(serverUrlProvider);
-  final login = ref.read(userProvider)?.credentials ?? ref.read(authProvider).serverLoginModel?.tempCredentials;
+  final login = ref.read(userProvider)?.credentials ??
+      ref.read(authProvider).serverLoginModel?.tempCredentials;
   if (serverUrl == null || serverUrl.isEmpty || login == null) return null;
 
   final uri = Uri.parse(serverUrl).resolve('me/library/media/$globalId');
   final response = await http.get(uri, headers: login.header(ref));
   if (response.statusCode != 200) {
-    oxTelegramLocalStreamLog('prep FAIL', 'library HTTP ${response.statusCode}');
+    oxTelegramLocalStreamLog(
+        'prep FAIL', 'library HTTP ${response.statusCode}');
     return null;
   }
   return _OxLibraryDetailDto.tryParseBody(response.body);
@@ -171,7 +182,8 @@ Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(Ref ref, String globalId) 
 /// Same contract as Android `POST /me/recover-from-backup` — [mediaFileId] is **Media.id** (API `mediaFileId`).
 Future<bool?> _postRecoverFromBackup(Ref ref, String mediaFileId) async {
   final serverUrl = ref.read(serverUrlProvider);
-  final login = ref.read(userProvider)?.credentials ?? ref.read(authProvider).serverLoginModel?.tempCredentials;
+  final login = ref.read(userProvider)?.credentials ??
+      ref.read(authProvider).serverLoginModel?.tempCredentials;
   if (serverUrl == null || serverUrl.isEmpty || login == null) return null;
 
   final uri = Uri.parse(serverUrl).resolve('me/recover-from-backup');
@@ -195,7 +207,8 @@ Future<bool?> _postRecoverFromBackup(Ref ref, String mediaFileId) async {
     if (dec is Map) {
       final ok = dec['ok'] == true;
       final status = dec['status']?.toString();
-      oxTelegramLocalStreamLog('recover', 'ok=$ok status=$status attempts=${dec['attempts']}');
+      oxTelegramLocalStreamLog(
+          'recover', 'ok=$ok status=$status attempts=${dec['attempts']}');
       return ok;
     }
     return false;
@@ -203,6 +216,56 @@ Future<bool?> _postRecoverFromBackup(Ref ref, String mediaFileId) async {
     oxTelegramLocalStreamLog('recover', 'ERROR $e');
     return null;
   }
+}
+
+Future<String?> _resolveRecoveredProviderBackupUrl({
+  required Ref ref,
+  required TdlibFacade tdlib,
+  required String mediaId,
+  required String mediaFileId,
+  required String overrideUrl,
+}) async {
+  final recovered = await _postRecoverFromBackup(ref, mediaFileId);
+  if (recovered != true) {
+    oxTelegramLocalStreamLog(
+      'recover',
+      'recover-from-backup failed or incomplete (recovered=$recovered). '
+          'Ensure provider-bot runs and TELEGRAM_MEDIA_PROVIDERS is set on the server.',
+    );
+    return null;
+  }
+  final detailAfter = await _fetchLibraryMediaDetail(ref, mediaId);
+  final backupAfter = overrideUrl.isNotEmpty
+      ? overrideUrl
+      : (detailAfter?.providerBackupPostUrl?.trim() ?? '');
+  if (backupAfter.isEmpty) {
+    oxTelegramLocalStreamLog(
+      'recover',
+      'recovery reported ok but providerBackupPostUrl still empty — refetch detail or check provider-bot logs',
+    );
+    return null;
+  }
+  oxTelegramLocalStreamLog(
+    'recover.detail',
+    'refetched backupPostUrl len=${backupAfter.length} excerpt=${_truncateForLog(backupAfter, max: 120)}',
+  );
+  final directAfter =
+      await _resolveFromProviderBackupPostUrl(tdlib, backupAfter);
+  if (directAfter == null) {
+    oxTelegramLocalStreamLog(
+      'tdlib.file',
+      'FAIL provider URL after recovery — see provider.tme lines above (GetMessage / SearchPublicChat / channel access)',
+    );
+    return null;
+  }
+  final urlAfter = await _resolveToStreamOrFileUrl(
+    tdlib: tdlib,
+    resolvedFile: directAfter.file,
+    messageForMime: null,
+  );
+  if (urlAfter != null)
+    oxTelegramLocalStreamLog('resolve.done', 'OK $urlAfter');
+  return urlAfter;
 }
 
 String? _parseOxplayerTelegramMediaId(String uri) {
@@ -230,7 +293,8 @@ String? _mimeFromMessage(td.Message message) {
   return null;
 }
 
-({String? username, int? internalChatId, int messageId})? _parseTmePostLinkForPlayback(String rawUrl) {
+({String? username, int? internalChatId, int messageId})?
+    _parseTmePostLinkForPlayback(String rawUrl) {
   final trimmed = rawUrl.trim();
   if (trimmed.isEmpty) return null;
   late final Uri u;
@@ -275,7 +339,8 @@ Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
   String providerBackupPostUrl,
 ) async {
   if (_kOxProviderBackupVerbose) {
-    _providerTmeLog('input url=${_truncateForLog(providerBackupPostUrl, max: 200)}');
+    _providerTmeLog(
+        'input url=${_truncateForLog(providerBackupPostUrl, max: 200)}');
   }
 
   final normalizedUrl = _normalizePublicTmeUrl(providerBackupPostUrl);
@@ -320,7 +385,8 @@ Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
     final parsed = _parseTmePostLinkForPlayback(normalizedUrl);
     final mid = parsed?.messageId;
     if (mid != null && mid > 0) {
-      final once = await _providerGetMessageOnce(tdlib, chatId: chatId, messageId: mid);
+      final once =
+          await _providerGetMessageOnce(tdlib, chatId: chatId, messageId: mid);
       msgObj = once.msg;
       if (msgObj == null && once.err != null) {
         _providerTmeLog(
@@ -369,7 +435,8 @@ Future<String?> _downloadTelegramFileFully(
   int fileId,
 ) async {
   try {
-    await tdlib.send(td.DownloadFile(fileId: fileId, priority: 5, offset: 0, limit: 0, synchronous: false));
+    await tdlib.send(td.DownloadFile(
+        fileId: fileId, priority: 5, offset: 0, limit: 0, synchronous: false));
   } catch (_) {}
 
   const pollInterval = Duration(milliseconds: 320);
@@ -387,7 +454,8 @@ Future<String?> _downloadTelegramFileFully(
   }
 }
 
-Future<String?> _waitForReadableVideoPrefix(TdlibFacade tdlib, int fileId) async {
+Future<String?> _waitForReadableVideoPrefix(
+    TdlibFacade tdlib, int fileId) async {
   const minVideoPrefixBytes = 768 * 1024;
   const maxTdlibDownloadLimit = 4 * 1024 * 1024;
   const prefixWait = Duration(seconds: 26);
@@ -418,7 +486,12 @@ Future<String?> _waitForReadableVideoPrefix(TdlibFacade tdlib, int fileId) async
 
     try {
       await tdlib.send(
-        td.DownloadFile(fileId: fileId, priority: 8, offset: 0, limit: maxTdlibDownloadLimit, synchronous: false),
+        td.DownloadFile(
+            fileId: fileId,
+            priority: 8,
+            offset: 0,
+            limit: maxTdlibDownloadLimit,
+            synchronous: false),
       );
     } catch (_) {}
 
@@ -440,19 +513,22 @@ Future<String?> _resolveToStreamOrFileUrl({
     mimeType: mime,
   );
   if (streamUrl != null) {
-    oxTelegramLocalStreamLog('stream', 'OK fileId=${resolvedFile.id} → $streamUrl');
+    oxTelegramLocalStreamLog(
+        'stream', 'OK fileId=${resolvedFile.id} → $streamUrl');
     return streamUrl.toString();
   }
 
   oxTelegramLocalStreamLog('stream', 'loopback failed → prefix on disk');
-  final quickStartPath = await _waitForReadableVideoPrefix(tdlib, resolvedFile.id);
+  final quickStartPath =
+      await _waitForReadableVideoPrefix(tdlib, resolvedFile.id);
   if (quickStartPath != null && quickStartPath.isNotEmpty) {
     oxTelegramLocalStreamLog('stream', 'file prefix $quickStartPath');
     return Uri.file(quickStartPath).toString();
   }
 
   oxTelegramLocalStreamLog('stream', 'prefix timeout → full download');
-  final downloadedPath = await _downloadTelegramFileFully(tdlib, resolvedFile.id);
+  final downloadedPath =
+      await _downloadTelegramFileFully(tdlib, resolvedFile.id);
   if (downloadedPath != null && downloadedPath.isNotEmpty) {
     oxTelegramLocalStreamLog('stream', 'file full $downloadedPath');
     return Uri.file(downloadedPath).toString();
@@ -519,16 +595,19 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
 
   /// Provider-only + hardcoded URL: skip library/locator entirely (dev smoke test).
   if (providerOnly && overrideUrl.isNotEmpty) {
-    oxTelegramLocalStreamLog('prep', 'OX_FALLBACK_PROVIDER_ONLY + override URL (skip library detail)');
+    oxTelegramLocalStreamLog('prep',
+        'OX_FALLBACK_PROVIDER_ONLY + override URL (skip library detail)');
     final ready = await OxplayerTelegramTdSession.ensureReadyForPlayback();
     if (!ready) {
-      oxTelegramLocalStreamLog('tdlib.session', 'FAIL not authorized / not ready');
+      oxTelegramLocalStreamLog(
+          'tdlib.session', 'FAIL not authorized / not ready');
       return null;
     }
     final tdlib = OxplayerTelegramTdRuntime.facade;
     final direct = await _resolveFromProviderBackupPostUrl(tdlib, overrideUrl);
     if (direct == null) {
-      oxTelegramLocalStreamLog('tdlib.file', 'FAIL provider override URL resolve');
+      oxTelegramLocalStreamLog(
+          'tdlib.file', 'FAIL provider override URL resolve');
       return null;
     }
     final url = await _resolveToStreamOrFileUrl(
@@ -542,7 +621,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
 
   final detail = await _fetchLibraryMediaDetail(ref, mediaId);
   if (detail == null || detail.files.isEmpty) {
-    oxTelegramLocalStreamLog('prep FAIL', 'no library file row (need locator metadata)');
+    oxTelegramLocalStreamLog(
+        'prep FAIL', 'no library file row (need locator metadata)');
     return null;
   }
 
@@ -558,7 +638,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   );
   final ready = await OxplayerTelegramTdSession.ensureReadyForPlayback();
   if (!ready) {
-    oxTelegramLocalStreamLog('tdlib.session', 'FAIL not authorized / not ready');
+    oxTelegramLocalStreamLog(
+        'tdlib.session', 'FAIL not authorized / not ready');
     return null;
   }
   oxTelegramLocalStreamLog('tdlib.session', 'OK');
@@ -568,7 +649,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   final apiBackup = detail.providerBackupPostUrl?.trim() ?? '';
   final effectiveBackup = overrideUrl.isNotEmpty ? overrideUrl : apiBackup;
   if (effectiveBackup.isNotEmpty) {
-    final direct = await _resolveFromProviderBackupPostUrl(tdlib, effectiveBackup);
+    final direct =
+        await _resolveFromProviderBackupPostUrl(tdlib, effectiveBackup);
     if (direct != null) {
       oxTelegramLocalStreamLog(
         'tdlib.file',
@@ -580,7 +662,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
         messageForMime: null,
       );
       if (url == null) {
-        oxTelegramLocalStreamLog('resolve.done', 'FAIL after provider_backup_post_url');
+        oxTelegramLocalStreamLog(
+            'resolve.done', 'FAIL after provider_backup_post_url');
       } else {
         oxTelegramLocalStreamLog('resolve.done', 'OK $url');
       }
@@ -593,51 +676,20 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
       );
       return null;
     }
-    oxTelegramLocalStreamLog('prep', 'provider_backup_post_url failed → full locator chain');
+    oxTelegramLocalStreamLog(
+        'prep', 'provider_backup_post_url failed → full locator chain');
   } else if (providerOnly) {
     oxTelegramLocalStreamLog(
       'prep',
       'OX_FALLBACK_PROVIDER_ONLY: no providerBackupPostUrl → API recover-from-backup (provider-bot fills DB)',
     );
-    final recovered = await _postRecoverFromBackup(ref, file.mediaId);
-    if (recovered != true) {
-      oxTelegramLocalStreamLog(
-        'recover',
-        'recover-from-backup failed or incomplete (recovered=$recovered). '
-        'Ensure provider-bot runs and TELEGRAM_MEDIA_PROVIDERS is set on the server.',
-      );
-      return null;
-    }
-    final detailAfter = await _fetchLibraryMediaDetail(ref, mediaId);
-    final backupAfter = overrideUrl.isNotEmpty
-        ? overrideUrl
-        : (detailAfter?.providerBackupPostUrl?.trim() ?? '');
-    if (backupAfter.isEmpty) {
-      oxTelegramLocalStreamLog(
-        'recover',
-        'recovery reported ok but providerBackupPostUrl still empty — refetch detail or check provider-bot logs',
-      );
-      return null;
-    }
-    oxTelegramLocalStreamLog(
-      'recover.detail',
-      'refetched backupPostUrl len=${backupAfter.length} excerpt=${_truncateForLog(backupAfter, max: 120)}',
-    );
-    final directAfter = await _resolveFromProviderBackupPostUrl(tdlib, backupAfter);
-    if (directAfter == null) {
-      oxTelegramLocalStreamLog(
-        'tdlib.file',
-        'FAIL provider URL after recovery — see provider.tme lines above (GetMessage / SearchPublicChat / channel access)',
-      );
-      return null;
-    }
-    final urlAfter = await _resolveToStreamOrFileUrl(
+    return _resolveRecoveredProviderBackupUrl(
+      ref: ref,
       tdlib: tdlib,
-      resolvedFile: directAfter.file,
-      messageForMime: null,
+      mediaId: mediaId,
+      mediaFileId: file.mediaId,
+      overrideUrl: overrideUrl,
     );
-    if (urlAfter != null) oxTelegramLocalStreamLog('resolve.done', 'OK $urlAfter');
-    return urlAfter;
   }
 
   void onDiag(String m) {
@@ -645,7 +697,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
     oxTelegramLocalStreamLog('tdlib.resolve', m);
   }
 
-  final envSearchChats = await oxplayerLocatorTagTelegramSearchChatIds(tdlib, onDiag);
+  final envSearchChats =
+      await oxplayerLocatorTagTelegramSearchChatIds(tdlib, onDiag);
 
   final resolvedMedia = await resolveTelegramMediaFile(
     tdlib: tdlib,
@@ -660,13 +713,20 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   );
 
   if (resolvedMedia == null) {
-    oxTelegramLocalStreamLog('tdlib.file', 'FAIL (no message/file)');
-    return null;
+    oxTelegramLocalStreamLog(
+        'tdlib.file', 'FAIL (no message/file) → API recover-from-backup');
+    return _resolveRecoveredProviderBackupUrl(
+      ref: ref,
+      tdlib: tdlib,
+      mediaId: mediaId,
+      mediaFileId: file.mediaId,
+      overrideUrl: overrideUrl,
+    );
   }
   oxTelegramLocalStreamLog(
     'tdlib.file',
     'OK fileId=${resolvedMedia.file.id} reason=${resolvedMedia.resolutionReason ?? "?"} '
-    'expectedSize=${resolvedMedia.file.expectedSize}',
+        'expectedSize=${resolvedMedia.file.expectedSize}',
   );
 
   final url = await _resolveToStreamOrFileUrl(

@@ -5,7 +5,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/providers/settings/client_settings_provider.dart';
-import 'package:fladder/providers/views_provider.dart';
 import 'package:fladder/routes/auto_router.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/widgets/navigation_scaffold/components/destination_model.dart';
@@ -36,14 +35,6 @@ class NavigationBody extends ConsumerStatefulWidget {
 
 class _NavigationBodyState extends ConsumerState<NavigationBody> {
   double currentSideBarWidth = 80;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((value) {
-      ref.read(viewsProvider.notifier).fetchViews();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {

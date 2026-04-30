@@ -24,9 +24,26 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
 
   late final JellyService api = ref.read(jellyApiProvider);
 
+  /// Concurrent callers await the same in-flight request instead of no-op'ing while loading.
+  Future<void>? _fetchDashboardInFlight;
+
   Future<void> fetchNextUpAndResume() async {
-    if (state.loading) return;
     if (ref.read(effectiveOfflineModeProvider)) return;
+    if (_fetchDashboardInFlight != null) {
+      return _fetchDashboardInFlight!;
+    }
+    final run = _runFetchNextUpAndResume();
+    _fetchDashboardInFlight = run;
+    try {
+      await run;
+    } finally {
+      if (identical(_fetchDashboardInFlight, run)) {
+        _fetchDashboardInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _runFetchNextUpAndResume() async {
     state = state.copyWith(loading: true);
     try {
       await oxplayerTrackSwrRequest(ref, () async {

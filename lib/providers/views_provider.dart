@@ -35,9 +35,26 @@ class ViewsNotifier extends StateNotifier<ViewsModel> {
 
   late final JellyService api = ref.read(jellyApiProvider);
 
+  /// Concurrent callers await the same in-flight request (avoids `await` resolving early with null).
+  Future<ViewsModel?>? _fetchViewsInFlight;
+
   Future<ViewsModel?> fetchViews() async {
-    if (state.loading) return null;
     if (ref.read(effectiveOfflineModeProvider)) return state;
+    if (_fetchViewsInFlight != null) {
+      return _fetchViewsInFlight!;
+    }
+    final run = _runFetchViews();
+    _fetchViewsInFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (identical(_fetchViewsInFlight, run)) {
+        _fetchViewsInFlight = null;
+      }
+    }
+  }
+
+  Future<ViewsModel?> _runFetchViews() async {
     state = state.copyWith(loading: true);
     try {
       return await oxplayerTrackSwrRequest(ref, () async {

@@ -5,7 +5,9 @@ import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final itemDetailsProvider = StateNotifierProvider.autoDispose<ItemDetailsNotifier, ItemBaseModel?>((ref) {
+final itemDetailsProvider =
+    StateNotifierProvider.autoDispose<ItemDetailsNotifier, ItemBaseModel?>(
+        (ref) {
   return ItemDetailsNotifier(ref);
 });
 
@@ -17,6 +19,7 @@ class ItemDetailsNotifier extends StateNotifier<ItemBaseModel?> {
   late final JellyService api = ref.read(jellyApiProvider);
 
   Future<ItemBaseModel?> fetchDetails(String itemId) async {
+    if (!mounted) return null;
     if (ref.read(effectiveOfflineModeProvider)) return state;
     try {
       final item = await oxplayerTrackSwrRequest(ref, () async {
@@ -24,10 +27,11 @@ class ItemDetailsNotifier extends StateNotifier<ItemBaseModel?> {
         if (response.body == null) return null;
         return response.bodyOrThrow;
       });
+      if (!mounted) return item;
       state = item;
       return item;
     } catch (_) {
-      return state;
+      return mounted ? state : null;
     }
   }
 }

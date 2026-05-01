@@ -2,6 +2,8 @@ icons_launcher:
   image_path: "icons/production/oxplayer_icon.png"
   platforms:
     android:
+      # Full-bleed sources; Android safe zone via res/drawable/ic_launcher_*_inset.xml.
+      # After icons_launcher:create, run: dart run tool/apply_android_adaptive_icon_inset.dart
       adaptive_foreground_image: "icons/production/oxplayer_icon.png"
       adaptive_background_color: "#4b1200"
       adaptive_monochrome_image: "icons/production/oxplayer_adaptive_icon.png"

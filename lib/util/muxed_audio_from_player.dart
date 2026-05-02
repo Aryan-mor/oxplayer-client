@@ -148,7 +148,8 @@ extension MediaStreamsModelMuxedAudioMerge on MediaStreamsModel {
     } else {
       final preferred =
           muxedFromDemuxer.firstWhereOrNull((s) => s.isDefault) ?? muxedFromDemuxer.firstOrNull;
-      newDef = preferred?.index ?? -1;
+      final firstEmbedded = merged.firstWhereOrNull((s) => !s.isExternal);
+      newDef = preferred?.index ?? firstEmbedded?.index ?? -1;
     }
     oxMuxedStreamsLog(
       'mergeMuxedAudio: prevDef=$prevIdx prevStill=$prevStill '

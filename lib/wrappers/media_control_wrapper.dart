@@ -20,6 +20,7 @@ import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_playback_release.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
 import 'package:fladder/providers/api_provider.dart';
+import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/live_tv_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/subtitle_settings_provider.dart';
@@ -358,13 +359,24 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     _player?.stop();
     ref.read(windowTitleProvider.notifier).setPlayTitle(null);
 
-    final position = _player?.lastState.position;
+    final position = _player?.lastState.position ?? Duration.zero;
     final totalDuration = _player?.lastState.duration;
+
+    // Final progress so resume rows update even if periodic progress missed the last segment.
+    await _updatePositionWithRetry(playbackModel, position, false);
 
     // Small delay so we don't post right after playback/progress update
     await Future.delayed(const Duration(seconds: 1));
 
-    await playbackModel.playbackStopped(position ?? Duration.zero, totalDuration, ref);
+    await playbackModel.playbackStopped(position, totalDuration, ref);
+
+    Future.microtask(() async {
+      try {
+        await ref.read(dashboardProvider.notifier).fetchNextUpAndResume(force: true);
+      } catch (e, st) {
+        log('[DEBUG_WL] post-stop fetchNextUpAndResume failed: $e\n$st');
+      }
+    });
     ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(position: Duration.zero));
 
     smtc?.setPlaybackStatus(PlaybackStatus.stopped);

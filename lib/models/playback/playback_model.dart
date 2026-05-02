@@ -60,6 +60,21 @@ class Media {
   });
 }
 
+/// When Jellyfin / prefs leave audio at "off" (-1) but streams exist, play the first embedded track.
+AudioStreamModel effectiveDefaultAudioStreamForPlayback(PlaybackModel model) {
+  final streams = model.audioStreams ?? [];
+  final embedded = streams.where((s) => !s.isExternal && s.index >= 0).toList();
+  if (embedded.isEmpty) {
+    final idx = model.mediaStreams?.defaultAudioStreamIndex;
+    return streams.firstWhereOrNull((s) => s.index == idx) ?? AudioStreamModel.no();
+  }
+  final idx = model.mediaStreams?.defaultAudioStreamIndex;
+  if (idx == null || idx < 0) {
+    return embedded.first;
+  }
+  return streams.firstWhereOrNull((s) => !s.isExternal && s.index == idx) ?? embedded.first;
+}
+
 extension PlaybackModelExtension on PlaybackModel? {
   SubStreamModel? get defaultSubStream {
     final streams = this?.subStreams;

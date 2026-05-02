@@ -1,9 +1,4 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' hide ConnectionState;
-
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
@@ -24,6 +19,9 @@ import 'package:fladder/widgets/navigation_scaffold/components/navigation_drawer
 import 'package:fladder/widgets/shared/animated_visibility.dart';
 import 'package:fladder/widgets/shared/hide_on_scroll.dart';
 import 'package:fladder/widgets/shared/offline_banner.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' hide ConnectionState;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class NavigationScaffold extends ConsumerStatefulWidget {
   final String? currentRouteName;
@@ -60,10 +58,9 @@ class _NavigationScaffoldState extends ConsumerState<NavigationScaffold> {
   @override
   void didUpdateWidget(covariant NavigationScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final routeChanged =
-        widget.currentRouteName != oldWidget.currentRouteName && currentIndex != -1;
-    final landedOnDashboard = widget.currentRouteName == DashboardRoute.name &&
-        oldWidget.currentRouteName != DashboardRoute.name;
+    final routeChanged = widget.currentRouteName != oldWidget.currentRouteName && currentIndex != -1;
+    final landedOnDashboard =
+        widget.currentRouteName == DashboardRoute.name && oldWidget.currentRouteName != DashboardRoute.name;
     if (!routeChanged && !landedOnDashboard) return;
 
     Future.microtask(() async {

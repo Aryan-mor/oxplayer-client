@@ -199,8 +199,18 @@ fun ExoPlayer.properlySetSubAndAudioTracks(playableData: PlayableData) {
         val internalAudioTracks = this.getAudioTracks()
 
         val wantedAudioIndex = indexOfAudioTrack - 1
-        if (wantedAudioIndex < 0) {
+        if (internalAudioTracks.isEmpty()) {
             clearAudioTrack()
+        } else if (wantedAudioIndex < 0) {
+            // Off / no match / first list slot maps to wanted -1: still pick first real track.
+            clearAudioTrack(false)
+            setInternalAudioTrack(internalAudioTracks[0])
+            playableData.audioTracks.firstOrNull()?.index?.let {
+                VideoPlayerObject.setAudioTrackIndex(it.toInt(), true)
+            }
+        } else if (wantedAudioIndex >= internalAudioTracks.size) {
+            clearAudioTrack(false)
+            setInternalAudioTrack(internalAudioTracks[internalAudioTracks.lastIndex])
         } else {
             clearAudioTrack(false)
             setInternalAudioTrack(internalAudioTracks[wantedAudioIndex])

@@ -1,13 +1,12 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class WatchLaterState {
   final String? playlistId;
@@ -34,8 +33,7 @@ class WatchLaterState {
   }
 }
 
-final oxplayerWatchLaterProvider =
-    StateNotifierProvider<OxplayerWatchLaterNotifier, WatchLaterState>((ref) {
+final oxplayerWatchLaterProvider = StateNotifierProvider<OxplayerWatchLaterNotifier, WatchLaterState>((ref) {
   return OxplayerWatchLaterNotifier(ref);
 });
 
@@ -91,7 +89,7 @@ class OxplayerWatchLaterNotifier extends StateNotifier<WatchLaterState> {
 
       final items = itemsResponse.body?.items ?? [];
       final Map<String, String> newMap = {};
-      
+
       for (final item in items) {
         if (item.id != null && item.playlistId != null) {
           newMap[item.id!] = item.playlistId!;

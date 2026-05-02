@@ -126,11 +126,12 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
     PlaybackModel model,
     Duration startPosition,
   ) async {
+    final audioIdx = effectiveDefaultAudioStreamForPlayback(model).index;
     final playableData = PlayableData(
       currentItem: model.item.toSimpleItem(context),
       startPosition: startPosition.inMilliseconds,
       description: model.item.overview.summary,
-      defaultAudioTrack: model.mediaStreams?.defaultAudioStreamIndex ?? 1,
+      defaultAudioTrack: audioIdx >= 0 ? audioIdx : (model.mediaStreams?.defaultAudioStreamIndex ?? 1),
       nextVideo: model.nextVideo?.toSimpleItem(context),
       previousVideo: model.previousVideo?.toSimpleItem(context),
       audioTracks: model.audioStreams

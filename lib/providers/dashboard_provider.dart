@@ -1,3 +1,5 @@
+import 'dart:developer' show log;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
@@ -5,6 +7,7 @@ import 'package:fladder/models/home_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/channel_model.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/oxplayer_resume_watching_dedupe.dart';
 import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/live_tv_provider.dart';
@@ -107,9 +110,18 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
         enableTotalRecordCount: false,
         limit: limit,
       );
+      final rawItems = resumeVideoResponse.body?.items ?? [];
+      final mapped = rawItems.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
+      final deduped = dedupeResumeWatchingVideos(mapped);
+      log(
+        '[DEBUG_WL] UserItems/Resume video: status=${resumeVideoResponse.statusCode} '
+        'rawCount=${rawItems.length} afterDedupe=${deduped.length} '
+        'firstIds=${deduped.take(5).map((e) => e.id).join(",")}',
+        name: 'continue_watching',
+      );
 
       state = state.copyWith(
-        resumeVideo: resumeVideoResponse.body?.items?.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList(),
+        resumeVideo: deduped,
       );
     }
 
@@ -156,7 +168,8 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
 
         state = state.copyWith(nextUp: next, loading: false);
       });
-    } catch (_) {
+    } catch (e, st) {
+      log('[DEBUG_WL] fetchNextUpAndResume failed: $e\n$st', name: 'continue_watching');
       state = state.copyWith(loading: false);
     }
   }

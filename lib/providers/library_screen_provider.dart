@@ -16,6 +16,7 @@ import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_resume_watching_dedupe.dart';
 import 'package:fladder/util/localization_helper.dart';
 
 part 'library_screen_provider.freezed.dart';
@@ -130,7 +131,9 @@ class LibraryScreen extends _$LibraryScreen {
     );
     continueRecommendations = RecommendedModel(
       name: const Continue(),
-      posters: resume.body?.items?.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList() ?? [],
+      posters: dedupeResumeWatchingVideos(
+        resume.body?.items?.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList() ?? [],
+      ),
       type: null,
     );
 

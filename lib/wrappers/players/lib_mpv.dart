@@ -258,8 +258,12 @@ class LibMPV extends BasePlayer {
 
   @override
   Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async {
-    final wantedAudioStream = model ?? playbackModel.defaultAudioStream;
-    if (wantedAudioStream == null) return -1;
+    final embedded =
+        (playbackModel.audioStreams ?? []).where((s) => !s.isExternal && s.index >= 0).toList();
+    var wantedAudioStream = model ?? effectiveDefaultAudioStreamForPlayback(playbackModel);
+    if (wantedAudioStream.index == AudioStreamModel.no().index && embedded.isNotEmpty) {
+      wantedAudioStream = embedded.first;
+    }
     final hasAdvertisedAudio = (playbackModel.mediaStreams?.audioStreams ?? []).isNotEmpty;
     if (wantedAudioStream.index == AudioStreamModel.no().index) {
       if (!hasAdvertisedAudio) {

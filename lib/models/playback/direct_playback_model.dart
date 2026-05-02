@@ -1,3 +1,5 @@
+import 'dart:developer' show log;
+
 import 'package:flutter/widgets.dart' hide RepeatMode;
 
 import 'package:collection/collection.dart';
@@ -66,7 +68,7 @@ class DirectPlaybackModel extends PlaybackModel {
     if (!reportJellyfinSessions) {
       return null;
     }
-    await ref.read(jellyApiProvider).sessionsPlayingPost(
+    final startResp = await ref.read(jellyApiProvider).sessionsPlayingPost(
           body: PlaybackStartInfo(
             canSeek: true,
             itemId: item.id,
@@ -82,6 +84,10 @@ class DirectPlaybackModel extends PlaybackModel {
             repeatMode: RepeatMode.repeatall,
           ),
         );
+    log(
+      '[DEBUG_WL] sessionsPlayingPost itemId=${item.id} status=${startResp.statusCode}',
+      name: 'continue_watching',
+    );
     return null;
   }
 
@@ -92,14 +98,20 @@ class DirectPlaybackModel extends PlaybackModel {
     if (!reportJellyfinSessions) {
       return null;
     }
-    await ref.read(jellyApiProvider).sessionsPlayingStoppedPost(
+    final stopTicks = position.toRuntimeTicks;
+    final stopResp = await ref.read(jellyApiProvider).sessionsPlayingStoppedPost(
           body: PlaybackStopInfo(
             itemId: item.id,
             mediaSourceId: item.id,
             playSessionId: playbackInfo?.playSessionId,
-            positionTicks: position.toRuntimeTicks,
+            positionTicks: stopTicks,
           ),
         );
+    log(
+      '[DEBUG_WL] sessionsPlayingStoppedPost itemId=${item.id} positionTicks=$stopTicks '
+      'status=${stopResp.statusCode}',
+      name: 'continue_watching',
+    );
 
     return null;
   }
@@ -110,7 +122,8 @@ class DirectPlaybackModel extends PlaybackModel {
       return null;
     }
     final api = ref.read(jellyApiProvider);
-    await api.sessionsPlayingProgressPost(
+    final ticks = position.toRuntimeTicks;
+    final progResp = await api.sessionsPlayingProgressPost(
       body: PlaybackProgressInfo(
         canSeek: true,
         itemId: item.id,
@@ -122,9 +135,14 @@ class DirectPlaybackModel extends PlaybackModel {
         playMethod: PlayMethod.directplay,
         isPaused: !isPlaying,
         isMuted: false,
-        positionTicks: position.toRuntimeTicks,
+        positionTicks: ticks,
         repeatMode: RepeatMode.repeatall,
       ),
+    );
+    log(
+      '[DEBUG_WL] sessionsPlayingProgressPost itemId=${item.id} ticks=$ticks isPaused=${!isPlaying} '
+      'status=${progResp.statusCode}',
+      name: 'continue_watching',
     );
 
     return null;

@@ -210,9 +210,14 @@ class LibMDK extends BasePlayer {
 
   @override
   Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async {
-    final wantedAudioStream = model ?? playbackModel.defaultAudioStream;
+    final embedded =
+        (playbackModel.audioStreams ?? []).where((s) => !s.isExternal && s.index >= 0).toList();
+    var wantedAudioStream = model ?? effectiveDefaultAudioStreamForPlayback(playbackModel);
+    if (wantedAudioStream.index == AudioStreamModel.no().index && embedded.isNotEmpty) {
+      wantedAudioStream = embedded.first;
+    }
     final hasAdvertisedAudio = (playbackModel.mediaStreams?.audioStreams ?? []).isNotEmpty;
-    if (wantedAudioStream == AudioStreamModel.no() || wantedAudioStream == null) {
+    if (wantedAudioStream.index == AudioStreamModel.no().index) {
       if (!hasAdvertisedAudio) {
         return -1;
       }

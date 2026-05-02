@@ -2,6 +2,8 @@
 
 This repo is a **fork-style** copy of [Fladder](https://github.com/DonutWare/fladder) (see `../refs/Fladder` in the monorepo as a read-only reference snapshot).
 
+**Note:** This tree was imported with **separate Git history** from Fladder, so `git merge upstream/...` often errors with *unrelated histories*. Use **commit-by-commit porting** (see `.cursor/rules/fladder-upstream-sync.mdc` and `git show upstream/develop` / `upstream/main`).
+
 ## Remote setup
 
 Upstream (read-only reference for merges):

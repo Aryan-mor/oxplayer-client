@@ -120,10 +120,12 @@ class LibMPV extends BasePlayer {
     }
 
     if (_player?.platform is mpv.NativePlayer) {
-      await (_player?.platform as dynamic).setProperty(
-        'force-seekable',
-        'yes',
-      );
+      final nativePlayer = _player!.platform as dynamic;
+      await nativePlayer.setProperty('force-seekable', 'yes');
+
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await nativePlayer.setProperty('ao', 'audiotrack');
+      }
     }
   }
 

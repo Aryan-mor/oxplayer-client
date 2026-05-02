@@ -1,0 +1,38 @@
+---
+description: Port updates from upstream DonutWare/fladder into oxplayer-client (manual sync workflow)
+alwaysApply: false
+---
+
+# Syncing oxplayer-client with upstream Fladder
+
+This repo is Fladder-based but uses **unrelated Git history** vs `DonutWare/fladder`, so **`git merge upstream/main`** / **`upstream/develop` usually fails**. Updates are **ported commit-by-commit** (compare patches, apply in-tree).
+
+## When asked to sync / update from Fladder
+
+1. **Fetch**  
+   `git fetch upstream`  
+   Remote: `upstream` → `https://github.com/DonutWare/fladder.git`  
+   If missing: `git remote add upstream https://github.com/DonutWare/fladder.git`
+
+2. **See what landed upstream** (pick branch; develop is usually ahead of main)  
+   `git log --oneline -30 upstream/develop`  
+   or `upstream/main`
+
+3. **For each new commit** (oldest → newest if depending on order)  
+   - `git show <commit> --stat` then `git show <commit> -- <path>` for the diff.  
+   - Apply equivalent edits in this tree. **Do not** blindly overwrite `lib/oxplayer/` or OX hook sites in `lib/main.dart` and similar; merge behavior and keep OX behind `OxplayerConfig` / `lib/oxplayer/`.  
+   - If a change only touches **packaging** (fastlane, flatpak, Weblate-only, etc.) and the user did not ask for it, **skip** or offer it separately.
+
+4. **After `lib/l10n/app_en.arb` (or other ARB) changes**  
+   `flutter gen-l10n`  
+   (`lib/l10n/generated` is gitignored; builds need generated output.)
+
+5. **Verify**  
+   `dart analyze` or `flutter analyze` on touched files.
+
+6. **Reference**  
+   See `docs/UPSTREAM_SYNC.md` and optional monorepo snapshot `../refs/Fladder` for file-level diffs.
+
+## OX guard
+
+Keep OX-only code in **`lib/oxplayer/`** and toggled with **`OxplayerConfig.isEnabled`** so future Fladder ports stay small.

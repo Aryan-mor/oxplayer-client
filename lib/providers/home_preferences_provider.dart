@@ -89,7 +89,7 @@ class HomePreferencesNotifier extends StateNotifier<HomePreferencesModel> {
     try {
       await _saveLibraryPreferences();
       await ref.read(userProvider.notifier).updateInformation();
-      await ref.read(viewsProvider.notifier).fetchViews();
+      await ref.read(viewsProvider.notifier).fetchViews(force: true);
       return ApiResult.success(null);
     } catch (e) {
       return ApiResult.failure(ApiError(message: e.toString()));

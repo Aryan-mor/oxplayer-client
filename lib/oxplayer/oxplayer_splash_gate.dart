@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/providers/auth_provider.dart';
@@ -74,10 +75,26 @@ class OxplayerBackgroundSessionRefresh {
           result == OxplayerSplashGateResult.proceedToDashboard
               ? OxplayerBackgroundAuthStatus.online
               : OxplayerBackgroundAuthStatus.error;
+      if (result != OxplayerSplashGateResult.proceedToDashboard &&
+          OxplayerConfig.isEnabled &&
+          !kIsWeb) {
+        final tg = ref.read(oxplayerTelegramSessionReadyProvider);
+        oxplayerScheduleSessionRecoveryNavigation(
+          ref,
+          telegramTdlibAuthorized: tg,
+        );
+      }
     } catch (e) {
       ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = e;
       ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
           OxplayerBackgroundAuthStatus.error;
+      if (OxplayerConfig.isEnabled && !kIsWeb) {
+        final tg = ref.read(oxplayerTelegramSessionReadyProvider);
+        oxplayerScheduleSessionRecoveryNavigation(
+          ref,
+          telegramTdlibAuthorized: tg,
+        );
+      }
     }
   }
 }

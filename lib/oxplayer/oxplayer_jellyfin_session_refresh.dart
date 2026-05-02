@@ -9,6 +9,7 @@ import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
+import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/util/application_info.dart';
@@ -40,6 +41,8 @@ Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {
   final apiBase = OxplayerEnv.apiBaseUrl;
   if (apiBase == null) return false;
 
+  var telegramTdlibSessionAuthorized = false;
+
   try {
     final td = OxplayerTelegramTdSession();
     await td.initClient();
@@ -47,8 +50,14 @@ Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {
       await td.td.ensureAuthorized();
     } on TdlibInteractiveLoginRequired catch (e, st) {
       log('OX 401 refresh: Telegram re-login required', error: e, stackTrace: st);
+      oxplayerScheduleSessionRecoveryNavigation(
+        ref,
+        telegramTdlibAuthorized: false,
+      );
       return false;
     }
+
+    telegramTdlibSessionAuthorized = true;
 
     final app = ref.read(applicationInfoProvider);
     final deviceName = '${app.name} / ${defaultTargetPlatform.name}';
@@ -83,12 +92,24 @@ Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {
     return true;
   } on TdlibInteractiveLoginRequired catch (e, st) {
     log('OX 401 refresh: Telegram re-login required', error: e, stackTrace: st);
+    oxplayerScheduleSessionRecoveryNavigation(
+      ref,
+      telegramTdlibAuthorized: false,
+    );
     return false;
   } on OxplayerTelegramAuthException catch (e, st) {
     log('OX 401 refresh: auth exchange failed', error: e, stackTrace: st);
+    oxplayerScheduleSessionRecoveryNavigation(
+      ref,
+      telegramTdlibAuthorized: telegramTdlibSessionAuthorized,
+    );
     return false;
   } catch (e, st) {
     log('OX 401 refresh failed', error: e, stackTrace: st);
+    oxplayerScheduleSessionRecoveryNavigation(
+      ref,
+      telegramTdlibAuthorized: telegramTdlibSessionAuthorized,
+    );
     return false;
   }
 }

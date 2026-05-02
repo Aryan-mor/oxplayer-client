@@ -16,15 +16,22 @@ class _PinchPosterZoomState extends ConsumerState<PinchPosterZoom> {
 
   @override
   Widget build(BuildContext context) {
+    final pinchEnabled =
+        ref.watch(clientSettingsProvider.select((value) => value.pinchPosterZoom));
+    // A [GestureDetector] with scale handlers registers a scale recognizer that competes with
+    // vertical scrolling and breaks [RefreshIndicator] pull-to-refresh. Omit it entirely when
+    // pinch zoom is off (the default).
+    if (!pinchEnabled) {
+      return widget.child;
+    }
+
     return GestureDetector(
-      onScaleStart: (details) {
+      onScaleStart: (_) {
         lastScale = 1;
       },
       onScaleUpdate: (details) {
         final difference = details.scale - lastScale;
-        if (ref.watch(clientSettingsProvider.select((value) => value.pinchPosterZoom))) {
-          widget.scaleDifference?.call(difference);
-        }
+        widget.scaleDifference?.call(difference);
         lastScale = details.scale;
       },
       child: widget.child,

@@ -1,5 +1,6 @@
 import 'package:chopper/chopper.dart';
 import 'package:collection/collection.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/enum_models.dart';
@@ -10,7 +11,7 @@ import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/library_filters_model.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/models/seerr_credentials_model.dart';
 import 'package:fladder/providers/api_provider.dart';
@@ -36,7 +37,16 @@ class User extends _$User {
 
   Future<Response<AccountModel>?> updateInformation() async {
     if (state == null) return null;
-    if (ref.read(effectiveOfflineModeProvider)) return null;
+    // Do not ref.read [effectiveOfflineModeProvider] or [connectivityStatusProvider] here:
+    // both are linked to [userProvider] in the graph and cause CircularDependencyError when
+    // called from this notifier (e.g. pull-to-refresh). Use the platform API only for network.
+    try {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.contains(ConnectivityResult.none)) return null;
+    } catch (_) {}
+    if (OxplayerConfig.isEnabled && state!.credentials.token.trim().isEmpty) {
+      return null;
+    }
     return oxplayerTrackSwrRequest(ref, () async {
       var response = await api.usersMeGet();
       var quickConnectStatus = await api.quickConnectEnabled();

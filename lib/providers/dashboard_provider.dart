@@ -27,10 +27,16 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
   /// Concurrent callers await the same in-flight request instead of no-op'ing while loading.
   Future<void>? _fetchDashboardInFlight;
 
-  Future<void> fetchNextUpAndResume() async {
-    if (ref.read(effectiveOfflineModeProvider)) return;
-    if (_fetchDashboardInFlight != null) {
+  /// When [force] is true, waits for any in-flight fetch then runs again (see [ViewsNotifier.fetchViews]).
+  Future<void> fetchNextUpAndResume({bool force = false}) async {
+    if (ref.read(effectiveOfflineModeProvider) && !force) return;
+    if (!force && _fetchDashboardInFlight != null) {
       return _fetchDashboardInFlight!;
+    }
+    if (force && _fetchDashboardInFlight != null) {
+      try {
+        await _fetchDashboardInFlight!;
+      } catch (_) {}
     }
     final run = _runFetchNextUpAndResume();
     _fetchDashboardInFlight = run;

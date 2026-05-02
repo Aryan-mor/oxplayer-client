@@ -67,7 +67,7 @@ class LibraryScreen extends _$LibraryScreen {
   LibraryScreenModel build() => LibraryScreenModel();
 
   Future<void> fetchAllLibraries() async {
-    final views = await ref.read(viewsProvider.notifier).fetchViews();
+    final views = await ref.read(viewsProvider.notifier).fetchViews(force: true);
     state = state.copyWith(
       views: views?.views.toList() ?? [],
     );

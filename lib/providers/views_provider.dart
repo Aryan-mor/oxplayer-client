@@ -38,10 +38,18 @@ class ViewsNotifier extends StateNotifier<ViewsModel> {
   /// Concurrent callers await the same in-flight request (avoids `await` resolving early with null).
   Future<ViewsModel?>? _fetchViewsInFlight;
 
-  Future<ViewsModel?> fetchViews() async {
-    if (ref.read(effectiveOfflineModeProvider)) return state;
-    if (_fetchViewsInFlight != null) {
+  /// When [force] is true, waits for any in-flight fetch then runs a new request so
+  /// explicit refresh (pull-to-refresh, tab return) is not swallowed by deduplication.
+  Future<ViewsModel?> fetchViews({bool force = false}) async {
+    // User pull-to-refresh passes [force]: still attempt a fetch so coming back online works.
+    if (ref.read(effectiveOfflineModeProvider) && !force) return state;
+    if (!force && _fetchViewsInFlight != null) {
       return _fetchViewsInFlight!;
+    }
+    if (force && _fetchViewsInFlight != null) {
+      try {
+        await _fetchViewsInFlight!;
+      } catch (_) {}
     }
     final run = _runFetchViews();
     _fetchViewsInFlight = run;
@@ -97,7 +105,7 @@ class ViewsNotifier extends StateNotifier<ViewsModel> {
         state = state.copyWith(
             views: _applyLibraryOrdering(newList),
             dashboardViews: _applyLibraryOrdering(newList
-                .where((element) => !(ref.read(userProvider)?.latestItemsExcludes.contains(element.id) ?? true))
+                .where((element) => !(ref.read(userProvider)?.latestItemsExcludes.contains(element.id) ?? false))
                 .toList()),
             loading: false);
         return state;

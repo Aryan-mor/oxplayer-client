@@ -12,7 +12,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_jellyfin_session_refresh.dart';
+import 'package:fladder/oxplayer/oxplayer_jellyfin_401_interceptor_delegate.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -121,7 +121,7 @@ class JellyRequest implements Interceptor {
               !kIsWeb &&
               !ox401Retried) {
             ox401Retried = true;
-            final refreshed = await oxplayerTryRefreshJellyfinSessionAfter401(ref);
+            final refreshed = await oxplayerInvokeJellyfin401RefreshHandler(ref);
             if (refreshed) {
               break;
             }

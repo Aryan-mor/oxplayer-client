@@ -10,6 +10,8 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:fladder/background/update_notifications_worker.dart' as update_worker;
 import 'package:fladder/models/account_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
@@ -49,6 +51,9 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(sharedUtilityProvider).loadSettings();
+      if (OxplayerConfig.isEnabled && mounted) {
+        ref.read(oxplayerRegisteredAppRouterProvider.notifier).state = autoRouter;
+      }
       await platformInit();
       await _initializeNotifications();
     });
@@ -136,6 +141,9 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
 
   @override
   void dispose() {
+    if (OxplayerConfig.isEnabled) {
+      ref.read(oxplayerRegisteredAppRouterProvider.notifier).state = null;
+    }
     _notificationSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

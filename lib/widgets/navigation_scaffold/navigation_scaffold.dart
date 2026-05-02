@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
 import 'package:fladder/providers/window_title_provider.dart';
 import 'package:fladder/routes/auto_router.dart';
+import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/home_screen.dart';
 import 'package:fladder/screens/shared/animated_fade_size.dart';
 import 'package:fladder/screens/shared/nested_bottom_appbar.dart';
@@ -58,13 +60,23 @@ class _NavigationScaffoldState extends ConsumerState<NavigationScaffold> {
   @override
   void didUpdateWidget(covariant NavigationScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentRouteName != oldWidget.currentRouteName && currentIndex != -1) {
-      Future.microtask(() {
-        if (mounted) {
-          ref.read(windowTitleProvider.notifier).clearStack();
-        }
-      });
-    }
+    final routeChanged =
+        widget.currentRouteName != oldWidget.currentRouteName && currentIndex != -1;
+    final landedOnDashboard = widget.currentRouteName == DashboardRoute.name &&
+        oldWidget.currentRouteName != DashboardRoute.name;
+    if (!routeChanged && !landedOnDashboard) return;
+
+    Future.microtask(() async {
+      if (!mounted) return;
+      if (routeChanged) {
+        ref.read(windowTitleProvider.notifier).clearStack();
+      }
+      if (landedOnDashboard) {
+        await ref.read(viewsProvider.notifier).fetchViews(force: true);
+        if (!mounted) return;
+        await ref.read(dashboardProvider.notifier).fetchNextUpAndResume(force: true);
+      }
+    });
   }
 
   @override

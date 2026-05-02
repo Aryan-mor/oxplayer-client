@@ -92,7 +92,14 @@ class AdaptiveLayout extends InheritedWidget {
 
   static ScrollController scrollOf(BuildContext context, HomeTabs tab) {
     final AdaptiveLayout? result = maybeOf(context);
-    return result?.data.controller[tab] ?? ScrollController();
+    if (result == null) {
+      debugPrint(
+        'AdaptiveLayout missing in scrollOf($tab) for ${context.widget.runtimeType}; '
+        'pull-to-refresh and shared scroll may misbehave.',
+      );
+      return ScrollController();
+    }
+    return result.data.controller[tab]!;
   }
 
   static bool isDesktop(BuildContext context) {

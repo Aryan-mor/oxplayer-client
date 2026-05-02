@@ -68,7 +68,7 @@ class ConnectivityStatus extends _$ConnectivityStatus {
     ref.read(localConnectionAvailableProvider.notifier).update((state) => correctServerResponse);
   }
 
-  void checkConnectivity() async {
+  Future<void> checkConnectivity() async {
     final connectivityResult = await Connectivity().checkConnectivity();
     onStateChange(connectivityResult);
   }

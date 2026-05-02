@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:fladder/bootstrap/app_bootstrap.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_jellyfin_401_interceptor_delegate.dart';
+import 'package:fladder/oxplayer/oxplayer_jellyfin_session_refresh.dart';
 import 'package:fladder/oxplayer/oxplayer_persisted_url_sync.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/util/fladder_config.dart';
@@ -18,6 +20,7 @@ abstract final class OxplayerBootstrap {
   /// Runs after [bootstrapApplication] when prefs/dirs are available.
   static Future<void> afterAppBootstrap(AppBootstrapResult bootstrap) async {
     if (!OxplayerConfig.isEnabled) return;
+    oxplayerJellyfin401RefreshHandler = oxplayerTryRefreshJellyfinSessionAfter401;
     final media = OxplayerEnv.effectiveMediaServerUrl;
     if (media != null && media.isNotEmpty) {
       FladderConfig.baseUrl = media;

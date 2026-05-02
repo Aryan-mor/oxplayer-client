@@ -12,6 +12,7 @@ import 'package:fladder/models/collection_types.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/library_search/library_search_options.dart';
 import 'package:fladder/models/settings/home_settings_model.dart';
+import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/home_settings_provider.dart';
@@ -66,11 +67,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Future<void> _refreshHome() async {
-    if (mounted) {
-      await ref.read(userProvider.notifier).updateInformation();
-      await ref.read(viewsProvider.notifier).fetchViews();
-      await ref.read(dashboardProvider.notifier).fetchNextUpAndResume();
-    }
+    if (!mounted) return;
+    await ref.read(connectivityStatusProvider.notifier).checkConnectivity();
+    if (!mounted) return;
+    await ref.read(userProvider.notifier).updateInformation();
+    if (!mounted) return;
+    await ref.read(viewsProvider.notifier).fetchViews(force: true);
+    if (!mounted) return;
+    await ref.read(dashboardProvider.notifier).fetchNextUpAndResume(force: true);
   }
 
   @override
@@ -119,12 +123,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: PullToRefresh(
         refreshKey: _refreshIndicatorKey,
         displacement: 80 + MediaQuery.of(context).viewPadding.top,
-        onRefresh: () async => await _refreshHome(),
+        onRefresh: _refreshHome,
         child: (context) => PinchPosterZoom(
           scaleDifference: (difference) => ref.read(clientSettingsProvider.notifier).addPosterSize(difference),
           child: CustomScrollView(
             controller: AdaptiveLayout.scrollOf(context, HomeTabs.dashboard),
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             slivers: [
               if (bannerType != HomeBanner.detailedBanner) const DefaultSliverTopBadding(),
               if (viewSize == ViewSize.phone)

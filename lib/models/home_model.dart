@@ -8,6 +8,8 @@ class HomeModel {
   final List<ItemBaseModel> resumeBooks;
   final List<ItemBaseModel> activePrograms;
   final List<ItemBaseModel> nextUp;
+  final List<ItemBaseModel> bannerCurated;
+  final List<ItemBaseModel> bannerGlobalLatest;
 
   HomeModel({
     this.loading = false,
@@ -16,6 +18,8 @@ class HomeModel {
     this.resumeBooks = const [],
     this.activePrograms = const [],
     this.nextUp = const [],
+    this.bannerCurated = const [],
+    this.bannerGlobalLatest = const [],
   });
 
   HomeModel copyWith({
@@ -26,6 +30,8 @@ class HomeModel {
     List<ItemBaseModel>? activePrograms,
     List<ItemBaseModel>? nextUp,
     List<ItemBaseModel>? nextUpBooks,
+    List<ItemBaseModel>? bannerCurated,
+    List<ItemBaseModel>? bannerGlobalLatest,
   }) {
     return HomeModel(
       loading: loading ?? this.loading,
@@ -34,6 +40,8 @@ class HomeModel {
       resumeBooks: resumeBooks ?? this.resumeBooks,
       activePrograms: activePrograms ?? this.activePrograms,
       nextUp: nextUp ?? this.nextUp,
+      bannerCurated: bannerCurated ?? this.bannerCurated,
+      bannerGlobalLatest: bannerGlobalLatest ?? this.bannerGlobalLatest,
     );
   }
 }

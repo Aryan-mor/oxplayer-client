@@ -7628,6 +7628,7 @@ UserDto _$UserDtoFromJson(Map<String, dynamic> json) => UserDto(
           : UserPolicy.fromJson(json['Policy'] as Map<String, dynamic>),
       primaryImageAspectRatio:
           (json['PrimaryImageAspectRatio'] as num?)?.toDouble(),
+      oxUserRole: json['OxUserRole'] as String?,
     );
 
 Map<String, dynamic> _$UserDtoToJson(UserDto instance) => <String, dynamic>{
@@ -7651,6 +7652,7 @@ Map<String, dynamic> _$UserDtoToJson(UserDto instance) => <String, dynamic>{
       if (instance.policy?.toJson() case final value?) 'Policy': value,
       if (instance.primaryImageAspectRatio case final value?)
         'PrimaryImageAspectRatio': value,
+      if (instance.oxUserRole case final value?) 'OxUserRole': value,
     };
 
 UserItemDataDto _$UserItemDataDtoFromJson(Map<String, dynamic> json) =>

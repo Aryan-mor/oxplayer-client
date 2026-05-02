@@ -66,6 +66,7 @@ class User extends _$User {
         userState = state?.copyWith(
           name: user.name ?? state?.name ?? "",
           policy: user.policy,
+          oxUserRole: user.oxUserRole,
           avatar: imageUrl,
           serverConfiguration: systemConfiguration.body,
           userConfiguration: user.configuration,

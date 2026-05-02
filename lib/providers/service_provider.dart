@@ -20,6 +20,7 @@ import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/items/photos_model.dart';
 import 'package:fladder/models/items/trick_play_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/image_provider.dart';
@@ -1094,6 +1095,56 @@ class JellyService {
         playlistId: playlistId,
         entryIds: entryIds,
       );
+
+  /// OX-only `GET /UserItems/HomeBannerDiscovery` (403 for general users). Returns null on non-OX, network, or parse errors.
+  Future<({List<BaseItemDto> curated, List<BaseItemDto> globalLatest})?> userItemsHomeBannerDiscoveryGet() async {
+    if (!OxplayerConfig.isEnabled) return null;
+    final base = ref.read(serverUrlProvider);
+    final acc = account;
+    if (base == null || base.isEmpty || acc == null) return null;
+    final authServer = ref.read(authProvider).serverLoginModel?.tempCredentials.url ?? '';
+    final currentServer = acc.credentials.url;
+    if ((authServer.isNotEmpty ? authServer : currentServer) == FakeHelper.fakeTestServerUrl) {
+      return (curated: <BaseItemDto>[], globalLatest: <BaseItemDto>[]);
+    }
+    final root = base.replaceAll(RegExp(r'/+$'), '');
+    final uri = Uri.parse('$root/UserItems/HomeBannerDiscovery');
+    try {
+      final headers = acc.credentials.header(ref);
+      final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+      if (res.statusCode != 200) {
+        return null;
+      }
+      final map = jsonDecode(res.body) as Map<String, dynamic>?;
+      if (map == null) return null;
+      final curRaw = map['Curated'];
+      final globRaw = map['GlobalLatest'];
+      final curated = <BaseItemDto>[];
+      final globalLatest = <BaseItemDto>[];
+      if (curRaw is List) {
+        for (final e in curRaw) {
+          if (e is Map<String, dynamic>) {
+            try {
+              curated.add(BaseItemDto.fromJson(e));
+            } catch (_) {}
+          }
+        }
+      }
+      if (globRaw is List) {
+        for (final e in globRaw) {
+          if (e is Map<String, dynamic>) {
+            try {
+              globalLatest.add(BaseItemDto.fromJson(e));
+            } catch (_) {}
+          }
+        }
+      }
+      return (curated: curated, globalLatest: globalLatest);
+    } catch (e, st) {
+      log('userItemsHomeBannerDiscoveryGet failed: $e\n$st');
+      return null;
+    }
+  }
 
   Future<Response<UserDto>> usersMeGet() => api.usersMeGet();
 

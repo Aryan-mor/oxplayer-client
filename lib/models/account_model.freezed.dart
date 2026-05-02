@@ -33,6 +33,10 @@ mixin _$AccountModel implements DiagnosticableTreeMixin {
   bool get includeHiddenViews; //Server values not stored in the database
   @JsonKey(includeFromJson: false, includeToJson: false)
   UserPolicy? get policy;
+
+  /// OX API only (`Users/Me`): `general` | `vip` | `admin`. Not persisted to account JSON.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  String? get oxUserRole;
   @JsonKey(includeFromJson: false, includeToJson: false)
   ServerConfiguration? get serverConfiguration;
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -76,6 +80,7 @@ mixin _$AccountModel implements DiagnosticableTreeMixin {
       ..add(DiagnosticsProperty('seerrRequestsEnabled', seerrRequestsEnabled))
       ..add(DiagnosticsProperty('includeHiddenViews', includeHiddenViews))
       ..add(DiagnosticsProperty('policy', policy))
+      ..add(DiagnosticsProperty('oxUserRole', oxUserRole))
       ..add(DiagnosticsProperty('serverConfiguration', serverConfiguration))
       ..add(DiagnosticsProperty('userConfiguration', userConfiguration))
       ..add(DiagnosticsProperty('hasPassword', hasPassword))
@@ -85,7 +90,7 @@ mixin _$AccountModel implements DiagnosticableTreeMixin {
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'AccountModel(name: $name, id: $id, avatar: $avatar, lastUsed: $lastUsed, authMethod: $authMethod, askForAuthOnLaunch: $askForAuthOnLaunch, localPin: $localPin, credentials: $credentials, seerrCredentials: $seerrCredentials, latestItemsExcludes: $latestItemsExcludes, searchQueryHistory: $searchQueryHistory, quickConnectState: $quickConnectState, libraryFilters: $libraryFilters, updateNotificationsEnabled: $updateNotificationsEnabled, seerrRequestsEnabled: $seerrRequestsEnabled, includeHiddenViews: $includeHiddenViews, policy: $policy, serverConfiguration: $serverConfiguration, userConfiguration: $userConfiguration, hasPassword: $hasPassword, hasConfiguredPassword: $hasConfiguredPassword, userSettings: $userSettings)';
+    return 'AccountModel(name: $name, id: $id, avatar: $avatar, lastUsed: $lastUsed, authMethod: $authMethod, askForAuthOnLaunch: $askForAuthOnLaunch, localPin: $localPin, credentials: $credentials, seerrCredentials: $seerrCredentials, latestItemsExcludes: $latestItemsExcludes, searchQueryHistory: $searchQueryHistory, quickConnectState: $quickConnectState, libraryFilters: $libraryFilters, updateNotificationsEnabled: $updateNotificationsEnabled, seerrRequestsEnabled: $seerrRequestsEnabled, includeHiddenViews: $includeHiddenViews, policy: $policy, oxUserRole: $oxUserRole, serverConfiguration: $serverConfiguration, userConfiguration: $userConfiguration, hasPassword: $hasPassword, hasConfiguredPassword: $hasConfiguredPassword, userSettings: $userSettings)';
   }
 }
 
@@ -113,6 +118,7 @@ abstract mixin class $AccountModelCopyWith<$Res> {
       bool seerrRequestsEnabled,
       bool includeHiddenViews,
       @JsonKey(includeFromJson: false, includeToJson: false) UserPolicy? policy,
+      @JsonKey(includeFromJson: false, includeToJson: false) String? oxUserRole,
       @JsonKey(includeFromJson: false, includeToJson: false)
       ServerConfiguration? serverConfiguration,
       @JsonKey(includeFromJson: false, includeToJson: false)
@@ -156,6 +162,7 @@ class _$AccountModelCopyWithImpl<$Res> implements $AccountModelCopyWith<$Res> {
     Object? seerrRequestsEnabled = null,
     Object? includeHiddenViews = null,
     Object? policy = freezed,
+    Object? oxUserRole = freezed,
     Object? serverConfiguration = freezed,
     Object? userConfiguration = freezed,
     Object? hasPassword = freezed,
@@ -231,6 +238,10 @@ class _$AccountModelCopyWithImpl<$Res> implements $AccountModelCopyWith<$Res> {
           ? _self.policy
           : policy // ignore: cast_nullable_to_non_nullable
               as UserPolicy?,
+      oxUserRole: freezed == oxUserRole
+          ? _self.oxUserRole
+          : oxUserRole // ignore: cast_nullable_to_non_nullable
+              as String?,
       serverConfiguration: freezed == serverConfiguration
           ? _self.serverConfiguration
           : serverConfiguration // ignore: cast_nullable_to_non_nullable
@@ -407,6 +418,8 @@ extension AccountModelPatterns on AccountModel {
             @JsonKey(includeFromJson: false, includeToJson: false)
             UserPolicy? policy,
             @JsonKey(includeFromJson: false, includeToJson: false)
+            String? oxUserRole,
+            @JsonKey(includeFromJson: false, includeToJson: false)
             ServerConfiguration? serverConfiguration,
             @JsonKey(includeFromJson: false, includeToJson: false)
             UserConfiguration? userConfiguration,
@@ -439,6 +452,7 @@ extension AccountModelPatterns on AccountModel {
             _that.seerrRequestsEnabled,
             _that.includeHiddenViews,
             _that.policy,
+            _that.oxUserRole,
             _that.serverConfiguration,
             _that.userConfiguration,
             _that.hasPassword,
@@ -484,6 +498,8 @@ extension AccountModelPatterns on AccountModel {
             @JsonKey(includeFromJson: false, includeToJson: false)
             UserPolicy? policy,
             @JsonKey(includeFromJson: false, includeToJson: false)
+            String? oxUserRole,
+            @JsonKey(includeFromJson: false, includeToJson: false)
             ServerConfiguration? serverConfiguration,
             @JsonKey(includeFromJson: false, includeToJson: false)
             UserConfiguration? userConfiguration,
@@ -515,6 +531,7 @@ extension AccountModelPatterns on AccountModel {
             _that.seerrRequestsEnabled,
             _that.includeHiddenViews,
             _that.policy,
+            _that.oxUserRole,
             _that.serverConfiguration,
             _that.userConfiguration,
             _that.hasPassword,
@@ -559,6 +576,8 @@ extension AccountModelPatterns on AccountModel {
             @JsonKey(includeFromJson: false, includeToJson: false)
             UserPolicy? policy,
             @JsonKey(includeFromJson: false, includeToJson: false)
+            String? oxUserRole,
+            @JsonKey(includeFromJson: false, includeToJson: false)
             ServerConfiguration? serverConfiguration,
             @JsonKey(includeFromJson: false, includeToJson: false)
             UserConfiguration? userConfiguration,
@@ -590,6 +609,7 @@ extension AccountModelPatterns on AccountModel {
             _that.seerrRequestsEnabled,
             _that.includeHiddenViews,
             _that.policy,
+            _that.oxUserRole,
             _that.serverConfiguration,
             _that.userConfiguration,
             _that.hasPassword,
@@ -622,6 +642,7 @@ class _AccountModel extends AccountModel with DiagnosticableTreeMixin {
       this.seerrRequestsEnabled = false,
       this.includeHiddenViews = false,
       @JsonKey(includeFromJson: false, includeToJson: false) this.policy,
+      @JsonKey(includeFromJson: false, includeToJson: false) this.oxUserRole,
       @JsonKey(includeFromJson: false, includeToJson: false)
       this.serverConfiguration,
       @JsonKey(includeFromJson: false, includeToJson: false)
@@ -704,6 +725,11 @@ class _AccountModel extends AccountModel with DiagnosticableTreeMixin {
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   final UserPolicy? policy;
+
+  /// OX API only (`Users/Me`): `general` | `vip` | `admin`. Not persisted to account JSON.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  final String? oxUserRole;
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   final ServerConfiguration? serverConfiguration;
@@ -756,6 +782,7 @@ class _AccountModel extends AccountModel with DiagnosticableTreeMixin {
       ..add(DiagnosticsProperty('seerrRequestsEnabled', seerrRequestsEnabled))
       ..add(DiagnosticsProperty('includeHiddenViews', includeHiddenViews))
       ..add(DiagnosticsProperty('policy', policy))
+      ..add(DiagnosticsProperty('oxUserRole', oxUserRole))
       ..add(DiagnosticsProperty('serverConfiguration', serverConfiguration))
       ..add(DiagnosticsProperty('userConfiguration', userConfiguration))
       ..add(DiagnosticsProperty('hasPassword', hasPassword))
@@ -765,7 +792,7 @@ class _AccountModel extends AccountModel with DiagnosticableTreeMixin {
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'AccountModel(name: $name, id: $id, avatar: $avatar, lastUsed: $lastUsed, authMethod: $authMethod, askForAuthOnLaunch: $askForAuthOnLaunch, localPin: $localPin, credentials: $credentials, seerrCredentials: $seerrCredentials, latestItemsExcludes: $latestItemsExcludes, searchQueryHistory: $searchQueryHistory, quickConnectState: $quickConnectState, libraryFilters: $libraryFilters, updateNotificationsEnabled: $updateNotificationsEnabled, seerrRequestsEnabled: $seerrRequestsEnabled, includeHiddenViews: $includeHiddenViews, policy: $policy, serverConfiguration: $serverConfiguration, userConfiguration: $userConfiguration, hasPassword: $hasPassword, hasConfiguredPassword: $hasConfiguredPassword, userSettings: $userSettings)';
+    return 'AccountModel(name: $name, id: $id, avatar: $avatar, lastUsed: $lastUsed, authMethod: $authMethod, askForAuthOnLaunch: $askForAuthOnLaunch, localPin: $localPin, credentials: $credentials, seerrCredentials: $seerrCredentials, latestItemsExcludes: $latestItemsExcludes, searchQueryHistory: $searchQueryHistory, quickConnectState: $quickConnectState, libraryFilters: $libraryFilters, updateNotificationsEnabled: $updateNotificationsEnabled, seerrRequestsEnabled: $seerrRequestsEnabled, includeHiddenViews: $includeHiddenViews, policy: $policy, oxUserRole: $oxUserRole, serverConfiguration: $serverConfiguration, userConfiguration: $userConfiguration, hasPassword: $hasPassword, hasConfiguredPassword: $hasConfiguredPassword, userSettings: $userSettings)';
   }
 }
 
@@ -795,6 +822,7 @@ abstract mixin class _$AccountModelCopyWith<$Res>
       bool seerrRequestsEnabled,
       bool includeHiddenViews,
       @JsonKey(includeFromJson: false, includeToJson: false) UserPolicy? policy,
+      @JsonKey(includeFromJson: false, includeToJson: false) String? oxUserRole,
       @JsonKey(includeFromJson: false, includeToJson: false)
       ServerConfiguration? serverConfiguration,
       @JsonKey(includeFromJson: false, includeToJson: false)
@@ -842,6 +870,7 @@ class __$AccountModelCopyWithImpl<$Res>
     Object? seerrRequestsEnabled = null,
     Object? includeHiddenViews = null,
     Object? policy = freezed,
+    Object? oxUserRole = freezed,
     Object? serverConfiguration = freezed,
     Object? userConfiguration = freezed,
     Object? hasPassword = freezed,
@@ -917,6 +946,10 @@ class __$AccountModelCopyWithImpl<$Res>
           ? _self.policy
           : policy // ignore: cast_nullable_to_non_nullable
               as UserPolicy?,
+      oxUserRole: freezed == oxUserRole
+          ? _self.oxUserRole
+          : oxUserRole // ignore: cast_nullable_to_non_nullable
+              as String?,
       serverConfiguration: freezed == serverConfiguration
           ? _self.serverConfiguration
           : serverConfiguration // ignore: cast_nullable_to_non_nullable

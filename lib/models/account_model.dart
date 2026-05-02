@@ -41,6 +41,8 @@ abstract class AccountModel with _$AccountModel {
 
     //Server values not stored in the database
     @JsonKey(includeFromJson: false, includeToJson: false) UserPolicy? policy,
+    /// OX API only (`Users/Me`): `general` | `vip` | `admin`. Not persisted to account JSON.
+    @JsonKey(includeFromJson: false, includeToJson: false) String? oxUserRole,
     @JsonKey(includeFromJson: false, includeToJson: false) ServerConfiguration? serverConfiguration,
     @JsonKey(includeFromJson: false, includeToJson: false) UserConfiguration? userConfiguration,
     @JsonKey(includeFromJson: false, includeToJson: false) bool? hasPassword,

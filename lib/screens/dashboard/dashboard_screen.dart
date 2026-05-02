@@ -14,6 +14,7 @@ import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/home_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_home_banner_carousel.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/dashboard/home_banner_widget.dart';
 import 'package:fladder/screens/home_screen.dart';
@@ -90,11 +91,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final allResume = [...resumeVideo, ...resumeAudio, ...resumeBooks].toList();
 
-    final homeCarouselItems = switch (homeSettings.carouselSettings) {
-      HomeCarouselSettings.nextUp => dashboardData.nextUp,
-      HomeCarouselSettings.combined => [...allResume, ...dashboardData.nextUp],
-      HomeCarouselSettings.cont => allResume,
-    };
+    final account = ref.watch(userProvider);
+    final homeCarouselItems = buildOxplayerHomeCarouselItems(
+      mode: homeSettings.carouselSettings,
+      policy: account?.policy,
+      oxUserRole: account?.oxUserRole,
+      allResume: allResume,
+      nextUp: dashboardData.nextUp,
+      dashboardViews: views.dashboardViews,
+      bannerCurated: dashboardData.bannerCurated,
+      bannerGlobalLatest: dashboardData.bannerGlobalLatest,
+    );
 
     final viewSize = AdaptiveLayout.viewSizeOf(context);
 

@@ -8,6 +8,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/models/settings/key_combinations.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/util/bitrate_helper.dart';
 import 'package:fladder/util/localization_helper.dart';
 
@@ -100,8 +101,17 @@ abstract class VideoPlayerSettingsModel with _$VideoPlayerSettingsModel {
 
   factory VideoPlayerSettingsModel.fromJson(Map<String, dynamic> json) => _$VideoPlayerSettingsModelFromJson(json);
 
-  PlayerOptions get wantedPlayer =>
-      leanBackMode ? PlayerOptions.nativePlayer : playerOptions ?? PlayerOptions.platformDefaults;
+  /// Android TV / lean-back uses [NativePlayer] by default (no muxed track discovery). OX relies on
+  /// libmpv-reported muxed subtitles + `/verified-streams` until the server has a manifest; use MPV on TV when Ox is on.
+  PlayerOptions get wantedPlayer {
+    if (leanBackMode) {
+      if (OxplayerConfig.isEnabled) {
+        return playerOptions ?? PlayerOptions.libMPV;
+      }
+      return PlayerOptions.nativePlayer;
+    }
+    return playerOptions ?? PlayerOptions.platformDefaults;
+  }
 
   Map<VideoHotKeys, KeyCombination> get currentShortcuts =>
       _defaultVideoHotKeys.map((key, value) => MapEntry(key, hotKeys[key] ?? value));
@@ -155,7 +165,9 @@ enum PlayerOptions {
   const PlayerOptions();
 
   static Iterable<PlayerOptions> get available => leanBackMode
-      ? {PlayerOptions.nativePlayer}
+      ? (OxplayerConfig.isEnabled
+          ? {PlayerOptions.libMPV, PlayerOptions.nativePlayer}
+          : {PlayerOptions.nativePlayer})
       : kIsWeb
           ? {PlayerOptions.libMPV}
           : switch (defaultTargetPlatform) {
@@ -164,7 +176,9 @@ enum PlayerOptions {
             };
 
   static PlayerOptions get platformDefaults {
-    if (leanBackMode) return PlayerOptions.nativePlayer;
+    if (leanBackMode) {
+      return OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer;
+    }
     if (kIsWeb) return PlayerOptions.libMPV;
     return switch (defaultTargetPlatform) {
       _ => PlayerOptions.libMPV,

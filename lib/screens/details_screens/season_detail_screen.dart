@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
@@ -19,6 +20,7 @@ import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
 import 'package:fladder/util/list_padding.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/people_extension.dart';
+import 'package:fladder/util/router_extension.dart';
 import 'package:fladder/util/string_extensions.dart';
 import 'package:fladder/util/theme_extensions.dart';
 import 'package:fladder/util/widget_extensions.dart';
@@ -45,9 +47,18 @@ class _SeasonDetailScreenState extends ConsumerState<SeasonDetailScreen> {
       label: details?.localizedName(context.localized) ?? "",
       windowTitle: details?.windowTitle(context.localized),
       item: details,
-      actions: (context) => details?.generateActions(context, ref, exclude: {
-        ItemActions.details,
-      }),
+      actions: (context) => details?.generateActions(
+        context,
+        ref,
+        exclude: {
+          ItemActions.details,
+        },
+        onDeleteSuccesFully: (item) async {
+          if (context.mounted) {
+            await context.router.popBack();
+          }
+        },
+      ),
       onRefresh: () async {
         await ref.read(providerId.notifier).fetchDetails(widget.item.id);
       },

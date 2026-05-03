@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:developer' show log;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -8,6 +11,7 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:fladder/models/book_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
+import 'package:fladder/models/items/item_stream_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/movie_model.dart';
 import 'package:fladder/models/items/series_model.dart';
@@ -29,9 +33,12 @@ import 'package:fladder/util/file_downloader.dart';
 import 'package:fladder/util/item_base_model/play_item_helpers.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/refresh_state.dart';
+import 'package:fladder/util/router_extension.dart';
 import 'package:fladder/widgets/pop_up/delete_file.dart';
 import 'package:fladder/widgets/shared/item_actions.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_item_stream_ox_ids.dart';
+import 'package:fladder/oxplayer/oxplayer_library_media_api.dart';
 import 'package:fladder/oxplayer/providers/oxplayer_watch_later_provider.dart';
 
 extension ItemBaseModelsBooleans on List<ItemBaseModel> {
@@ -94,6 +101,19 @@ extension ItemBaseModelOxGeneralVideo on ItemBaseModel {
   }
 }
 
+/// After a library delete succeeds: run optional screen hook, otherwise pop one route (e.g. detail → previous).
+Future<void> _navigateAfterLibraryItemDelete(
+  BuildContext context,
+  ItemBaseModel item,
+  FutureOr<void> Function(ItemBaseModel item)? onDeleteSuccesFully,
+) async {
+  if (onDeleteSuccesFully != null) {
+    await onDeleteSuccesFully(item);
+  } else if (context.mounted) {
+    await context.router.popBack();
+  }
+}
+
 enum ItemActions {
   play,
   openShow,
@@ -122,7 +142,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
     Set<ItemActions> exclude = const {},
     Function(UserData? newData)? onUserDataChanged,
     Function(ItemBaseModel item)? onItemUpdated,
-    Function(ItemBaseModel item)? onDeleteSuccesFully,
+    FutureOr<void> Function(ItemBaseModel item)? onDeleteSuccesFully,
   }) {
     final isAdmin = ref.read(userProvider)?.policy?.isAdministrator ?? false;
     final downloadEnabled = ref.read(userProvider.select(
@@ -258,6 +278,12 @@ extension ItemBaseModelExtensions on ItemBaseModel {
             label: Text(isWatchLater ? "Remove from Watch Later" : "Add to Watch Later"),
           );
         }(),
+      ..._oxplayerLibraryIssueActions(
+        context: context,
+        ref: ref,
+        item: this,
+        onDeleteSuccesFully: onDeleteSuccesFully,
+      ),
       ...otherActions,
       ItemActionDivider(),
       if (!exclude.contains(ItemActions.editMetaData) && isAdmin)
@@ -355,7 +381,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
               successTitle: context.localized.deletedItem(name),
             );
             if (response.isSuccess) {
-              onDeleteSuccesFully?.call(this);
+              await _navigateAfterLibraryItemDelete(context, this, onDeleteSuccesFully);
               if (context.mounted) {
                 context.refreshData();
               }
@@ -407,5 +433,76 @@ extension ItemBaseModelExtensions on ItemBaseModel {
     final value = providerIds['Tvdb'];
     final parsed = int.tryParse(value.toString());
     return parsed;
+  }
+}
+
+Iterable<ItemAction> _oxplayerLibraryIssueActions({
+  required BuildContext context,
+  required WidgetRef ref,
+  required ItemBaseModel item,
+  FutureOr<void> Function(ItemBaseModel item)? onDeleteSuccesFully,
+}) sync* {
+  if (item is MovieModel && item.oxMediaIdForGeneralVideoThumb != null) {
+    final mediaId = item.oxMediaIdForGeneralVideoThumb!;
+    yield ItemActionButton(
+      icon: const Icon(IconsaxPlusLinear.trash),
+      label: Text(context.localized.oxplayerRemoveFromLibrary),
+      action: () async {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(ctx.localized.oxplayerRemoveGeneralVideoTitle),
+            content: Text(ctx.localized.oxplayerRemoveGeneralVideoBody),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.localized.cancel)),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.localized.delete)),
+            ],
+          ),
+        );
+        if (ok != true || !context.mounted) return;
+        final removed = await oxplayerDeleteLibraryMedia(ref, mediaId);
+        if (!context.mounted) return;
+        if (removed) {
+          FladderSnack.show(context.localized.oxplayerRemoveGeneralVideoSuccess, context: context);
+          await _navigateAfterLibraryItemDelete(context, item, onDeleteSuccesFully);
+          if (context.mounted) {
+            context.refreshData();
+          }
+        } else {
+          FladderSnack.show(context.localized.oxplayerRemoveGeneralVideoFailed, context: context);
+        }
+      },
+    );
+    return;
+  }
+  if (item is ItemStreamModel) {
+    final mid = item.oxTelegramLibraryMediaId;
+    if (mid == null) return;
+    yield ItemActionButton(
+      icon: const Icon(IconsaxPlusLinear.flag),
+      label: Text(context.localized.oxplayerReportIssue),
+      action: () async {
+        final r = await oxplayerPostLibraryMediaReport(ref, mid);
+        if (!context.mounted) return;
+        if (!r.ok) {
+          if (kDebugMode) {
+            log(r.debugLine, name: 'oxplayer_library_report');
+          }
+          final msg = switch (r.httpStatus) {
+            401 => context.localized.oxplayerReportIssueUnauthorized,
+            404 => context.localized.oxplayerReportIssueNotFound,
+            _ => context.localized.oxplayerReportIssueFailed,
+          };
+          FladderSnack.show(msg, context: context);
+          return;
+        }
+        FladderSnack.show(
+          r.adminNotified
+              ? context.localized.oxplayerReportIssueSent
+              : context.localized.oxplayerReportIssueRecordedWithoutAdmin,
+          context: context,
+        );
+      },
+    );
   }
 }

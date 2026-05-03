@@ -7,7 +7,6 @@ class TdlibInteractiveLoginRequired implements Exception {
   String toString() => 'Telegram session is not ready yet.';
 }
 
-
 class TdlibCloudPasswordChallenge {
   const TdlibCloudPasswordChallenge({required this.hint});
 

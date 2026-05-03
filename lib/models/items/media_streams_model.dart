@@ -137,6 +137,7 @@ class MediaStreamsModel {
                 return VersionStreamModel(
                     name: qualityLabel,
                     oxTelegramCaption: nameParts.telegramCaption,
+                    oxLocatorPath: element.path,
                     index: index,
                     id: element.id,
                     defaultAudioStreamIndex: element.defaultAudioStreamIndex,
@@ -313,6 +314,8 @@ class VersionStreamModel {
   final String name;
   /// Telegram message caption for this upload (from API `MediaSourceInfo.Name` suffix).
   final String? oxTelegramCaption;
+  /// Jellyfin `MediaSourceInfo.path` when present (e.g. `oxplayer://telegram/<mediaId>`).
+  final String? oxLocatorPath;
   final int index;
   final String? id;
   final int? defaultAudioStreamIndex;
@@ -332,6 +335,7 @@ class VersionStreamModel {
   VersionStreamModel({
     required this.name,
     this.oxTelegramCaption,
+    this.oxLocatorPath,
     required this.index,
     this.id,
     required this.defaultAudioStreamIndex,

@@ -159,6 +159,7 @@ extension MediaStreamsModelMuxedAudioMerge on MediaStreamsModel {
     final newVersion = VersionStreamModel(
       name: cur.name,
       oxTelegramCaption: cur.oxTelegramCaption,
+      oxLocatorPath: cur.oxLocatorPath,
       index: cur.index,
       id: cur.id,
       defaultAudioStreamIndex: newDef,

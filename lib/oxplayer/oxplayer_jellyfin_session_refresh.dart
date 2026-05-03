@@ -1,18 +1,17 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
-import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/util/application_info.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 Future<bool>? _oxJellyfinRefreshInFlight;
 

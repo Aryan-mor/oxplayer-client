@@ -65,9 +65,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           ItemActions.playFromStart,
           ItemActions.details,
         },
-        onDeleteSuccesFully: (item) {
+        onDeleteSuccesFully: (item) async {
           if (context.mounted) {
-            context.router.popBack();
+            await context.router.popBack();
           }
         },
       ),

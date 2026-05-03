@@ -8,10 +8,10 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tdlib/td_api.dart' as td;
-import 'package:tdlib/tdlib.dart';
 import 'package:tdlib/src/tdapi/tdapi.dart' show convertToObject;
 import 'package:tdlib/src/tdclient/platform_interfaces/td_native_plugin_real.dart' as td_native;
+import 'package:tdlib/td_api.dart' as td;
+import 'package:tdlib/tdlib.dart';
 
 import 'oxplayer_tdlib_debug.dart';
 import 'tdlib_facade.dart';
@@ -299,7 +299,9 @@ class TelegramTdlibFacade implements TdlibFacade {
 
     // 1. Stop the receive loop and cancel the stream subscription.
     _receiveLoopRunning = false;
-    try { await _receiveSub?.cancel(); } catch (_) {}
+    try {
+      await _receiveSub?.cancel();
+    } catch (_) {}
     _receiveSub = null;
 
     // 2. Kill the receive isolate immediately so tdJsonClientReceive stops.
@@ -315,7 +317,11 @@ class TelegramTdlibFacade implements TdlibFacade {
     // 4. Destroy the native client.
     _clientId = null;
     if (identical(_nativeClientOwner, this)) _nativeClientOwner = null;
-    try { tdJsonClientDestroy(id); } catch (e) { _tdlog('TDLib destroy: $e'); }
+    try {
+      tdJsonClientDestroy(id);
+    } catch (e) {
+      _tdlog('TDLib destroy: $e');
+    }
     await Future<void>.delayed(const Duration(milliseconds: 150));
 
     // 5. Delete session files so trySilentRestore() returns false next launch.
@@ -504,9 +510,7 @@ class TelegramTdlibFacade implements TdlibFacade {
   bool _isInteractiveAuthError(td.TdError err) {
     if (err.code == 401) return true;
     final message = err.message.toLowerCase();
-    return message.contains('unauthorized') ||
-        message.contains('not authorized') ||
-        message.contains('authentication');
+    return message.contains('unauthorized') || message.contains('not authorized') || message.contains('authentication');
   }
 
   void _handleSessionUser(td.TdObject obj) {
@@ -626,7 +630,8 @@ class TelegramTdlibFacade implements TdlibFacade {
         );
       }
     } else if (state is td.AuthorizationStateWaitOtherDeviceConfirmation) {
-      authDebugDedup('tdlib_auth_state', AuthDebugLevel.info, 'TDLib auth state: WaitOtherDeviceConfirmation (QR ready).');
+      authDebugDedup(
+          'tdlib_auth_state', AuthDebugLevel.info, 'TDLib auth state: WaitOtherDeviceConfirmation (QR ready).');
       _failEnsureAuthorizedIfPending('WaitOtherDeviceConfirmation');
       unawaited(_invokeRequiresInteractiveLogin());
       if (!_authWaitPhoneNumber.isClosed) {
@@ -811,7 +816,7 @@ class TelegramTdlibFacade implements TdlibFacade {
     _receiveLoopRunning = false;
     await _receiveSub?.cancel();
     _receiveSub = null;
-  await _stopReceiveIsolate();
+    await _stopReceiveIsolate();
     _receiveMainPort?.close();
     _receiveMainPort = null;
     await Future<void>.delayed(const Duration(milliseconds: 350));

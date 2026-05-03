@@ -64,9 +64,9 @@ class _ItemDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
           if (details.series == null) ItemActions.openShow,
           ItemActions.details,
         },
-        onDeleteSuccesFully: (item) {
+        onDeleteSuccesFully: (item) async {
           if (context.mounted) {
-            context.router.popBack();
+            await context.router.popBack();
           }
         },
       ),

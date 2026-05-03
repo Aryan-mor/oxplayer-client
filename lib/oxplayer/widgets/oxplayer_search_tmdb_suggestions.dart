@@ -1,12 +1,6 @@
 import 'dart:convert';
 
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-
-
 import 'package:fladder/oxplayer/ox_tmdb_seerr_session.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
@@ -14,6 +8,9 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/seerr/seerr_models.dart';
 import 'package:fladder/util/fladder_config.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 /// One TMDB search suggestion as returned by `GET /search/suggestions`.
 class _TmdbSuggestion {
@@ -52,8 +49,7 @@ class _TmdbSuggestion {
 /// Uses the credentials URL (always current, updated by OxplayerPersistedUrlSync)
 /// rather than the static env var which may be null when not compile-time defined.
 /// Returns an empty list when the server responds with a non-success status or on any error.
-final _oxplayerTmdbSuggestionsProvider =
-    FutureProvider.autoDispose.family<List<_TmdbSuggestion>, String>(
+final _oxplayerTmdbSuggestionsProvider = FutureProvider.autoDispose.family<List<_TmdbSuggestion>, String>(
   (ref, query) async {
     debugPrint('[OX_TMDB] provider triggered, query="$query"');
 
@@ -76,8 +72,7 @@ final _oxplayerTmdbSuggestionsProvider =
       return const [];
     }
 
-    final base =
-        rawOrigin.endsWith('/') ? rawOrigin.substring(0, rawOrigin.length - 1) : rawOrigin;
+    final base = rawOrigin.endsWith('/') ? rawOrigin.substring(0, rawOrigin.length - 1) : rawOrigin;
     final uri = Uri.parse('$base/search/suggestions').replace(
       queryParameters: {'q': query.trim()},
     );
@@ -196,23 +191,20 @@ class _TmdbPosterTile extends ConsumerWidget {
 
   final _TmdbSuggestion poster;
 
-
-
   Future<void> _openSeerrDetails(BuildContext context, WidgetRef ref) async {
     final credentials = ref.read(userProvider)?.credentials;
     if (credentials == null) return;
     final credUrl = credentials.url.trim();
     final rawOrigin = credUrl.isNotEmpty ? credUrl : (OxplayerEnv.apiBaseUrl ?? '');
     if (rawOrigin.isEmpty) return;
-    final base =
-        rawOrigin.endsWith('/') ? rawOrigin.substring(0, rawOrigin.length - 1) : rawOrigin;
+    final base = rawOrigin.endsWith('/') ? rawOrigin.substring(0, rawOrigin.length - 1) : rawOrigin;
 
     try {
       final openUri = Uri.parse('$base/tmdb/open');
       await http.post(
         openUri,
         headers: {
-          ...credentials.header(ref as Ref),
+          ...credentials.header(ref),
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
@@ -222,9 +214,7 @@ class _TmdbPosterTile extends ConsumerWidget {
       );
     } catch (_) {}
 
-    final seerrUrl =
-        (FladderConfig.seerrBaseUrl ?? ref.read(userProvider)?.seerrCredentials?.serverUrl ?? '')
-            .trim();
+    final seerrUrl = (FladderConfig.seerrBaseUrl ?? ref.read(userProvider)?.seerrCredentials?.serverUrl ?? '').trim();
     if (seerrUrl.isEmpty) {
       ref.read(oxTmdbSeerrOpenProvider.notifier).state = OxTmdbSeerrOpen(
         tmdbId: poster.tmdbId,
@@ -258,8 +248,7 @@ class _TmdbPosterTile extends ConsumerWidget {
                       ? Image.network(
                           poster.posterPath!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const OxplayerTmdbEmptyImagePlaceholder(),
+                          errorBuilder: (_, __, ___) => const OxplayerTmdbEmptyImagePlaceholder(),
                         )
                       : const OxplayerTmdbEmptyImagePlaceholder(),
                 ),
@@ -279,10 +268,7 @@ class _TmdbPosterTile extends ConsumerWidget {
                 poster.year!,
                 maxLines: 1,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.55),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
               ),
           ],

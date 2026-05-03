@@ -50,9 +50,9 @@ class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
           ItemActions.playFromStart,
           ItemActions.details,
         },
-        onDeleteSuccesFully: (item) {
+        onDeleteSuccesFully: (item) async {
           if (context.mounted) {
-            context.router.popBack();
+            await context.router.popBack();
           }
         },
       ),

@@ -1,14 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum OxplayerBackgroundAuthStatus {
   idle,
@@ -41,8 +40,7 @@ class OxplayerAppStatus {
   bool get shouldShowBanner => kind != OxplayerAppStatusKind.online;
 }
 
-final oxplayerBackgroundAuthStatusProvider =
-    StateProvider<OxplayerBackgroundAuthStatus>((ref) {
+final oxplayerBackgroundAuthStatusProvider = StateProvider<OxplayerBackgroundAuthStatus>((ref) {
   return OxplayerBackgroundAuthStatus.idle;
 });
 
@@ -51,8 +49,7 @@ final oxplayerBackgroundAuthErrorProvider = StateProvider<Object?>((ref) {
 });
 
 /// TDLib has an authenticated user (native OX builds only). Drives offline gate with API token.
-final oxplayerTelegramSessionReadyProvider =
-    NotifierProvider<OxplayerTelegramSessionReadyNotifier, bool>(
+final oxplayerTelegramSessionReadyProvider = NotifierProvider<OxplayerTelegramSessionReadyNotifier, bool>(
   OxplayerTelegramSessionReadyNotifier.new,
 );
 

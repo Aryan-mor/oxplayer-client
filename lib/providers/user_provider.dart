@@ -9,6 +9,7 @@ import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/library_filters_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
@@ -193,6 +194,21 @@ class User extends _$User {
             itemId: itemId,
           ));
     return Response(response.base, UserData.fromDto(response.body));
+  }
+
+  /// Same as [markAsPlayed] but when [item] is an Ox-merged episode with duplicate files, updates every linked id.
+  Future<Response<UserData>?> markAsPlayedOxAware(bool enable, ItemBaseModel item) async {
+    final Iterable<String> ids;
+    if (OxplayerConfig.isEnabled && item is EpisodeModel && item.oxLinkedEpisodeIds.isNotEmpty) {
+      ids = item.oxLinkedEpisodeIds;
+    } else {
+      ids = [item.id];
+    }
+    Response<UserData>? last;
+    for (final itemId in ids) {
+      last = await markAsPlayed(enable, itemId);
+    }
+    return last;
   }
 
   void clear() => userState = null;

@@ -12,6 +12,7 @@ import 'package:fladder/models/items/season_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/models/items/special_feature_model.dart';
 import 'package:fladder/models/seerr/seerr_dashboard_model.dart';
+import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/related_provider.dart';
 import 'package:fladder/providers/seerr_api_provider.dart';
@@ -67,9 +68,11 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
         ],
       );
 
-      final newEpisodes = EpisodeModel.episodesFromDto(
-        episodes.body?.items,
-        ref,
+      final newEpisodes = mergeOxDuplicateEpisodes(
+        EpisodeModel.episodesFromDto(
+          episodes.body?.items,
+          ref,
+        ),
       );
 
       List<BaseItemDto> specialFeatures;

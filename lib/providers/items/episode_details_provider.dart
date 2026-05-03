@@ -6,6 +6,7 @@ import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/series_model.dart';
+import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
@@ -57,11 +58,21 @@ class EpisodeDetailsProvider extends StateNotifier<EpisodeDetailModel> {
 
       if (episodes.body == null) return null;
 
-      final episode = (await api.usersUserIdItemsItemIdGet(itemId: item.id)).bodyOrThrow as EpisodeModel;
+      final rawEpisodes = EpisodeModel.episodesFromDto(episodes.bodyOrThrow.items, ref);
+      final mergedEpisodes = mergeOxDuplicateEpisodes(rawEpisodes, preferEpisodeId: item.id);
+      final episodeRaw = (await api.usersUserIdItemsItemIdGet(itemId: item.id)).bodyOrThrow as EpisodeModel;
+      final mergedRow = mergedEpisodes.firstWhereOrNull((e) => e.id == item.id) ??
+          mergedEpisodes.firstWhereOrNull((e) => e.oxLinkedEpisodeIds.contains(item.id));
+      final episode = mergedRow != null
+          ? episodeRaw.copyWith(
+              userData: mergedRow.userData,
+              oxLinkedEpisodeIds: mergedRow.oxLinkedEpisodeIds,
+            )
+          : episodeRaw;
 
       state = state.copyWith(
         series: seriesResponse.bodyOrThrow as SeriesModel,
-        episodes: EpisodeModel.episodesFromDto(episodes.bodyOrThrow.items, ref),
+        episodes: mergedEpisodes,
         episode: episode,
       );
 

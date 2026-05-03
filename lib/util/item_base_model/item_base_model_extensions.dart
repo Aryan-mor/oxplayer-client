@@ -208,7 +208,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
           icon: const Icon(IconsaxPlusLinear.eye),
           action: () async {
             try {
-              final userData = await ref.read(userProvider.notifier).markAsPlayed(true, id);
+              final userData = await ref.read(userProvider.notifier).markAsPlayedOxAware(true, this);
               onUserDataChanged?.call(userData?.bodyOrThrow);
             } finally {
               context.refreshData();
@@ -222,7 +222,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
           label: Text(context.localized.markAsUnwatched),
           action: () async {
             try {
-              final userData = await ref.read(userProvider.notifier).markAsPlayed(false, id);
+              final userData = await ref.read(userProvider.notifier).markAsPlayedOxAware(false, this);
               onUserDataChanged?.call(userData?.bodyOrThrow);
             } finally {
               context.refreshData();

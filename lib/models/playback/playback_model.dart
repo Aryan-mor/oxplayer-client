@@ -41,6 +41,7 @@ import 'package:fladder/util/map_bool_helper.dart';
 import 'package:fladder/util/streams_selection.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_playback_resolver.dart';
@@ -99,6 +100,8 @@ extension PlaybackModelExtension on PlaybackModel? {
       };
 }
 
+bool _sameSeasonEpisodeSlot(EpisodeModel a, EpisodeModel b) => a.season == b.season && a.episode == b.episode;
+
 class PlaybackModel {
   final ItemBaseModel item;
   final Media? media;
@@ -133,13 +136,36 @@ class PlaybackModel {
 
   ItemBaseModel? get nextVideo {
     final index = queue.indexWhere((e) => e.id == item.id);
-    if (index == -1 || index + 1 >= queue.length) return null;
+    if (index == -1) return null;
+    if (item is EpisodeModel) {
+      final cur = item as EpisodeModel;
+      if (OxplayerConfig.isEnabled) {
+        for (var i = index + 1; i < queue.length; i++) {
+          final next = queue[i];
+          if (next is! EpisodeModel) return next;
+          if (!_sameSeasonEpisodeSlot(cur, next)) return next;
+        }
+        return null;
+      }
+    }
+    if (index + 1 >= queue.length) return null;
     return queue.elementAt(index + 1);
   }
 
   ItemBaseModel? get previousVideo {
     final index = queue.indexWhere((e) => e.id == item.id);
     if (index <= 0) return null;
+    if (item is EpisodeModel) {
+      final cur = item as EpisodeModel;
+      if (OxplayerConfig.isEnabled) {
+        for (var i = index - 1; i >= 0; i--) {
+          final prev = queue[i];
+          if (prev is! EpisodeModel) return prev;
+          if (!_sameSeasonEpisodeSlot(cur, prev)) return prev;
+        }
+        return null;
+      }
+    }
     return queue.elementAt(index - 1);
   }
 
@@ -536,8 +562,15 @@ class PlaybackModelHelper {
       case EpisodeModel _:
       case SeriesModel _:
       case SeasonModel _:
-        List<EpisodeModel> episodeList = ((await fetchEpisodesFromSeries(model.streamId)).body ?? [])
+        var episodeList = ((await fetchEpisodesFromSeries(model.streamId)).body ?? [])
           ..removeWhere((element) => element.status != EpisodeStatus.available);
+        if (OxplayerConfig.isEnabled) {
+          final preferId = switch (model) {
+            EpisodeModel e => e.id,
+            _ => null,
+          };
+          episodeList = mergeOxDuplicateEpisodes(episodeList, preferEpisodeId: preferId);
+        }
         return episodeList;
       default:
         return [];

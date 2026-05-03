@@ -43,6 +43,11 @@ class EpisodeModelMapper extends SubClassMapperBase<EpisodeModel> {
   static DateTime? _$dateAired(EpisodeModel v) => v.dateAired;
   static const Field<EpisodeModel, DateTime> _f$dateAired =
       Field('dateAired', _$dateAired, opt: true);
+  static List<String> _$oxLinkedEpisodeIds(EpisodeModel v) =>
+      v.oxLinkedEpisodeIds;
+  static const Field<EpisodeModel, List<String>> _f$oxLinkedEpisodeIds = Field(
+      'oxLinkedEpisodeIds', _$oxLinkedEpisodeIds,
+      opt: true, def: const []);
   static String _$name(EpisodeModel v) => v.name;
   static const Field<EpisodeModel, String> _f$name = Field('name', _$name);
   static String _$id(EpisodeModel v) => v.id;
@@ -93,6 +98,7 @@ class EpisodeModelMapper extends SubClassMapperBase<EpisodeModel> {
     #chapters: _f$chapters,
     #location: _f$location,
     #dateAired: _f$dateAired,
+    #oxLinkedEpisodeIds: _f$oxLinkedEpisodeIds,
     #name: _f$name,
     #id: _f$id,
     #overview: _f$overview,
@@ -128,6 +134,7 @@ class EpisodeModelMapper extends SubClassMapperBase<EpisodeModel> {
         chapters: data.dec(_f$chapters),
         location: data.dec(_f$location),
         dateAired: data.dec(_f$dateAired),
+        oxLinkedEpisodeIds: data.dec(_f$oxLinkedEpisodeIds),
         name: data.dec(_f$name),
         id: data.dec(_f$id),
         overview: data.dec(_f$overview),
@@ -163,6 +170,8 @@ extension EpisodeModelValueCopy<$R, $Out>
 abstract class EpisodeModelCopyWith<$R, $In extends EpisodeModel, $Out>
     implements ItemStreamModelCopyWith<$R, $In, $Out> {
   ListCopyWith<$R, Chapter, ObjectCopyWith<$R, Chapter, Chapter>> get chapters;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+      get oxLinkedEpisodeIds;
   @override
   OverviewModelCopyWith<$R, OverviewModel, OverviewModel> get overview;
   @override
@@ -176,6 +185,7 @@ abstract class EpisodeModelCopyWith<$R, $In extends EpisodeModel, $Out>
       List<Chapter>? chapters,
       ItemLocation? location,
       DateTime? dateAired,
+      List<String>? oxLinkedEpisodeIds,
       String? name,
       String? id,
       OverviewModel? overview,
@@ -206,6 +216,12 @@ class _EpisodeModelCopyWithImpl<$R, $Out>
       get chapters => ListCopyWith($value.chapters,
           (v, t) => ObjectCopyWith(v, $identity, t), (v) => call(chapters: v));
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+      get oxLinkedEpisodeIds => ListCopyWith(
+          $value.oxLinkedEpisodeIds,
+          (v, t) => ObjectCopyWith(v, $identity, t),
+          (v) => call(oxLinkedEpisodeIds: v));
+  @override
   OverviewModelCopyWith<$R, OverviewModel, OverviewModel> get overview =>
       $value.overview.copyWith.$chain((v) => call(overview: v));
   @override
@@ -220,6 +236,7 @@ class _EpisodeModelCopyWithImpl<$R, $Out>
           List<Chapter>? chapters,
           Object? location = $none,
           Object? dateAired = $none,
+          List<String>? oxLinkedEpisodeIds,
           String? name,
           String? id,
           OverviewModel? overview,
@@ -242,6 +259,7 @@ class _EpisodeModelCopyWithImpl<$R, $Out>
         if (chapters != null) #chapters: chapters,
         if (location != $none) #location: location,
         if (dateAired != $none) #dateAired: dateAired,
+        if (oxLinkedEpisodeIds != null) #oxLinkedEpisodeIds: oxLinkedEpisodeIds,
         if (name != null) #name: name,
         if (id != null) #id: id,
         if (overview != null) #overview: overview,
@@ -266,6 +284,8 @@ class _EpisodeModelCopyWithImpl<$R, $Out>
       chapters: data.get(#chapters, or: $value.chapters),
       location: data.get(#location, or: $value.location),
       dateAired: data.get(#dateAired, or: $value.dateAired),
+      oxLinkedEpisodeIds:
+          data.get(#oxLinkedEpisodeIds, or: $value.oxLinkedEpisodeIds),
       name: data.get(#name, or: $value.name),
       id: data.get(#id, or: $value.id),
       overview: data.get(#overview, or: $value.overview),

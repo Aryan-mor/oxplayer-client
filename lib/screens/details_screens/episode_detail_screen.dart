@@ -131,7 +131,7 @@ class _ItemDetailScreenState extends ConsumerState<EpisodeDetailScreen> {
                           onPressed: () async {
                             await ref
                                 .read(userProvider.notifier)
-                                .markAsPlayed(!(episodeDetails.userData.played), episodeDetails.id);
+                                .markAsPlayedOxAware(!(episodeDetails.userData.played), episodeDetails);
                           },
                           selected: episodeDetails.userData.played,
                           selectedIcon: IconsaxPlusBold.tick_circle,

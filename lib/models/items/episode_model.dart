@@ -50,6 +50,9 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
   final List<Chapter> chapters;
   final ItemLocation? location;
   final DateTime? dateAired;
+
+  /// When Ox duplicates the same SxEy as multiple library rows, all Jellyfin item ids (including [id]).
+  final List<String> oxLinkedEpisodeIds;
   const EpisodeModel({
     required this.seriesName,
     required this.season,
@@ -58,6 +61,7 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
     this.chapters = const [],
     this.location,
     this.dateAired,
+    this.oxLinkedEpisodeIds = const [],
     required super.name,
     required super.id,
     required super.overview,
@@ -211,6 +215,7 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
         canDelete: item.canDelete,
         canDownload: item.canDownload,
         jellyType: item.type,
+        oxLinkedEpisodeIds: const [],
       );
     }
 
@@ -236,6 +241,7 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
       canDownload: item.canDownload,
       mediaStreams: MediaStreamsModel.fromMediaStreamsList(item.mediaSources, ref),
       jellyType: item.type,
+      oxLinkedEpisodeIds: const [],
     );
   }
 

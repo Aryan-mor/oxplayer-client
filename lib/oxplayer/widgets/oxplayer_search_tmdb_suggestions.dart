@@ -51,7 +51,7 @@ class _TmdbSuggestion {
 /// Fetches TMDB suggestions from the OXPlayer API server.
 /// Uses the credentials URL (always current, updated by OxplayerPersistedUrlSync)
 /// rather than the static env var which may be null when not compile-time defined.
-/// Returns an empty list for general users (server returns 403) or on any error.
+/// Returns an empty list when the server responds with a non-success status or on any error.
 final _oxplayerTmdbSuggestionsProvider =
     FutureProvider.autoDispose.family<List<_TmdbSuggestion>, String>(
   (ref, query) async {
@@ -114,7 +114,7 @@ final _oxplayerTmdbSuggestionsProvider =
 );
 
 /// Horizontal scrollable row of TMDB poster suggestions from the OXPlayer server.
-/// Silently renders nothing for general users (server 403) or when no results.
+/// Silently renders nothing when the server returns no rows or a non-success status.
 class OxplayerSearchTmdbSuggestions extends ConsumerWidget {
   const OxplayerSearchTmdbSuggestions({
     required this.query,

@@ -14,8 +14,6 @@ import 'package:fladder/providers/live_tv_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
-import 'package:fladder/oxplayer/oxplayer_home_banner_carousel.dart';
-import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/util/list_extensions.dart';
 
 final dashboardProvider = StateNotifierProvider<DashboardNotifier, HomeModel>((ref) {
@@ -170,15 +168,10 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
 
         var bannerCurated = <ItemBaseModel>[];
         var bannerGlobalLatest = <ItemBaseModel>[];
-        final account = ref.read(userProvider);
-        if (oxplayerHomeBannerIsSpecialUser(policy: account?.policy, oxUserRole: account?.oxUserRole)) {
-          final disc = await api.userItemsHomeBannerDiscoveryGet();
-          if (disc != null) {
-            bannerCurated =
-                disc.curated.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
-            bannerGlobalLatest =
-                disc.globalLatest.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
-          }
+        final disc = await api.userItemsHomeBannerDiscoveryGet();
+        if (disc != null) {
+          bannerCurated = disc.curated.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
+          bannerGlobalLatest = disc.globalLatest.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
         }
 
         state = state.copyWith(

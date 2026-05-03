@@ -50,8 +50,12 @@ class _NavigationScaffoldState extends ConsumerState<NavigationScaffold> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((value) {
-      ref.read(viewsProvider.notifier).fetchViews();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.microtask(() async {
+        await ref.read(viewsProvider.notifier).fetchViews();
+        if (!mounted) return;
+        await ref.read(dashboardProvider.notifier).fetchNextUpAndResume(force: true);
+      });
     });
   }
 

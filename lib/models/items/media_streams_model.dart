@@ -203,6 +203,51 @@ class MediaStreamsModel {
   }
 }
 
+/// Re-applies version / audio / subtitle choices from a previous detail state onto a
+/// freshly fetched [incoming] model (e.g. after playback when [fetchDetails] runs).
+MediaStreamsModel mergePreservedMediaStreamSelection(
+  MediaStreamsModel? previous,
+  MediaStreamsModel incoming,
+) {
+  if (previous == null) return incoming;
+
+  var merged = incoming;
+
+  if (incoming.versionStreams.length > 1) {
+    final prevIdx = previous.versionStreamIndex ?? 0;
+    final prevPick = previous.versionStreams.elementAtOrNull(prevIdx);
+    final prevId = prevPick?.id;
+
+    int? targetIdx;
+    if (prevId != null && prevId.isNotEmpty) {
+      final byId = incoming.versionStreams.indexWhere((v) => v.id == prevId);
+      if (byId >= 0) targetIdx = byId;
+    }
+    targetIdx ??= (prevIdx < incoming.versionStreams.length) ? prevIdx : null;
+    if (targetIdx != null) {
+      merged = merged.copyWith(versionStreamIndex: targetIdx);
+    }
+  }
+
+  final current = merged.versionStreams.elementAtOrNull(merged.versionStreamIndex ?? 0);
+  if (current == null) return merged;
+
+  int? audio = previous.defaultAudioStreamIndex;
+  if (audio != null && audio != -1 && !current.audioStreams.any((a) => a.index == audio)) {
+    audio = null;
+  }
+
+  int? sub = previous.defaultSubStreamIndex;
+  if (sub != null && sub != -1 && !current.subStreams.any((s) => s.index == sub)) {
+    sub = null;
+  }
+
+  return merged.copyWith(
+    defaultAudioStreamIndex: audio ?? merged.defaultAudioStreamIndex,
+    defaultSubStreamIndex: sub ?? merged.defaultSubStreamIndex,
+  );
+}
+
 class StreamModel {
   final String name;
   final String codec;
@@ -384,7 +429,7 @@ class AudioStreamModel extends AudioAndSubStreamModel {
     super.isDefault = false,
     super.isExternal = false,
     super.index = -1,
-    this.demuxerTrackId = null,
+    this.demuxerTrackId,
   });
 
   AudioStreamModel copyWith({

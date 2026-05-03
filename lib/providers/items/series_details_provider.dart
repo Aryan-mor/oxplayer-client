@@ -1,11 +1,13 @@
 import 'dart:developer';
 
 import 'package:chopper/chopper.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart' as logging;
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/season_model.dart';
@@ -75,6 +77,14 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
         ),
       );
 
+      final previousEpisodes = state?.availableEpisodes;
+      final mergedEpisodes = newEpisodes.map((e) {
+        final prev = previousEpisodes?.firstWhereOrNull((p) => p.id == e.id);
+        return e.copyWith(
+          mediaStreams: mergePreservedMediaStreamSelection(prev?.mediaStreams, e.mediaStreams),
+        );
+      }).toList();
+
       List<BaseItemDto> specialFeatures;
       try {
         specialFeatures = (await api.itemsItemIdSpecialFeaturesGet(itemId: seriesModel.id)).body ?? [];
@@ -84,12 +94,12 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
             level: logging.Level.WARNING.value, error: e, stackTrace: s);
       }
 
-      final episodesCanDownload = newEpisodes.any((episode) => episode.canDownload == true);
+      final episodesCanDownload = mergedEpisodes.any((episode) => episode.canDownload == true);
 
       newState = newState.copyWith(
           seasons: SeasonModel.seasonsFromDto(seasons.body?.items, ref).map(
             (element) {
-              final unPlayedCount = newEpisodes
+              final unPlayedCount = mergedEpisodes
                   .where((episode) =>
                       episode.season == element.season &&
                       episode.status == EpisodeStatus.available &&
@@ -97,7 +107,7 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
                   .length;
               return element.copyWith(
                 canDownload: true,
-                episodes: newEpisodes.where((episode) => episode.season == element.season).toList(),
+                episodes: mergedEpisodes.where((episode) => episode.season == element.season).toList(),
                 userData: UserData(
                   unPlayedItemCount: unPlayedCount,
                   played: unPlayedCount == 0,
@@ -109,7 +119,7 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
 
       newState = newState.copyWith(
         canDownload: episodesCanDownload,
-        availableEpisodes: newEpisodes,
+        availableEpisodes: mergedEpisodes,
       );
 
       final related = await ref.read(relatedUtilityProvider).relatedContent(seriesModel.id);

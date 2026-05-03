@@ -35,10 +35,12 @@ class MovieDetails extends _$MovieDetails {
       MovieModel? newState;
       final response = await api.usersUserIdItemsItemIdGet(itemId: item.id);
       if (response.body == null) return null;
-      newState = (response.bodyOrThrow as MovieModel).copyWith(
+      final freshMovie = response.bodyOrThrow as MovieModel;
+      newState = freshMovie.copyWith(
         related: state?.related ?? const [],
         seerrRelated: state?.seerrRelated ?? const [],
         seerrRecommended: state?.seerrRecommended ?? const [],
+        mediaStreams: mergePreservedMediaStreamSelection(state?.mediaStreams, freshMovie.mediaStreams),
       );
 
       state = newState;

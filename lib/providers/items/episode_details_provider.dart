@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/item_base_model.dart';
+import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/series_model.dart';
@@ -63,12 +64,17 @@ class EpisodeDetailsProvider extends StateNotifier<EpisodeDetailModel> {
       final episodeRaw = (await api.usersUserIdItemsItemIdGet(itemId: item.id)).bodyOrThrow as EpisodeModel;
       final mergedRow = mergedEpisodes.firstWhereOrNull((e) => e.id == item.id) ??
           mergedEpisodes.firstWhereOrNull((e) => e.oxLinkedEpisodeIds.contains(item.id));
-      final episode = mergedRow != null
+      var episode = mergedRow != null
           ? episodeRaw.copyWith(
               userData: mergedRow.userData,
               oxLinkedEpisodeIds: mergedRow.oxLinkedEpisodeIds,
             )
           : episodeRaw;
+      final previousStreams =
+          state.episode?.id == item.id ? state.episode?.mediaStreams : null;
+      episode = episode.copyWith(
+        mediaStreams: mergePreservedMediaStreamSelection(previousStreams, episode.mediaStreams),
+      );
 
       state = state.copyWith(
         series: seriesResponse.bodyOrThrow as SeriesModel,

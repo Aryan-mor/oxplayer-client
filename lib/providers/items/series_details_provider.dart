@@ -20,6 +20,7 @@ import 'package:fladder/providers/related_provider.dart';
 import 'package:fladder/providers/seerr_api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
+import 'package:fladder/providers/items/persisted_media_stream_prefs.dart';
 import 'package:fladder/seerr/seerr_models.dart';
 import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
 
@@ -78,10 +79,15 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
       );
 
       final previousEpisodes = state?.availableEpisodes;
+      final prefs = ref.read(persistedMediaStreamPrefsProvider);
       final mergedEpisodes = newEpisodes.map((e) {
         final prev = previousEpisodes?.firstWhereOrNull((p) => p.id == e.id);
         return e.copyWith(
-          mediaStreams: mergePreservedMediaStreamSelection(prev?.mediaStreams, e.mediaStreams),
+          mediaStreams: mergeMediaStreamsFromSources(
+            e.mediaStreams,
+            memoryPrev: prev?.mediaStreams,
+            persisted: prefs.readIndexes(e.id),
+          ),
         );
       }).toList();
 
@@ -172,6 +178,7 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
       state = state?.copyWith(
         availableEpisodes: newList,
       );
+      ref.read(persistedMediaStreamPrefsProvider).writeForItem(episode.id, episode.mediaStreams);
     }
   }
 

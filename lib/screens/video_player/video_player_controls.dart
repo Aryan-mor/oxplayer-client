@@ -21,6 +21,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/screens/shared/default_title_bar.dart';
 import 'package:fladder/screens/shared/media/components/item_logo.dart';
+import 'package:fladder/screens/video_player/components/playback_source_detail_dialog.dart';
 import 'package:fladder/screens/video_player/components/video_playback_information.dart';
 import 'package:fladder/screens/video_player/components/video_player_brightness_indicator.dart';
 import 'package:fladder/screens/video_player/components/video_player_controls_extras.dart';
@@ -454,6 +455,8 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
       builder: (context, ref, child) {
         final playbackModel = ref.watch(playBackModel);
         final item = playbackModel?.item;
+        final playbackStreams = mediaStreamsForPlayback(playbackModel);
+        final qualityLabel = playbackFileQualityLabel(playbackStreams);
         final List<String?> details = [
           if (AdaptiveLayout.of(context).isDesktop) item?.label(context.localized),
           context.localized.endsAt(DateTime.now().add(Duration(
@@ -488,16 +491,18 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                       ),
                     ),
                   ),
-                if (item != null) ...{
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Text(
-                        item.streamModel?.mediaInfoTag ?? "",
+                if (qualityLabel != null)
+                  InkWell(
+                    onTap: () => showPlaybackSourceDetailDialog(context, playbackStreams),
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(
+                          qualityLabel,
+                        ),
                       ),
                     ),
                   ),
-                },
               ].addPadding(const EdgeInsets.symmetric(horizontal: 4)),
             ),
             const SizedBox(height: 4),

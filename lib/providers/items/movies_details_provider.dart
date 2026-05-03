@@ -11,6 +11,7 @@ import 'package:fladder/models/items/movie_model.dart';
 import 'package:fladder/models/items/special_feature_model.dart';
 import 'package:fladder/models/seerr/seerr_dashboard_model.dart';
 import 'package:fladder/providers/api_provider.dart';
+import 'package:fladder/providers/items/persisted_media_stream_prefs.dart';
 import 'package:fladder/providers/related_provider.dart';
 import 'package:fladder/providers/seerr_api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -40,7 +41,11 @@ class MovieDetails extends _$MovieDetails {
         related: state?.related ?? const [],
         seerrRelated: state?.seerrRelated ?? const [],
         seerrRecommended: state?.seerrRecommended ?? const [],
-        mediaStreams: mergePreservedMediaStreamSelection(state?.mediaStreams, freshMovie.mediaStreams),
+        mediaStreams: mergeMediaStreamsFromSources(
+          freshMovie.mediaStreams,
+          memoryPrev: state?.mediaStreams,
+          persisted: ref.read(persistedMediaStreamPrefsProvider).readIndexes(item.id),
+        ),
       );
 
       state = newState;
@@ -98,5 +103,9 @@ class MovieDetails extends _$MovieDetails {
 
   void setMediaStreamHelper(MediaStreamsModel changed) {
     state = state?.copyWith(mediaStreams: changed);
+    final id = state?.id;
+    if (id != null) {
+      ref.read(persistedMediaStreamPrefsProvider).writeForItem(id, changed);
+    }
   }
 }

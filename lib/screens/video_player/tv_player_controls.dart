@@ -22,6 +22,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/screens/shared/default_title_bar.dart';
 import 'package:fladder/screens/shared/media/components/item_logo.dart';
+import 'package:fladder/screens/video_player/components/playback_source_detail_dialog.dart';
 import 'package:fladder/screens/video_player/components/video_playback_information.dart';
 import 'package:fladder/screens/video_player/components/video_player_options_sheet.dart';
 import 'package:fladder/screens/video_player/components/video_player_quality_controls.dart';
@@ -340,6 +341,8 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
         final currentProgram = tvChannel?.playingProgram;
         final playbackModel = ref.watch(playBackModel);
         final item = playbackModel?.item;
+        final playbackStreams = mediaStreamsForPlayback(playbackModel);
+        final qualityLabel = playbackFileQualityLabel(playbackStreams);
         final subLabel = currentProgram?.subLabel(context.localized);
 
         // Calculate duration and position based on program times if available
@@ -400,16 +403,18 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                       ),
                     ),
                   ),
-                if (item?.streamModel?.mediaInfoTag != null) ...{
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Text(
-                        item?.streamModel?.mediaInfoTag ?? "",
+                if (qualityLabel != null)
+                  InkWell(
+                    onTap: () => showPlaybackSourceDetailDialog(context, playbackStreams),
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(
+                          qualityLabel,
+                        ),
                       ),
                     ),
                   ),
-                },
               ],
             ),
             SizedBox(

@@ -77,7 +77,7 @@ class SpecialFeatureModel extends ItemStreamModel with SpecialFeatureModelMappab
   @override
   String playButtonLabel(AppLocalizations l10n) {
     final string = name.maxLength();
-    return progress != 0 ? l10n.resume(string) : l10n.play(string);
+    return shouldOfferResumePlayback ? l10n.resume(string) : l10n.play(string);
   }
 
   @override

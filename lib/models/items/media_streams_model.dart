@@ -248,6 +248,38 @@ MediaStreamsModel mergePreservedMediaStreamSelection(
   );
 }
 
+/// Indices saved per library item so stream/version picks survive leaving the detail screen.
+class PersistedStreamIndexes {
+  final int? versionStreamIndex;
+  final int? defaultAudioStreamIndex;
+  final int? defaultSubStreamIndex;
+
+  const PersistedStreamIndexes({
+    this.versionStreamIndex,
+    this.defaultAudioStreamIndex,
+    this.defaultSubStreamIndex,
+  });
+}
+
+/// Applies in-memory detail state first, then persisted disk prefs (for returning from Home, etc.).
+MediaStreamsModel mergeMediaStreamsFromSources(
+  MediaStreamsModel incoming, {
+  MediaStreamsModel? memoryPrev,
+  PersistedStreamIndexes? persisted,
+}) {
+  var merged = mergePreservedMediaStreamSelection(memoryPrev, incoming);
+  if (persisted != null) {
+    final synthetic = MediaStreamsModel(
+      versionStreams: incoming.versionStreams,
+      versionStreamIndex: persisted.versionStreamIndex,
+      defaultAudioStreamIndex: persisted.defaultAudioStreamIndex,
+      defaultSubStreamIndex: persisted.defaultSubStreamIndex,
+    );
+    merged = mergePreservedMediaStreamSelection(synthetic, merged);
+  }
+  return merged;
+}
+
 class StreamModel {
   final String name;
   final String codec;

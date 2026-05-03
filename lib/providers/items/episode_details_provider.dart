@@ -11,6 +11,7 @@ import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
+import 'package:fladder/providers/items/persisted_media_stream_prefs.dart';
 
 class EpisodeDetailModel {
   final SeriesModel? series;
@@ -73,7 +74,11 @@ class EpisodeDetailsProvider extends StateNotifier<EpisodeDetailModel> {
       final previousStreams =
           state.episode?.id == item.id ? state.episode?.mediaStreams : null;
       episode = episode.copyWith(
-        mediaStreams: mergePreservedMediaStreamSelection(previousStreams, episode.mediaStreams),
+        mediaStreams: mergeMediaStreamsFromSources(
+          episode.mediaStreams,
+          memoryPrev: previousStreams,
+          persisted: ref.read(persistedMediaStreamPrefsProvider).readIndexes(item.id),
+        ),
       );
 
       state = state.copyWith(
@@ -111,5 +116,6 @@ class EpisodeDetailsProvider extends StateNotifier<EpisodeDetailModel> {
 
   void updateEpisode(EpisodeModel episode) {
     state = state.copyWith(episode: episode);
+    ref.read(persistedMediaStreamPrefsProvider).writeForItem(episode.id, episode.mediaStreams);
   }
 }

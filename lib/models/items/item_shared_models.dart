@@ -65,6 +65,12 @@ class UserData with UserDataMappable {
 
   Duration get playBackPosition => Duration(milliseconds: playbackPositionTicks ~/ 10000);
 
+  /// Jellyfin ticks are 100-ns (.NET); ~3s threshold for "resume" when [playedPercentage] is missing.
+  static const int minResumePlaybackTicks = 30000000;
+
+  bool get shouldOfferResumePlayback =>
+      !played && (progress > 0 || playbackPositionTicks >= minResumePlaybackTicks);
+
   // Returns null if unplayed with no progress
   static bool? isPlayed(Duration position, Duration totalDuration) {
     Duration startBuffer = totalDuration * 0.05;

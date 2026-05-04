@@ -1,10 +1,10 @@
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_search_landing.dart';
 import 'package:fladder/oxplayer/widgets/oxplayer_search_tmdb_suggestions.dart';
 import 'package:fladder/providers/search_provider.dart';
 import 'package:fladder/screens/shared/media/poster_grid.dart';
 import 'package:fladder/util/debouncer.dart';
 import 'package:fladder/util/string_extensions.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -92,6 +92,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: ListView(
         children: [
+          if (OxplayerConfig.isEnabled && searchResults.searchQuery.trim().isEmpty)
+            const OxplayerSearchLanding(),
           // Library results (top 3 per type when OXPlayer is enabled, all results otherwise)
           ...searchResults.results.entries.map(
             (e) => PosterGrid(

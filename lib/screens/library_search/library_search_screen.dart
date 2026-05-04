@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/widgets/oxplayer_search_landing.dart';
 import 'package:fladder/oxplayer/widgets/oxplayer_search_tmdb_suggestions.dart';
 import 'package:fladder/models/boxset_model.dart';
 import 'package:fladder/models/item_base_model.dart';
@@ -547,9 +548,22 @@ class _LibrarySearchScreenState extends ConsumerState<LibrarySearchScreen> {
                             groupByType: librarySearchResults.filters.groupBy,
                           ),
                         )
-                      // OXPlayer: when TMDB suggestions are shown, avoid SliverFillRemaining because
-                      // it consumes all remaining viewport space and pushes the TMDB section off-screen.
-                      else if (!OxplayerConfig.isEnabled || librarySearchResults.searchQuery.isEmpty)
+                      // OXPlayer: empty library query → show server-driven landing (not "No items to show").
+                      else if (OxplayerConfig.isEnabled && librarySearchResults.searchQuery.trim().isEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: mediaQuery.padding.left,
+                              right: mediaQuery.padding.right,
+                            ).add(
+                              EdgeInsetsDirectional.only(start: adaptiveLayout.sideBarWidth),
+                            ),
+                            child: const OxplayerSearchLanding(),
+                          ),
+                        )
+                      // Non-OX, or Oxplayer with an active search string but no posters: empty state.
+                      else if (!OxplayerConfig.isEnabled ||
+                          librarySearchResults.searchQuery.trim().isNotEmpty)
                         SliverFillRemaining(
                           child: Center(
                             child: Text(context.localized.noItemsToShow),

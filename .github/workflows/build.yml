@@ -257,6 +257,8 @@ jobs:
       OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
       OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
       OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
+      OX_MEDIAKIT_MPV_SCRIPT: ${{ github.workspace }}/tool/ci/extract_mpv_windows.ps1
+      OX_MEDIAKIT_ANGLE_SCRIPT: ${{ github.workspace }}/tool/ci/extract_angle_windows.ps1
     steps:
       - uses: actions/checkout@v4
 
@@ -270,39 +272,69 @@ jobs:
 
       - run: flutter pub get
 
-      # DonutWare CMake uses `cmake -E tar xzf` (gzip) on .7z archives — extract fails, then xcopy returns MSB3073 code 4.
-      - name: Patch media_kit Windows CMake (tar xf for .7z + soften MD5 FATAL)
+      # DonutWare CMake: tar+xcopy on .7z is unreliable on GHA. Replace extract steps with 7z + PowerShell (repo scripts).
+      - name: Patch media_kit Windows CMake (7z extract via PowerShell)
         shell: bash
         run: |
           python3 <<'PY'
+          import os
           import pathlib
+          import re
 
-          roots = [
-              pathlib.Path.home() / "AppData/Local/Pub/Cache",
-              pathlib.Path.home() / ".pub-cache",
-          ]
-          old_tar_lib = r' -E tar xzf "\"${LIBMPV_ARCHIVE}\""'
-          new_tar_lib = ' -E tar xf "${LIBMPV_ARCHIVE}"'
-          old_tar_angle = r' -E tar xzf "\"${ANGLE_ARCHIVE}\""'
-          new_tar_angle = ' -E tar xf "${ANGLE_ARCHIVE}"'
           fatal = 'message(FATAL_ERROR "${locationForArchive} Integrity check failed, please try to re-build project again.")'
           warn = 'message(WARNING "${locationForArchive} integrity check failed; continuing (CI)")'
+
+          roots = [
+              pathlib.Path(os.environ.get("LOCALAPPDATA", "")) / "Pub" / "Cache",
+              pathlib.Path.home() / "AppData" / "Local" / "Pub" / "Cache",
+              pathlib.Path.home() / ".pub-cache",
+          ]
+
+          libmpv_re = re.compile(
+              r"(add_custom_command\(\s*TARGET\s+\"\$\{PROJECT_NAME\}_LIBMPV_EXTRACT\"\s*)"
+              r".*?"
+              r"(\s*WORKING_DIRECTORY\s+\"\$\{LIBMPV_SRC\}\"\s*\))",
+              re.DOTALL,
+          )
+          angle_re = re.compile(
+              r"(add_custom_command\(\s*TARGET\s+\"\$\{PROJECT_NAME\}_ANGLE_EXTRACT\"\s*)"
+              r".*?"
+              r"(\s*WORKING_DIRECTORY\s+\"\$\{ANGLE_SRC\}\"\s*\))",
+              re.DOTALL,
+          )
+
+          def sub_lib(m: re.Match) -> str:
+              return (
+                  m.group(1)
+                  + "\n COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass "
+                  + '-File "$ENV{OX_MEDIAKIT_MPV_SCRIPT}" '
+                  + '-Archive "${LIBMPV_ARCHIVE}" -DestDir "${LIBMPV_SRC}"'
+                  + m.group(2)
+              )
+
+          def sub_angle(m: re.Match) -> str:
+              return (
+                  m.group(1)
+                  + "\n COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass "
+                  + '-File "$ENV{OX_MEDIAKIT_ANGLE_SCRIPT}" '
+                  + '-Archive "${ANGLE_ARCHIVE}" -DestDir "${ANGLE_SRC}"'
+                  + m.group(2)
+              )
 
           for root in roots:
               if not root.is_dir():
                   continue
               for cm in root.rglob("CMakeLists.txt"):
-                  parts = cm.parts
-                  if "media_kit_libs_windows_video" not in parts or cm.parent.name != "windows":
+                  if "media_kit_libs_windows_video" not in cm.parts or cm.parent.name != "windows":
                       continue
                   text = cm.read_text(encoding="utf-8", errors="replace")
                   orig = text
-                  text = text.replace(old_tar_lib, new_tar_lib)
-                  text = text.replace(old_tar_angle, new_tar_angle)
                   text = text.replace(fatal, warn)
+                  text, n_lib = libmpv_re.subn(sub_lib, text, count=1)
+                  text, n_ang = angle_re.subn(sub_angle, text, count=1)
                   if text != orig:
                       cm.write_text(text, encoding="utf-8")
-                      print("Patched", cm)
+                      print("Patched", cm, "libmpv_block=", n_lib, "angle_block=", n_ang)
           PY
 
       - uses: ./.github/actions/oxplayer-flutter-env

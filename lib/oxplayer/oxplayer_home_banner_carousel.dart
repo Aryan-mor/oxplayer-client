@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/item_base_model.dart' show FladderItemType, ItemBaseModel;
 import 'package:fladder/models/settings/home_settings_model.dart';
+import 'package:fladder/models/items/movie_model.dart';
+import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/models/view_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 
@@ -54,10 +56,11 @@ List<ItemBaseModel> _userOwnedMoviesLatest(Iterable<ViewModel> dashboardViews, i
   }
   candidates.sort((a, b) => _dateAddedOrEpoch(b).compareTo(_dateAddedOrEpoch(a)));
   final out = <ItemBaseModel>[];
-  final seenId = <String>{};
+  final seenKey = <String>{};
   for (final it in candidates) {
     if (out.length >= max) break;
-    if (seenId.add(it.id)) out.add(it);
+    if (!seenKey.add(_oxHomeBannerDedupeKey(it))) continue;
+    out.add(it);
   }
   return out;
 }
@@ -77,8 +80,8 @@ List<ItemBaseModel> _userOwnedTvLatestBySeries(Iterable<ViewModel> dashboardView
   final seenSeries = <String>{};
   for (final it in candidates) {
     if (out.length >= max) break;
-    final key = _tvSeriesDedupeKey(it);
-    if (!seenSeries.add(key)) continue;
+    final k = _oxHomeBannerDedupeKey(it);
+    if (!seenSeries.add(k)) continue;
     out.add(it);
   }
   return out;
@@ -102,7 +105,7 @@ void _suggestedMoviesAndTv(
   required List<ItemBaseModel> outMovies,
   required List<ItemBaseModel> outTv,
 }) {
-  final movieIds = <String>{};
+  final movieKeys = <String>{};
   final tvKeys = <String>{};
   for (final item in [...curated, ...globalLatest]) {
     final t = item.jellyType;
@@ -110,20 +113,49 @@ void _suggestedMoviesAndTv(
     final isSeries = t == BaseItemKind.series || item.type == FladderItemType.series;
     final isEpisode = t == BaseItemKind.episode || item.type == FladderItemType.episode;
     if (isMovie && outMovies.length < maxEach) {
-      if (movieIds.add(item.id)) outMovies.add(item);
+      final k = _oxHomeBannerDedupeKey(item);
+      if (movieKeys.add(k)) outMovies.add(item);
     } else if (isSeries && outTv.length < maxEach) {
-      if (tvKeys.add('s:${item.id}')) outTv.add(item);
+      final k = _oxHomeBannerDedupeKey(item);
+      if (tvKeys.add(k)) outTv.add(item);
     } else if (isEpisode && outTv.length < maxEach) {
-      final pid = item.parentId;
-      if (pid != null && pid.isNotEmpty && tvKeys.add('s:$pid')) {
-        outTv.add(item);
-      }
+      final k = _oxHomeBannerDedupeKey(item);
+      if (tvKeys.add(k)) outTv.add(item);
     }
   }
 }
 
-void _appendIfNew(List<ItemBaseModel> out, Set<String> seen, ItemBaseModel item) {
-  if (seen.add(item.id)) {
+/// Stable identity for carousel dedupe — prefers TMDB (`ProviderIds` / synthetic `tmdb-*` ids),
+/// then TV series grouping, then Jellyfin id.
+String _oxHomeBannerDedupeKey(ItemBaseModel item) {
+  if (item is MovieModel) {
+    final p = item.providerIds;
+    final t = p?['Tmdb'] ?? p?['tmdb'];
+    if (t != null && t.toString().trim().isNotEmpty) {
+      return 'tm:${t.toString()}';
+    }
+  }
+  if (item is SeriesModel) {
+    final p = item.providerIds;
+    final t = p?['Tmdb'] ?? p?['tmdb'];
+    if (t != null && t.toString().trim().isNotEmpty) {
+      return 'tt:${t.toString()}';
+    }
+  }
+  final id = item.id;
+  final movieM = RegExp(r'^tmdb-movie-(\d+)$').firstMatch(id);
+  if (movieM != null) return 'tm:${movieM.group(1)}';
+  final tvM = RegExp(r'^tmdb-tv-(\d+)$').firstMatch(id);
+  if (tvM != null) return 'tt:${tvM.group(1)}';
+  if (_carouselTreatsAsTv(item)) {
+    return 'tvs:${_tvSeriesDedupeKey(item)}';
+  }
+  return 'id:$id';
+}
+
+void _appendCarouselDeduped(List<ItemBaseModel> out, Set<String> seenKeys, ItemBaseModel item) {
+  final k = _oxHomeBannerDedupeKey(item);
+  if (seenKeys.add(k)) {
     out.add(item);
   }
 }
@@ -181,9 +213,8 @@ String _oxDebugRecentKindStats(Iterable<ViewModel> dashboardViews) {
   return 'recentJellyTypes null=$nullType movie=$movie episode=$episode series=$series other=$other';
 }
 
-/// OX home hero carousel when [HomeCarouselSettings.combined]: last played video (if any), latest
-/// movies/TV from libraries, then optional rows from [bannerCurated]/[bannerGlobalLatest] when the API
-/// returns them. If nothing matched, fills from [resumeVideo] then [nextUp] so the banner is not empty.
+/// OX home hero: **combined** = last played → your library latest (2+2 or 1+1) → server-pinned custom slides →
+/// curated/global → **TrendingTop10**. Dedupes by TMDB (and series key) so the same title is not shown twice.
 List<ItemBaseModel> buildOxplayerHomeCarouselItems({
   required HomeCarouselSettings mode,
   required List<ItemBaseModel> allResume,
@@ -192,6 +223,8 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
   required List<ViewModel> dashboardViews,
   required List<ItemBaseModel> bannerCurated,
   required List<ItemBaseModel> bannerGlobalLatest,
+  required List<ItemBaseModel> bannerCustom,
+  required List<ItemBaseModel> bannerTrendingTop10,
 }) {
   if (!OxplayerConfig.isEnabled) {
     return switch (mode) {
@@ -203,29 +236,77 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
 
   switch (mode) {
     case HomeCarouselSettings.nextUp:
-      return List.of(nextUp);
+      if (bannerCustom.isEmpty && bannerTrendingTop10.isEmpty) {
+        return List.of(nextUp);
+      }
+      final nextUpOut = <ItemBaseModel>[];
+      final seenNu = <String>{};
+      for (final n in nextUp) {
+        _appendCarouselDeduped(nextUpOut, seenNu, n);
+      }
+      for (final c in bannerCustom) {
+        _appendCarouselDeduped(nextUpOut, seenNu, c);
+      }
+      for (final x in bannerTrendingTop10) {
+        _appendCarouselDeduped(nextUpOut, seenNu, x);
+      }
+      return nextUpOut;
     case HomeCarouselSettings.cont:
-      return List.of(allResume);
+      if (bannerCustom.isEmpty && bannerTrendingTop10.isEmpty) {
+        return List.of(allResume);
+      }
+      final contOut = <ItemBaseModel>[];
+      final seenCt = <String>{};
+      final lastPlayedCont = _mostRecentlyPlayedVideo(resumeVideo);
+      if (lastPlayedCont != null) {
+        _appendCarouselDeduped(contOut, seenCt, lastPlayedCont);
+      }
+      final hasSuppCont = bannerCurated.isNotEmpty ||
+          bannerGlobalLatest.isNotEmpty ||
+          bannerTrendingTop10.isNotEmpty;
+      final userMovieNCont = hasSuppCont ? 1 : 2;
+      final userTvNCont = hasSuppCont ? 1 : 2;
+      for (final m in _userOwnedMoviesLatest(dashboardViews, userMovieNCont)) {
+        _appendCarouselDeduped(contOut, seenCt, m);
+      }
+      for (final t in _userOwnedTvLatestBySeries(dashboardViews, userTvNCont)) {
+        _appendCarouselDeduped(contOut, seenCt, t);
+      }
+      for (final c in bannerCustom) {
+        _appendCarouselDeduped(contOut, seenCt, c);
+      }
+      for (final r in allResume) {
+        _appendCarouselDeduped(contOut, seenCt, r);
+      }
+      for (final x in bannerTrendingTop10) {
+        _appendCarouselDeduped(contOut, seenCt, x);
+      }
+      return contOut;
     case HomeCarouselSettings.combined:
       final out = <ItemBaseModel>[];
       final seen = <String>{};
 
       final lastPlayed = _mostRecentlyPlayedVideo(resumeVideo);
       if (lastPlayed != null) {
-        _appendIfNew(out, seen, lastPlayed);
+        _appendCarouselDeduped(out, seen, lastPlayed);
       }
 
-      final hasSupplementalBanner =
-          bannerCurated.isNotEmpty || bannerGlobalLatest.isNotEmpty;
+      final hasSupplementalBanner = bannerCurated.isNotEmpty ||
+          bannerGlobalLatest.isNotEmpty ||
+          bannerTrendingTop10.isNotEmpty;
       final userMovieN = hasSupplementalBanner ? 1 : 2;
       final userTvN = hasSupplementalBanner ? 1 : 2;
       final moviePicks = _userOwnedMoviesLatest(dashboardViews, userMovieN);
       final tvPicks = _userOwnedTvLatestBySeries(dashboardViews, userTvN);
       for (final m in moviePicks) {
-        _appendIfNew(out, seen, m);
+        _appendCarouselDeduped(out, seen, m);
       }
       for (final t in tvPicks) {
-        _appendIfNew(out, seen, t);
+        _appendCarouselDeduped(out, seen, t);
+      }
+
+      for (final c in bannerCustom) {
+        _appendCarouselDeduped(out, seen, c);
       }
 
       if (hasSupplementalBanner) {
@@ -239,20 +320,24 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
           outTv: suggTv,
         );
         for (final m in suggMovies) {
-          _appendIfNew(out, seen, m);
+          _appendCarouselDeduped(out, seen, m);
         }
         for (final t in suggTv) {
-          _appendIfNew(out, seen, t);
+          _appendCarouselDeduped(out, seen, t);
         }
+      }
+
+      for (final x in bannerTrendingTop10) {
+        _appendCarouselDeduped(out, seen, x);
       }
 
       if (out.isEmpty) {
         for (final r in resumeVideo) {
-          _appendIfNew(out, seen, r);
+          _appendCarouselDeduped(out, seen, r);
           if (out.length >= 8) break;
         }
         for (final n in nextUp) {
-          _appendIfNew(out, seen, n);
+          _appendCarouselDeduped(out, seen, n);
           if (out.length >= 12) break;
         }
       }
@@ -266,10 +351,11 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
           .join(';');
       _oxHomeCarouselDebugLog(
         fingerprint:
-            '$mode|supp=$hasSupplementalBanner|rv=${resumeVideo.length}|nu=${nextUp.length}|dv=${dashboardViews.length}|tr=$totalRecent|mp=${moviePicks.length}|tp=${tvPicks.length}|out=${out.length}',
+            '$mode|supp=$hasSupplementalBanner|rv=${resumeVideo.length}|nu=${nextUp.length}|bc=${bannerCustom.length}|bt=${bannerTrendingTop10.length}|dv=${dashboardViews.length}|tr=$totalRecent|mp=${moviePicks.length}|tp=${tvPicks.length}|out=${out.length}',
         message:
             'OX home carousel combined: mode=$mode supplementalBanner=$hasSupplementalBanner '
-            'resumeVideo=${resumeVideo.length} lastPlayed=${lastPlayed != null} nextUp=${nextUp.length} '
+            'resumeVideo=${resumeVideo.length} lastPlayed=${lastPlayed != null} bannerCustom=${bannerCustom.length} '
+            'trending=${bannerTrendingTop10.length} nextUp=${nextUp.length} '
             'dashboardViews=${dashboardViews.length} recentTotal=$totalRecent '
             'perView=$viewSummary ${_oxDebugRecentKindStats(dashboardViews)} '
             'pickedMovies=${moviePicks.length}/$userMovieN pickedTv=${tvPicks.length}/$userTvN '

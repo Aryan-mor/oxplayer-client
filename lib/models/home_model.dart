@@ -10,6 +10,10 @@ class HomeModel {
   final List<ItemBaseModel> nextUp;
   final List<ItemBaseModel> bannerCurated;
   final List<ItemBaseModel> bannerGlobalLatest;
+  /// Home-banner pins from `HomeBannerDiscovery` when the server includes them (same payload order as API).
+  final List<ItemBaseModel> bannerCustom;
+  /// TMDB daily trending from `HomeBannerDiscovery.TrendingTop10` when present.
+  final List<ItemBaseModel> bannerTrendingTop10;
 
   HomeModel({
     this.loading = false,
@@ -20,6 +24,8 @@ class HomeModel {
     this.nextUp = const [],
     this.bannerCurated = const [],
     this.bannerGlobalLatest = const [],
+    this.bannerCustom = const [],
+    this.bannerTrendingTop10 = const [],
   });
 
   HomeModel copyWith({
@@ -32,6 +38,8 @@ class HomeModel {
     List<ItemBaseModel>? nextUpBooks,
     List<ItemBaseModel>? bannerCurated,
     List<ItemBaseModel>? bannerGlobalLatest,
+    List<ItemBaseModel>? bannerCustom,
+    List<ItemBaseModel>? bannerTrendingTop10,
   }) {
     return HomeModel(
       loading: loading ?? this.loading,
@@ -42,6 +50,8 @@ class HomeModel {
       nextUp: nextUp ?? this.nextUp,
       bannerCurated: bannerCurated ?? this.bannerCurated,
       bannerGlobalLatest: bannerGlobalLatest ?? this.bannerGlobalLatest,
+      bannerCustom: bannerCustom ?? this.bannerCustom,
+      bannerTrendingTop10: bannerTrendingTop10 ?? this.bannerTrendingTop10,
     );
   }
 }

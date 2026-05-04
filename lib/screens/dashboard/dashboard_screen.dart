@@ -105,6 +105,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       dashboardViews: views.dashboardViews,
       bannerCurated: dashboardData.bannerCurated,
       bannerGlobalLatest: dashboardData.bannerGlobalLatest,
+      bannerCustom: dashboardData.bannerCustom,
+      bannerTrendingTop10: dashboardData.bannerTrendingTop10,
     );
 
     if (kDebugMode &&

@@ -168,10 +168,14 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
 
         var bannerCurated = <ItemBaseModel>[];
         var bannerGlobalLatest = <ItemBaseModel>[];
+        var bannerCustom = <ItemBaseModel>[];
+        var bannerTrendingTop10 = <ItemBaseModel>[];
         final disc = await api.userItemsHomeBannerDiscoveryGet();
         if (disc != null) {
           bannerCurated = disc.curated.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
           bannerGlobalLatest = disc.globalLatest.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
+          bannerCustom = disc.customSlider.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
+          bannerTrendingTop10 = disc.trendingTop10.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList();
         }
 
         state = state.copyWith(
@@ -179,6 +183,8 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
           loading: false,
           bannerCurated: bannerCurated,
           bannerGlobalLatest: bannerGlobalLatest,
+          bannerCustom: bannerCustom,
+          bannerTrendingTop10: bannerTrendingTop10,
         );
       });
     } catch (e, st) {

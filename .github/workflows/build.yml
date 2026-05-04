@@ -1,4 +1,5 @@
 # Android + Linux in CI. Web omitted (fvp/ffi). Windows omitted (media_kit native extract flaky on GHA).
+# Push to main → nightly (create_release runs). PRs → development (no GitHub Release).
 name: Build OXPlayer
 
 on:
@@ -66,6 +67,10 @@ jobs:
               echo "should_run=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BUILD_TYPE="development"
+          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            BUILD_TYPE="nightly"
           else
             BUILD_TYPE="development"
           fi

@@ -1,4 +1,4 @@
-# Android / Windows / Linux only. Web is omitted: dart2js cannot compile fvp/ffi/media_kit stack used by this app.
+# Android + Linux in CI. Web omitted (fvp/ffi). Windows omitted (media_kit native extract flaky on GHA).
 name: Build OXPlayer
 
 on:
@@ -247,131 +247,6 @@ jobs:
           name: oxplayer-android
           path: build/app/outputs/android_artifacts/
 
-  build-windows:
-    needs: [fetch-info]
-    runs-on: windows-2022
-    env:
-      TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
-      TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
-      BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
-      OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
-      OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
-      OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
-      OX_MEDIAKIT_MPV_SCRIPT: ${{ github.workspace }}/tool/ci/extract_mpv_windows.ps1
-      OX_MEDIAKIT_ANGLE_SCRIPT: ${{ github.workspace }}/tool/ci/extract_angle_windows.ps1
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-          flutter-version: ${{ needs.fetch-info.outputs.flutter_version }}
-          cache: true
-          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
-          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
-
-      - run: flutter pub get
-
-      # DonutWare CMake: tar+xcopy on .7z is unreliable on GHA. Replace extract steps with 7z + PowerShell (repo scripts).
-      - name: Patch media_kit Windows CMake (7z extract via PowerShell)
-        shell: bash
-        run: |
-          python3 <<'PY'
-          import os
-          import pathlib
-          import re
-
-          fatal = 'message(FATAL_ERROR "${locationForArchive} Integrity check failed, please try to re-build project again.")'
-          warn = 'message(WARNING "${locationForArchive} integrity check failed; continuing (CI)")'
-
-          roots = [
-              pathlib.Path(os.environ.get("LOCALAPPDATA", "")) / "Pub" / "Cache",
-              pathlib.Path.home() / "AppData" / "Local" / "Pub" / "Cache",
-              pathlib.Path.home() / ".pub-cache",
-          ]
-
-          libmpv_re = re.compile(
-              r"(add_custom_command\(\s*TARGET\s+\"\$\{PROJECT_NAME\}_LIBMPV_EXTRACT\"\s*)"
-              r".*?"
-              r"(\s*WORKING_DIRECTORY\s+\"\$\{LIBMPV_SRC\}\"\s*\))",
-              re.DOTALL,
-          )
-          angle_re = re.compile(
-              r"(add_custom_command\(\s*TARGET\s+\"\$\{PROJECT_NAME\}_ANGLE_EXTRACT\"\s*)"
-              r".*?"
-              r"(\s*WORKING_DIRECTORY\s+\"\$\{ANGLE_SRC\}\"\s*\))",
-              re.DOTALL,
-          )
-
-          def sub_lib(m: re.Match) -> str:
-              return (
-                  m.group(1)
-                  + "\n COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass "
-                  + '-File "$ENV{OX_MEDIAKIT_MPV_SCRIPT}" '
-                  + '-Archive "${LIBMPV_ARCHIVE}" -DestDir "${LIBMPV_SRC}"'
-                  + m.group(2)
-              )
-
-          def sub_angle(m: re.Match) -> str:
-              return (
-                  m.group(1)
-                  + "\n COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass "
-                  + '-File "$ENV{OX_MEDIAKIT_ANGLE_SCRIPT}" '
-                  + '-Archive "${ANGLE_ARCHIVE}" -DestDir "${ANGLE_SRC}"'
-                  + m.group(2)
-              )
-
-          for root in roots:
-              if not root.is_dir():
-                  continue
-              for cm in root.rglob("CMakeLists.txt"):
-                  if "media_kit_libs_windows_video" not in cm.parts or cm.parent.name != "windows":
-                      continue
-                  text = cm.read_text(encoding="utf-8", errors="replace")
-                  orig = text
-                  text = text.replace(fatal, warn)
-                  text, n_lib = libmpv_re.subn(sub_lib, text, count=1)
-                  text, n_ang = angle_re.subn(sub_angle, text, count=1)
-                  if text != orig:
-                      cm.write_text(text, encoding="utf-8")
-                      print("Patched", cm, "libmpv_block=", n_lib, "angle_block=", n_ang)
-          PY
-
-      - uses: ./.github/actions/oxplayer-flutter-env
-
-      - name: Build Windows (retries; clear plugin archives / partial extract)
-        shell: bash
-        run: |
-          set -e
-          for attempt in 1 2 3; do
-            rm -f build/windows/x64/*.7z 2>/dev/null || true
-            rm -rf build/windows/x64/plugins/media_kit_libs_windows_video/libmpv 2>/dev/null || true
-            rm -rf build/windows/x64/plugins/media_kit_libs_windows_video/ANGLE 2>/dev/null || true
-            if flutter build windows --release \
-              --build-name=${{ needs.fetch-info.outputs.version_name }} \
-              --build-number=${{ github.run_number }} \
-              --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"; then
-              exit 0
-            fi
-            echo "Windows build attempt $attempt failed, retrying..."
-          done
-          exit 1
-
-      - uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
-          path: windows/windows_setup.iss
-          options: /O+ /DFLADDER_VERSION="${{ needs.fetch-info.outputs.version_name }}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: oxplayer-windows-portable
-          path: build/windows/x64/runner/Release/
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: oxplayer-windows-installer
-          path: windows/Output/fladder_setup.exe
-
   build-linux:
     needs: [fetch-info]
     runs-on: ubuntu-latest
@@ -452,7 +327,6 @@ jobs:
     needs:
       - fetch-info
       - build-android
-      - build-windows
       - build-linux
     runs-on: ubuntu-latest
     if: needs.fetch-info.outputs.build_type == 'release' || needs.fetch-info.outputs.build_type == 'nightly'
@@ -527,27 +401,6 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: oxplayer-windows-portable
-          path: oxplayer-windows-portable
-
-      - name: Stage Windows portable
-        shell: bash
-        run: |
-          cd oxplayer-windows-portable
-          zip -r "../OXPlayer-Windows-${{ steps.version.outputs.version }}.zip" .
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: oxplayer-windows-installer
-          path: oxplayer-windows-installer
-
-      - name: Stage Windows installer
-        shell: bash
-        run: |
-          mv "oxplayer-windows-installer/fladder_setup.exe" "OXPlayer-Windows-${{ steps.version.outputs.version }}-Setup.exe"
-
-      - uses: actions/download-artifact@v4
-        with:
           name: oxplayer-linux
           path: oxplayer-linux
 
@@ -592,8 +445,6 @@ jobs:
             OXPlayer-Android-${{ steps.version.outputs.version }}-armeabi-v7a.apk
             OXPlayer-Android-${{ steps.version.outputs.version }}-x86_64.apk
             OXPlayer-Android-${{ steps.version.outputs.version }}.aab
-            OXPlayer-Windows-${{ steps.version.outputs.version }}-Setup.exe
-            OXPlayer-Windows-${{ steps.version.outputs.version }}.zip
             OXPlayer-Linux-${{ steps.version.outputs.version }}.zip
             OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage
             OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage.zsync

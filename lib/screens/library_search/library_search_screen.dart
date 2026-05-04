@@ -547,9 +547,11 @@ class _LibrarySearchScreenState extends ConsumerState<LibrarySearchScreen> {
                             items: postersList,
                             groupByType: librarySearchResults.filters.groupBy,
                           ),
-                        )
+                        ),
                       // OXPlayer: empty library query → show server-driven landing (not "No items to show").
-                      else if (OxplayerConfig.isEnabled && librarySearchResults.searchQuery.trim().isEmpty)
+                      if (OxplayerConfig.isEnabled &&
+                          librarySearchResults.searchQuery.trim().isEmpty &&
+                          postersList.isEmpty)
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: EdgeInsets.only(
@@ -560,20 +562,47 @@ class _LibrarySearchScreenState extends ConsumerState<LibrarySearchScreen> {
                             ),
                             child: const OxplayerSearchLanding(),
                           ),
-                        )
-                      // Non-OX, or Oxplayer with an active search string but no posters: empty state.
-                      else if (!OxplayerConfig.isEnabled ||
-                          librarySearchResults.searchQuery.trim().isNotEmpty)
-                        SliverFillRemaining(
-                          child: Center(
-                            child: Text(context.localized.noItemsToShow),
+                        ),
+                      // OXPlayer: TMDB row must stay above fill/empty slivers — [SliverFillRemaining] was hiding it.
+                      if (OxplayerConfig.isEnabled && librarySearchResults.searchQuery.trim().isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: mediaQuery.padding.left,
+                              right: mediaQuery.padding.right,
+                            ).add(
+                              EdgeInsetsDirectional.only(start: adaptiveLayout.sideBarWidth),
+                            ),
+                            child: OxplayerSearchTmdbSuggestions(query: librarySearchResults.searchQuery),
                           ),
                         ),
-                      // OXPlayer: server-gated TMDB suggestions (403 for general users → silent empty).
-                      if (OxplayerConfig.isEnabled && librarySearchResults.searchQuery.isNotEmpty)
-                        SliverToBoxAdapter(
-                          child: OxplayerSearchTmdbSuggestions(query: librarySearchResults.searchQuery),
-                        ),
+                      if (postersList.isEmpty &&
+                          (!OxplayerConfig.isEnabled || librarySearchResults.searchQuery.trim().isNotEmpty))
+                        if (!OxplayerConfig.isEnabled)
+                          SliverFillRemaining(
+                            child: Center(
+                              child: Text(context.localized.noItemsToShow),
+                            ),
+                          )
+                        else
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                left: mediaQuery.padding.left,
+                                right: mediaQuery.padding.right,
+                                top: 24,
+                                bottom: 32,
+                              ).add(
+                                EdgeInsetsDirectional.only(start: adaptiveLayout.sideBarWidth),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  context.localized.noItemsToShow,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ),
                       SliverPadding(padding: EdgeInsets.only(bottom: MediaQuery.sizeOf(context).height * 0.20))
                     ],
                   ),

@@ -19,12 +19,27 @@ import 'package:fladder/util/http_url_validation.dart';
 /// OxPlayer API: direct TMDB CDN URL in [BaseItemDto.externalUrls] (bypasses Jellyfin `/Items/.../Images`).
 const String _kOxTmdbImagePrimaryName = 'TmdbImagePrimary';
 
+/// OxPlayer API: TMDB backdrop (`backdrop_path`) at wide resolution for TV/detail heroes.
+const String _kOxTmdbImageBackdropName = 'TmdbImageBackdrop';
+
 String? _oxTmdbPrimaryImageUrl(dto.BaseItemDto item) {
   final urls = item.externalUrls;
   if (urls == null) return null;
   for (final e in urls) {
     final u = e.url?.trim();
     if (e.name == _kOxTmdbImagePrimaryName && u != null && isUsableHttpImageUrl(u)) {
+      return u;
+    }
+  }
+  return null;
+}
+
+String? _oxTmdbBackdropImageUrl(dto.BaseItemDto item) {
+  final urls = item.externalUrls;
+  if (urls == null) return null;
+  for (final e in urls) {
+    final u = e.url?.trim();
+    if (e.name == _kOxTmdbImageBackdropName && u != null && isUsableHttpImageUrl(u)) {
       return u;
     }
   }
@@ -72,6 +87,32 @@ class ImagesData {
     final useJellyfinPrimary = !isOxGeneral && (item.imageTags?['Primary'] != null);
     final hasServerPrimary = tmdbPrimary != null || useJellyfinPrimary;
 
+    final oxBackdropUrl = _oxTmdbBackdropImageUrl(item);
+    final jellyfinBackdropImages = (item.backdropImageTags ?? [])
+        .mapIndexed(
+          (index, backdrop) {
+            final image = ImageData(
+              path: getOriginalSize
+                  ? imageProvider.getBackdropOrigImage(
+                      itemid,
+                      index,
+                      backdrop,
+                    )
+                  : imageProvider.getBackdropImage(
+                      itemid,
+                      index,
+                      backdrop,
+                      maxHeight: backDrop.height.toInt(),
+                      maxWidth: backDrop.width.toInt(),
+                    ),
+              key: "${itemid}_backdrop_${index}_$backdrop",
+              hash: item.imageBlurHashes?.backdrop?[backdrop] ?? "",
+            );
+            return image;
+          },
+        )
+        .nonNulls
+        .toList();
     final newImgesData = ImagesData(
       primary: hasServerPrimary
           ? ImageData(
@@ -105,31 +146,16 @@ class ImagesData {
                 ),
           key: "${itemid}_logo_${item.imageTags?['Logo']}",
           hash: item.imageTags?['Logo'] != null ? (item.imageBlurHashes?.logo?[item.imageTags?['Logo']] ?? "") : ""),
-      backDrop: (item.backdropImageTags ?? [])
-          .mapIndexed(
-            (index, backdrop) {
-              final image = ImageData(
-                path: getOriginalSize
-                    ? imageProvider.getBackdropOrigImage(
-                        itemid,
-                        index,
-                        backdrop,
-                      )
-                    : imageProvider.getBackdropImage(
-                        itemid,
-                        index,
-                        backdrop,
-                        maxHeight: backDrop.height.toInt(),
-                        maxWidth: backDrop.width.toInt(),
-                      ),
-                key: "${itemid}_backdrop_${index}_$backdrop",
-                hash: item.imageBlurHashes?.backdrop?[backdrop] ?? "",
-              );
-              return image;
-            },
-          )
-          .nonNulls
-          .toList(),
+      // Ox TMDB backdrop last so [tvPosterLarge] (uses last backdrop) gets the wide hero asset.
+      backDrop: [
+        ...jellyfinBackdropImages,
+        if (oxBackdropUrl != null)
+          ImageData(
+            path: oxBackdropUrl,
+            key: "${itemid}_backdrop_tmdb",
+            hash: "",
+          ),
+      ],
     );
     return newImgesData;
   }

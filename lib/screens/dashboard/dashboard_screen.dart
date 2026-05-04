@@ -259,7 +259,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               viewModelId: view.id,
                               types: switch (view.collectionType) {
                                 CollectionType.tvshows => {
-                                    FladderItemType.episode: true,
+                                    FladderItemType.series: true,
                                   },
                                 _ => {},
                               },

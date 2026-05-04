@@ -2,106 +2,144 @@ name: Build OXPlayer
 
 on:
   push:
+    tags:
+      - "v*"
     branches:
       - main
+  pull_request:
+    paths:
+      - pubspec.yaml
+      - pubspec.lock
+      - .github/workflows/build.yml
+      - .github/actions/**
+      - .fvmrc
+    types:
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Build type (release, nightly)"
+        required: false
+        default: "nightly"
+        type: choice
+        options:
+          - release
+          - nightly
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  FLUTTER_VERSION: "3.35.7"
-  # App version: read from pubspec at runtime; build number comes from GitHub run number.
-  OXPLAYER_VERSION_NAME: 0.10.3.${{ github.run_number }}
-
-  # --- Runtime dart-defines (injected from GitHub Secrets / Variables) ---
-  TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
-  TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
-  BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
-  OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
-  OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
-  OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
+  NIGHTLY_TAG: nightly
 
 jobs:
-  build-android:
-    name: Build Android APKs
+  check-trigger:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      build_type: ${{ steps.check.outputs.build_type }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
         with:
-          distribution: "zulu"
-          java-version: "17"
-          cache: "gradle"
+          fetch-depth: 0
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: "stable"
-          cache: true
-          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
-          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
-
-      - name: Cache Pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Validate required environment
+      - id: check
         shell: bash
         run: |
-          missing=()
-          for var in TELEGRAM_API_ID TELEGRAM_API_HASH BOT_USERNAME OXPLAYER_API_BASE_URL OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME OXPLAYER_TELEGRAM_WEBAPP_URL; do
-            [ -z "${!var}" ] && missing+=("$var")
-          done
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "Missing required secrets/variables: ${missing[*]}"
-            exit 1
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            BUILD_TYPE="${{ github.event.inputs.build_type }}"
+          elif [[ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
+            BUILD_TYPE="release"
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            git checkout main
+            COMMITS_LAST_24H=$(git log --since="24 hours ago" --oneline | wc -l)
+            if [[ $COMMITS_LAST_24H -gt 0 ]]; then
+              BUILD_TYPE="nightly"
+            else
+              echo "No commits to main in the last 24 hours, skipping nightly build"
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            BUILD_TYPE="development"
           fi
 
-      - name: Generate dart-defines file
+          echo "build_type=${BUILD_TYPE}" >> "$GITHUB_OUTPUT"
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+          echo "Build type determined: ${BUILD_TYPE}"
+
+  fetch-info:
+    needs: [check-trigger]
+    if: needs.check-trigger.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.fetch.outputs.version_name }}
+      flutter_version: ${{ steps.fetch.outputs.flutter_version }}
+      nightly_version: ${{ steps.fetch.outputs.nightly_version }}
+      build_type: ${{ needs.check-trigger.outputs.build_type }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: fetch
         shell: bash
         run: |
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
+          VERSION_NAME=$(grep '^version:' pubspec.yaml | cut -d ':' -f2 | cut -d '+' -f1 | tr -d ' ')
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
 
-          out = Path(os.environ['RUNNER_TEMP']) / 'flutter-build-env.json'
-          out.write_text(json.dumps({
-              'TELEGRAM_API_ID':                    os.environ.get('TELEGRAM_API_ID', ''),
-              'TELEGRAM_API_HASH':                  os.environ.get('TELEGRAM_API_HASH', ''),
-              'BOT_USERNAME':                       os.environ.get('BOT_USERNAME', ''),
-              'OXPLAYER_API_BASE_URL':               os.environ.get('OXPLAYER_API_BASE_URL', ''),
-              'OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME': os.environ.get('OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME', ''),
-              'OXPLAYER_TELEGRAM_WEBAPP_URL':        os.environ.get('OXPLAYER_TELEGRAM_WEBAPP_URL', ''),
-          }), encoding='utf-8')
-          PY
-          echo "FLUTTER_BUILD_ENV_FILE=$RUNNER_TEMP/flutter-build-env.json" >> "$GITHUB_ENV"
+          FLUTTER_VERSION=$(jq -r '.flutter' .fvmrc)
+          echo "flutter_version=${FLUTTER_VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ needs.check-trigger.outputs.build_type }}" == "nightly" ]]; then
+            NIGHTLY_VERSION="${VERSION_NAME}-nightly"
+            echo "nightly_version=${NIGHTLY_VERSION}" >> "$GITHUB_OUTPUT"
+            echo "Nightly version: $NIGHTLY_VERSION"
+          else
+            echo "nightly_version=" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Base version: $VERSION_NAME"
+          echo "Flutter version: $FLUTTER_VERSION"
+
+  build-android:
+    needs: [fetch-info]
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_suffix: ${{ steps.meta.outputs.artifact_suffix }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
+      TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
+      BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
+      OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
+      OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
+      OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        shell: bash
+        run: echo "artifact_suffix=${{ needs.fetch-info.outputs.build_type }}" >> "$GITHUB_OUTPUT"
 
       - name: Configure Android signing
+        if: needs.fetch-info.outputs.build_type != 'development'
+        shell: bash
         run: |
           if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || \
              [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] || \
              [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ] || \
              [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
-            echo "Signing secrets incomplete — falling back to debug signing."
-            exit 0
+            echo "Signing secrets incomplete — cannot produce signed release APK/AAB."
+            exit 1
           fi
 
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -112,22 +150,60 @@ jobs:
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           EOF
 
-          # Validate keystore is readable
           if ! keytool -list -keystore android/app/keystore.jks \
                -alias "${{ secrets.ANDROID_KEY_ALIAS }}" \
                -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
                -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}" >/dev/null 2>&1; then
-            echo "Keystore validation failed — falling back to debug signing."
+            echo "Keystore validation failed."
             rm -f android/app/keystore.jks android/app/key.properties
+            exit 1
           fi
 
-      - name: Build Android APKs (split per ABI)
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+          cache: "gradle"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ needs.fetch-info.outputs.flutter_version }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - run: flutter pub get
+
+      - uses: ./.github/actions/oxplayer-flutter-env
+
+      - name: Build Android (development)
+        if: needs.fetch-info.outputs.build_type == 'development'
         run: |
-          flutter build apk \
-            --release \
-            --split-per-abi \
+          flutter build apk --debug --split-per-abi \
             --flavor production \
-            --build-name=${{ env.OXPLAYER_VERSION_NAME }} \
+            --build-name=${{ needs.fetch-info.outputs.version_name }} \
+            --build-number=${{ github.run_number }} \
+            --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
+
+      - name: Build Android (release)
+        if: needs.fetch-info.outputs.build_type != 'development'
+        run: |
+          flutter build apk --release --split-per-abi \
+            --flavor production \
+            --build-name=${{ needs.fetch-info.outputs.version_name }} \
+            --build-number=${{ github.run_number }} \
+            --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
+          flutter build appbundle --release \
+            --flavor production \
+            --build-name=${{ needs.fetch-info.outputs.version_name }} \
             --build-number=${{ github.run_number }} \
             --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
 
@@ -135,40 +211,386 @@ jobs:
         if: always()
         run: rm -f android/app/keystore.jks android/app/key.properties
 
-      - name: Collect APK artifacts
+      - name: Collect Android artifacts (development)
+        if: needs.fetch-info.outputs.build_type == 'development'
+        shell: bash
         run: |
-          mkdir -p release-apks
-          APK_DIR=build/app/outputs/flutter-apk
-          cp "$APK_DIR/app-arm64-v8a-production-release.apk"   release-apks/OXPlayer-arm64-v8a.apk
-          cp "$APK_DIR/app-armeabi-v7a-production-release.apk" release-apks/OXPlayer-armeabi-v7a.apk
-          cp "$APK_DIR/app-x86_64-production-release.apk"      release-apks/OXPlayer-x86_64.apk
+          mkdir -p build/app/outputs/android_artifacts
+          SUF="${{ steps.meta.outputs.artifact_suffix }}"
+          cp "build/app/outputs/flutter-apk/app-armeabi-v7a-production-debug.apk" "build/app/outputs/android_artifacts/${SUF}-armeabi-v7a.apk"
+          cp "build/app/outputs/flutter-apk/app-arm64-v8a-production-debug.apk" "build/app/outputs/android_artifacts/${SUF}-arm64-v8a.apk"
+          cp "build/app/outputs/flutter-apk/app-x86_64-production-debug.apk" "build/app/outputs/android_artifacts/${SUF}-x86_64.apk"
+
+      - name: Collect Android artifacts (release)
+        if: needs.fetch-info.outputs.build_type != 'development'
+        shell: bash
+        run: |
+          mkdir -p build/app/outputs/android_artifacts
+          SUF="${{ steps.meta.outputs.artifact_suffix }}"
+          cp "build/app/outputs/flutter-apk/app-armeabi-v7a-production-release.apk" "build/app/outputs/android_artifacts/${SUF}-armeabi-v7a.apk"
+          cp "build/app/outputs/flutter-apk/app-arm64-v8a-production-release.apk" "build/app/outputs/android_artifacts/${SUF}-arm64-v8a.apk"
+          cp "build/app/outputs/flutter-apk/app-x86_64-production-release.apk" "build/app/outputs/android_artifacts/${SUF}-x86_64.apk"
+          mv "build/app/outputs/bundle/productionRelease/app-production-release.aab" "build/app/outputs/android_artifacts/${SUF}.aab"
 
       - name: Attest APKs
+        if: needs.fetch-info.outputs.build_type != 'development'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
-            release-apks/OXPlayer-arm64-v8a.apk
-            release-apks/OXPlayer-armeabi-v7a.apk
-            release-apks/OXPlayer-x86_64.apk
+            build/app/outputs/android_artifacts/${{ steps.meta.outputs.artifact_suffix }}-arm64-v8a.apk
+            build/app/outputs/android_artifacts/${{ steps.meta.outputs.artifact_suffix }}-armeabi-v7a.apk
+            build/app/outputs/android_artifacts/${{ steps.meta.outputs.artifact_suffix }}-x86_64.apk
 
-      - name: Upload APK artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: release-apks/
+          name: oxplayer-android
+          path: build/app/outputs/android_artifacts/
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+  build-windows:
+    needs: [fetch-info]
+    runs-on: windows-2022
+    env:
+      TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
+      TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
+      BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
+      OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
+      OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
+      OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
         with:
-          tag_name: v${{ env.OXPLAYER_VERSION_NAME }}
-          name: OXPlayer ${{ env.OXPLAYER_VERSION_NAME }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-          files: |
-            release-apks/OXPlayer-arm64-v8a.apk
-            release-apks/OXPlayer-armeabi-v7a.apk
-            release-apks/OXPlayer-x86_64.apk
+          channel: "stable"
+          flutter-version: ${{ needs.fetch-info.outputs.flutter_version }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+
+      - run: flutter pub get
+
+      - uses: ./.github/actions/oxplayer-flutter-env
+
+      - name: Build Windows
+        shell: bash
+        run: |
+          flutter build windows --release \
+            --build-name=${{ needs.fetch-info.outputs.version_name }} \
+            --build-number=${{ github.run_number }} \
+            --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
+
+      - uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: windows/windows_setup.iss
+          options: /O+ /DFLADDER_VERSION="${{ needs.fetch-info.outputs.version_name }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oxplayer-windows-portable
+          path: build/windows/x64/runner/Release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oxplayer-windows-installer
+          path: windows/Output/fladder_setup.exe
+
+  build-linux:
+    needs: [fetch-info]
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
+      TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
+      BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
+      OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
+      OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
+      OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ needs.fetch-info.outputs.flutter_version }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+
+      - name: Sync pubspec build number with run
+        shell: bash
+        run: |
+          sed -i -E 's/(version: [0-9]+\.[0-9]+\.[0-9]+\+)[0-9]+/\1${{ github.run_number }}/' pubspec.yaml
+
+      - run: flutter pub get
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev patchelf cmake clang libfuse2
+
+      - uses: ./.github/actions/oxplayer-flutter-env
+
+      - name: Build Linux
+        run: |
+          flutter build linux --release \
+            --build-name=${{ needs.fetch-info.outputs.version_name }} \
+            --build-number=${{ github.run_number }} \
+            --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
+
+      - name: Fix RPATH
+        shell: bash
+        run: |
+          for lib in build/linux/x64/release/bundle/lib/*.so; do
+            [[ -f "$lib" && -n "$(patchelf --print-rpath "$lib" 2>/dev/null)" ]] && \
+              patchelf --set-rpath '$ORIGIN' "$lib"
+          done
+          patchelf --set-rpath '$ORIGIN/lib' "build/linux/x64/release/bundle/fladder"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oxplayer-linux
+          path: build/linux/x64/release/bundle
+
+      - name: Build AppImage
+        shell: bash
+        run: |
+          VERSION_TO_USE="${{ needs.fetch-info.outputs.version_name }}"
+          sed -i -E "s/(version:[[:space:]]*)latest/\\1${VERSION_TO_USE}/" AppImageBuilder.yml
+          sed -i "s/PLACEHOLDER_OWNER/${{ github.repository_owner }}/g" AppImageBuilder.yml
+          sed -i "s/PLACEHOLDER_REPO/${{ github.event.repository.name }}/g" AppImageBuilder.yml
+          wget -q -O appimage-builder-x86_64.AppImage https://github.com/AppImageCrafters/appimage-builder/releases/download/v1.1.0/appimage-builder-1.1.0-x86_64.AppImage
+          chmod +x appimage-builder-x86_64.AppImage
+          sudo mv appimage-builder-x86_64.AppImage /usr/local/bin/appimage-builder
+          appimage-builder --recipe AppImageBuilder.yml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oxplayer-linux-appimage
+          path: |
+            OXPlayer_x86_64.AppImage
+            OXPlayer_x86_64.AppImage.zsync
+
+  build-web:
+    needs: [fetch-info]
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
+      TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
+      BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
+      OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
+      OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
+      OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          flutter-version: ${{ needs.fetch-info.outputs.flutter_version }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
+
+      - run: flutter pub get
+
+      - uses: ./.github/actions/oxplayer-flutter-env
+
+      - name: Build web
+        run: |
+          flutter build web --release \
+            --build-name=${{ needs.fetch-info.outputs.version_name }} \
+            --build-number=${{ github.run_number }} \
+            --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oxplayer-web
+          path: build/web
+
+  create_release:
+    name: Create release
+    needs:
+      - fetch-info
+      - build-android
+      - build-windows
+      - build-linux
+      - build-web
+    runs-on: ubuntu-latest
+    if: needs.fetch-info.outputs.build_type == 'release' || needs.fetch-info.outputs.build_type == 'nightly'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        if: needs.fetch-info.outputs.build_type == 'nightly'
+        with:
+          fetch-depth: 0
+
+      - id: version
+        shell: bash
+        run: |
+          if [[ "${{ needs.fetch-info.outputs.build_type }}" == "nightly" ]]; then
+            echo "version=${{ needs.fetch-info.outputs.nightly_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ needs.fetch-info.outputs.version_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Delete existing nightly release
+        if: needs.fetch-info.outputs.build_type == 'nightly'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view ${{ env.NIGHTLY_TAG }} >/dev/null 2>&1; then
+            gh release delete ${{ env.NIGHTLY_TAG }} --yes --cleanup-tag
+          fi
+          if git tag -l | grep -q "^${{ env.NIGHTLY_TAG }}$"; then
+            git push origin --delete ${{ env.NIGHTLY_TAG }} || true
+          fi
+
+      - name: Generate nightly changelog
+        if: needs.fetch-info.outputs.build_type == 'nightly'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_STABLE=$(gh release list --limit 50 --exclude-drafts --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == false) | .tagName' | head -1 || echo "")
+          {
+            echo "# $(date -u "+%Y-%m-%d %H:%M:%S UTC")"
+            echo ""
+            echo "Automated nightly build from \`main\`."
+            echo ""
+            echo "**Warning:** prerelease; may be unstable."
+            echo ""
+          } > changelog.md
+          if [ -n "$LATEST_STABLE" ]; then
+            echo "Changes since ${LATEST_STABLE}: https://github.com/${{ github.repository }}/compare/${LATEST_STABLE}...HEAD" >> changelog.md
+          else
+            echo "Commits: https://github.com/${{ github.repository }}/commits/main" >> changelog.md
+          fi
+          {
+            echo ""
+            echo "---"
+            echo "Build: ${{ github.run_number }} | SHA: ${{ github.sha }}"
+          } >> changelog.md
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-android
+          path: oxplayer-android
+
+      - name: Stage Android assets
+        shell: bash
+        run: |
+          SUF="${{ needs.build-android.outputs.artifact_suffix }}"
+          V="${{ steps.version.outputs.version }}"
+          mv "oxplayer-android/${SUF}-armeabi-v7a.apk" "OXPlayer-Android-${V}-armeabi-v7a.apk"
+          mv "oxplayer-android/${SUF}-arm64-v8a.apk" "OXPlayer-Android-${V}-arm64-v8a.apk"
+          mv "oxplayer-android/${SUF}-x86_64.apk" "OXPlayer-Android-${V}-x86_64.apk"
+          mv "oxplayer-android/${SUF}.aab" "OXPlayer-Android-${V}.aab"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-windows-portable
+          path: oxplayer-windows-portable
+
+      - name: Stage Windows portable
+        shell: bash
+        run: |
+          cd oxplayer-windows-portable
+          zip -r "../OXPlayer-Windows-${{ steps.version.outputs.version }}.zip" .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-windows-installer
+          path: oxplayer-windows-installer
+
+      - name: Stage Windows installer
+        shell: bash
+        run: |
+          mv "oxplayer-windows-installer/fladder_setup.exe" "OXPlayer-Windows-${{ steps.version.outputs.version }}-Setup.exe"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-linux
+          path: oxplayer-linux
+
+      - name: Stage Linux bundle
+        shell: bash
+        run: |
+          cd oxplayer-linux
+          zip -r "../OXPlayer-Linux-${{ steps.version.outputs.version }}.zip" .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-linux-appimage
+          path: oxplayer-linux-appimage
+
+      - name: Stage Linux AppImage
+        shell: bash
+        run: |
+          mv "oxplayer-linux-appimage/OXPlayer_x86_64.AppImage" "OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage"
+          mv "oxplayer-linux-appimage/OXPlayer_x86_64.AppImage.zsync" "OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage.zsync"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-web
+          path: oxplayer-web
+
+      - name: Stage web
+        shell: bash
+        run: |
+          cd oxplayer-web
+          zip -r "../OXPlayer-Web-${{ steps.version.outputs.version }}.zip" .
+
+      - name: Prepare GitHub release body file
+        shell: bash
+        run: |
+          if [[ "${{ needs.fetch-info.outputs.build_type }}" == "nightly" ]]; then
+            cp changelog.md gh-release-body.md
+          else
+            printf '%s\n' "" > gh-release-body.md
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.fetch-info.outputs.build_type == 'nightly' && env.NIGHTLY_TAG || github.ref_name }}
+          name: ${{ needs.fetch-info.outputs.build_type == 'nightly' && format('OXPlayer nightly — {0}', steps.version.outputs.version) || format('OXPlayer {0}', steps.version.outputs.version) }}
+          body_path: gh-release-body.md
+          draft: ${{ needs.fetch-info.outputs.build_type == 'release' }}
+          prerelease: ${{ needs.fetch-info.outputs.build_type == 'nightly' }}
+          make_latest: ${{ needs.fetch-info.outputs.build_type == 'release' }}
+          generate_release_notes: ${{ needs.fetch-info.outputs.build_type == 'release' }}
+          fail_on_unmatched_files: true
+          files: |
+            OXPlayer-Android-${{ steps.version.outputs.version }}-arm64-v8a.apk
+            OXPlayer-Android-${{ steps.version.outputs.version }}-armeabi-v7a.apk
+            OXPlayer-Android-${{ steps.version.outputs.version }}-x86_64.apk
+            OXPlayer-Android-${{ steps.version.outputs.version }}.aab
+            OXPlayer-Windows-${{ steps.version.outputs.version }}-Setup.exe
+            OXPlayer-Windows-${{ steps.version.outputs.version }}.zip
+            OXPlayer-Web-${{ steps.version.outputs.version }}.zip
+            OXPlayer-Linux-${{ steps.version.outputs.version }}.zip
+            OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage
+            OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage.zsync
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release_play_console:
+    name: Upload AAB to Google Play
+    needs:
+      - fetch-info
+      - create_release
+      - build-android
+    runs-on: ubuntu-latest
+    if: needs.fetch-info.outputs.build_type != 'development' && secrets.SERVICE_ACCOUNT_JSON != ''
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: oxplayer-android
+          path: oxplayer-android
+
+      - uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          packageName: "de.aryanmo.oxplayer"
+          releaseFiles: "oxplayer-android/${{ needs.build-android.outputs.artifact_suffix }}.aab"
+          track: ${{ needs.fetch-info.outputs.build_type == 'nightly' && 'internal' || 'production' }}
+          status: ${{ needs.fetch-info.outputs.build_type == 'nightly' && 'completed' || 'draft' }}
+          releaseName: "${{ github.run_number }} (${{ needs.fetch-info.outputs.version_name }})"

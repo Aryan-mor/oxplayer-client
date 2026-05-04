@@ -1,0 +1,44 @@
+name: OXPlayer dart-define env
+description: Validate OX secrets/variables and write JSON for flutter --dart-define-from-file
+runs:
+  using: composite
+  steps:
+    - name: Validate required environment
+      shell: bash
+      run: |
+        missing=()
+        for var in TELEGRAM_API_ID TELEGRAM_API_HASH BOT_USERNAME OXPLAYER_API_BASE_URL OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME OXPLAYER_TELEGRAM_WEBAPP_URL; do
+          [ -z "${!var:-}" ] && missing+=("$var")
+        done
+        if [ ${#missing[@]} -gt 0 ]; then
+          echo "Missing required secrets/variables: ${missing[*]}"
+          exit 1
+        fi
+
+    - name: Generate dart-defines file
+      shell: bash
+      run: |
+        python3 - <<'PY'
+        import json, os
+        from pathlib import Path
+
+        out = Path(os.environ["RUNNER_TEMP"]) / "flutter-build-env.json"
+        out.write_text(
+            json.dumps(
+                {
+                    "TELEGRAM_API_ID": os.environ.get("TELEGRAM_API_ID", ""),
+                    "TELEGRAM_API_HASH": os.environ.get("TELEGRAM_API_HASH", ""),
+                    "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
+                    "OXPLAYER_API_BASE_URL": os.environ.get("OXPLAYER_API_BASE_URL", ""),
+                    "OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME": os.environ.get(
+                        "OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME", ""
+                    ),
+                    "OXPLAYER_TELEGRAM_WEBAPP_URL": os.environ.get(
+                        "OXPLAYER_TELEGRAM_WEBAPP_URL", ""
+                    ),
+                }
+            ),
+            encoding="utf-8",
+        )
+        PY
+        echo "FLUTTER_BUILD_ENV_FILE=$RUNNER_TEMP/flutter-build-env.json" >> "$GITHUB_ENV"

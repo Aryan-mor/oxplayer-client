@@ -270,28 +270,51 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Patch media_kit Windows CMake (avoid FATAL on MD5 mismatch after CDN/asset drift)
+      # DonutWare CMake uses `cmake -E tar xzf` (gzip) on .7z archives — extract fails, then xcopy returns MSB3073 code 4.
+      - name: Patch media_kit Windows CMake (tar xf for .7z + soften MD5 FATAL)
         shell: bash
         run: |
-          set +e
-          for ROOT in "$HOME/AppData/Local/Pub/Cache" "$HOME/.pub-cache"; do
-            [ -d "$ROOT" ] || continue
-            find "$ROOT" -path '*media_kit_libs_windows_video*/windows/CMakeLists.txt' 2>/dev/null | while read -r CM; do
-              [ -f "$CM" ] || continue
-              if grep -qF 'Integrity check failed, please try to re-build project again' "$CM"; then
-                sed -i 's|message(FATAL_ERROR "\${locationForArchive} Integrity check failed, please try to re-build project again.")|message(WARNING "\${locationForArchive} integrity check failed; continuing (CI)")|' "$CM" && echo "Patched: $CM"
-              fi
-            done
-          done
+          python3 <<'PY'
+          import pathlib
+
+          roots = [
+              pathlib.Path.home() / "AppData/Local/Pub/Cache",
+              pathlib.Path.home() / ".pub-cache",
+          ]
+          old_tar_lib = r' -E tar xzf "\"${LIBMPV_ARCHIVE}\""'
+          new_tar_lib = ' -E tar xf "${LIBMPV_ARCHIVE}"'
+          old_tar_angle = r' -E tar xzf "\"${ANGLE_ARCHIVE}\""'
+          new_tar_angle = ' -E tar xf "${ANGLE_ARCHIVE}"'
+          fatal = 'message(FATAL_ERROR "${locationForArchive} Integrity check failed, please try to re-build project again.")'
+          warn = 'message(WARNING "${locationForArchive} integrity check failed; continuing (CI)")'
+
+          for root in roots:
+              if not root.is_dir():
+                  continue
+              for cm in root.rglob("CMakeLists.txt"):
+                  parts = cm.parts
+                  if "media_kit_libs_windows_video" not in parts or cm.parent.name != "windows":
+                      continue
+                  text = cm.read_text(encoding="utf-8", errors="replace")
+                  orig = text
+                  text = text.replace(old_tar_lib, new_tar_lib)
+                  text = text.replace(old_tar_angle, new_tar_angle)
+                  text = text.replace(fatal, warn)
+                  if text != orig:
+                      cm.write_text(text, encoding="utf-8")
+                      print("Patched", cm)
+          PY
 
       - uses: ./.github/actions/oxplayer-flutter-env
 
-      - name: Build Windows (retries; clears bad partial .7z downloads)
+      - name: Build Windows (retries; clear plugin archives / partial extract)
         shell: bash
         run: |
           set -e
           for attempt in 1 2 3; do
             rm -f build/windows/x64/*.7z 2>/dev/null || true
+            rm -rf build/windows/x64/plugins/media_kit_libs_windows_video/libmpv 2>/dev/null || true
+            rm -rf build/windows/x64/plugins/media_kit_libs_windows_video/ANGLE 2>/dev/null || true
             if flutter build windows --release \
               --build-name=${{ needs.fetch-info.outputs.version_name }} \
               --build-number=${{ github.run_number }} \

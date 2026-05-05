@@ -1,4 +1,4 @@
-# Android + Linux in CI. Web omitted (fvp/ffi). Windows omitted (media_kit native extract flaky on GHA).
+# Android-only in CI (Linux build + AppImage + Linux release assets removed from this workflow). Web omitted (fvp/ffi). Windows omitted (media_kit native extract flaky on GHA).
 # Push to main → nightly (create_release runs). PRs → development (no GitHub Release).
 name: Build OXPlayer
 
@@ -252,87 +252,11 @@ jobs:
           name: oxplayer-android
           path: build/app/outputs/android_artifacts/
 
-  build-linux:
-    needs: [fetch-info]
-    runs-on: ubuntu-latest
-    env:
-      TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID || vars.TELEGRAM_API_ID }}
-      TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH || vars.TELEGRAM_API_HASH }}
-      BOT_USERNAME: ${{ secrets.BOT_USERNAME || vars.BOT_USERNAME }}
-      OXPLAYER_API_BASE_URL: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
-      OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
-      OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-          flutter-version: ${{ needs.fetch-info.outputs.flutter_version }}
-          cache: true
-          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
-          cache-path: "${{ runner.tool_cache }}/flutter/:channel:-:version:-:arch:"
-
-      - name: Sync pubspec build number with run
-        shell: bash
-        run: |
-          sed -i -E 's/(version: [0-9]+\.[0-9]+\.[0-9]+\+)[0-9]+/\1${{ github.run_number }}/' pubspec.yaml
-
-      - run: flutter pub get
-
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev patchelf cmake clang libfuse2
-
-      - uses: ./.github/actions/oxplayer-flutter-env
-
-      - name: Build Linux
-        run: |
-          flutter build linux --release \
-            --build-name=${{ needs.fetch-info.outputs.version_name }} \
-            --build-number=${{ github.run_number }} \
-            --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
-
-      - name: Fix RPATH
-        shell: bash
-        run: |
-          for lib in build/linux/x64/release/bundle/lib/*.so; do
-            [[ -f "$lib" && -n "$(patchelf --print-rpath "$lib" 2>/dev/null)" ]] && \
-              patchelf --set-rpath '$ORIGIN' "$lib"
-          done
-          patchelf --set-rpath '$ORIGIN/lib' "build/linux/x64/release/bundle/fladder"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: oxplayer-linux
-          path: build/linux/x64/release/bundle
-
-      - name: Build AppImage
-        shell: bash
-        run: |
-          VERSION_TO_USE="${{ needs.fetch-info.outputs.version_name }}"
-          sed -i -E "s/(version:[[:space:]]*)latest/\\1${VERSION_TO_USE}/" AppImageBuilder.yml
-          sed -i "s/PLACEHOLDER_OWNER/${{ github.repository_owner }}/g" AppImageBuilder.yml
-          sed -i "s/PLACEHOLDER_REPO/${{ github.event.repository.name }}/g" AppImageBuilder.yml
-          wget -q -O appimage-builder-x86_64.AppImage https://github.com/AppImageCrafters/appimage-builder/releases/download/v1.1.0/appimage-builder-1.1.0-x86_64.AppImage
-          chmod +x appimage-builder-x86_64.AppImage
-          sudo mv appimage-builder-x86_64.AppImage /usr/local/bin/appimage-builder
-          appimage-builder --recipe AppImageBuilder.yml
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: oxplayer-linux-appimage
-          path: |
-            OXPlayer_x86_64.AppImage
-            OXPlayer_x86_64.AppImage.zsync
-
   create_release:
     name: Create release
     needs:
       - fetch-info
       - build-android
-      - build-linux
     runs-on: ubuntu-latest
     if: needs.fetch-info.outputs.build_type == 'release' || needs.fetch-info.outputs.build_type == 'nightly'
     permissions:
@@ -404,28 +328,6 @@ jobs:
           mv "oxplayer-android/${SUF}-x86_64.apk" "OXPlayer-Android-${V}-x86_64.apk"
           mv "oxplayer-android/${SUF}.aab" "OXPlayer-Android-${V}.aab"
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: oxplayer-linux
-          path: oxplayer-linux
-
-      - name: Stage Linux bundle
-        shell: bash
-        run: |
-          cd oxplayer-linux
-          zip -r "../OXPlayer-Linux-${{ steps.version.outputs.version }}.zip" .
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: oxplayer-linux-appimage
-          path: oxplayer-linux-appimage
-
-      - name: Stage Linux AppImage
-        shell: bash
-        run: |
-          mv "oxplayer-linux-appimage/OXPlayer_x86_64.AppImage" "OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage"
-          mv "oxplayer-linux-appimage/OXPlayer_x86_64.AppImage.zsync" "OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage.zsync"
-
       - name: Prepare GitHub release body file
         shell: bash
         run: |
@@ -450,11 +352,47 @@ jobs:
             OXPlayer-Android-${{ steps.version.outputs.version }}-armeabi-v7a.apk
             OXPlayer-Android-${{ steps.version.outputs.version }}-x86_64.apk
             OXPlayer-Android-${{ steps.version.outputs.version }}.aab
-            OXPlayer-Linux-${{ steps.version.outputs.version }}.zip
-            OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage
-            OXPlayer-Linux-${{ steps.version.outputs.version }}.AppImage.zsync
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify admins (Telegram via oxplayer API)
+        if: success()
+        env:
+          API_BASE: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
+          NOTIFY_TOKEN_PRIMARY: ${{ secrets.OXPLAYER_CLIENT_RELEASE_NOTIFY_TOKEN }}
+          NOTIFY_TOKEN_FALLBACK: ${{ secrets.PROVIDER_INTERNAL_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BUILD_TYPE: ${{ needs.fetch-info.outputs.build_type }}
+        shell: bash
+        run: |
+          NOTIFY_TOKEN="${NOTIFY_TOKEN_PRIMARY:-${NOTIFY_TOKEN_FALLBACK}}"
+          if [ -z "${API_BASE}" ] || [ -z "${NOTIFY_TOKEN}" ]; then
+            echo "Skipping admin release notify (set OXPLAYER_API_BASE_URL and OXPLAYER_CLIENT_RELEASE_NOTIFY_TOKEN or PROVIDER_INTERNAL_TOKEN)."
+            exit 0
+          fi
+          if [[ "${BUILD_TYPE}" == "nightly" ]]; then
+            TAG="${{ env.NIGHTLY_TAG }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          BASE="${API_BASE%/}"
+          JSON=$(gh release view "${TAG}" --repo "${REPO}" --json url,name,assets)
+          RELEASE_URL=$(echo "$JSON" | jq -r .url)
+          RELEASE_NAME=$(echo "$JSON" | jq -r .name)
+          ASSETS=$(echo "$JSON" | jq -c '[.assets[] | {name:.name, url:.url}]')
+          BODY=$(jq -n \
+            --arg releaseUrl "$RELEASE_URL" \
+            --arg releaseTag "$TAG" \
+            --arg releaseTitle "$RELEASE_NAME" \
+            --arg buildType "$BUILD_TYPE" \
+            --arg repository "$REPO" \
+            --argjson assets "$ASSETS" \
+            '{releaseUrl:$releaseUrl, releaseTag:$releaseTag, releaseTitle:$releaseTitle, buildType:$buildType, repository:$repository, assets:$assets}')
+          curl -fsS -X POST "${BASE}/internal/oxplayer-client/release-admin-notify" \
+            -H "Authorization: Bearer ${NOTIFY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY"
 
   release_play_console:
     name: Upload AAB to Google Play

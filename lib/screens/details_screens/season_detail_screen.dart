@@ -20,6 +20,7 @@ import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
 import 'package:fladder/util/list_padding.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/people_extension.dart';
+import 'package:fladder/util/refresh_state.dart';
 import 'package:fladder/util/router_extension.dart';
 import 'package:fladder/util/string_extensions.dart';
 import 'package:fladder/util/theme_extensions.dart';
@@ -92,17 +93,29 @@ class _SeasonDetailScreenState extends ConsumerState<SeasonDetailScreen> {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             SelectableIconButton(
-                              onPressed: () async => await ref
-                                  .read(userProvider.notifier)
-                                  .setAsFavorite(!details.userData.isFavourite, details.id),
+                              onPressed: () async {
+                                try {
+                                  await ref
+                                      .read(userProvider.notifier)
+                                      .setAsFavorite(!details.userData.isFavourite, details.id);
+                                } finally {
+                                  if (context.mounted) await context.refreshData();
+                                }
+                              },
                               selected: details.userData.isFavourite,
                               selectedIcon: IconsaxPlusBold.heart,
                               icon: IconsaxPlusLinear.heart,
                             ),
                             SelectableIconButton(
-                              onPressed: () async => await ref
-                                  .read(userProvider.notifier)
-                                  .markAsPlayed(!details.userData.played, details.id),
+                              onPressed: () async {
+                                try {
+                                  await ref
+                                      .read(userProvider.notifier)
+                                      .markAsPlayed(!details.userData.played, details.id);
+                                } finally {
+                                  if (context.mounted) await context.refreshData();
+                                }
+                              },
                               selected: details.userData.played,
                               selectedIcon: IconsaxPlusBold.tick_circle,
                               icon: IconsaxPlusLinear.tick_circle,

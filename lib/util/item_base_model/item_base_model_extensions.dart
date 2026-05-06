@@ -14,6 +14,7 @@ import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_stream_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/movie_model.dart';
+import 'package:fladder/models/items/season_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/providers/sync_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -32,6 +33,7 @@ import 'package:fladder/util/clipboard_helper.dart';
 import 'package:fladder/util/file_downloader.dart';
 import 'package:fladder/util/item_base_model/play_item_helpers.dart';
 import 'package:fladder/util/localization_helper.dart';
+import 'package:fladder/util/refresh_after_watch_state.dart';
 import 'package:fladder/util/refresh_state.dart';
 import 'package:fladder/util/router_extension.dart';
 import 'package:fladder/widgets/pop_up/delete_file.dart';
@@ -134,6 +136,21 @@ enum ItemActions {
   watchLater,
 }
 
+void _debugWatchedLog(String message) {
+  // Use debugPrint so lines appear under `I/flutter` in Android logcat (developer.log is easy to miss).
+  debugPrint('[DEBUG_WATCHED] $message');
+}
+
+/// One of watched / unwatched in the item menu, not both (see [ItemBaseModelExtensions.generateActions]).
+bool _showMarkWatchedMenuAction(ItemBaseModel item) {
+  if (item is SeasonModel || item is SeriesModel) {
+    final u = item.userData.unPlayedItemCount;
+    if (u != null) return u > 0;
+    return !item.userData.played;
+  }
+  return !item.userData.played;
+}
+
 extension ItemBaseModelExtensions on ItemBaseModel {
   List<ItemAction> generateActions(
     BuildContext context,
@@ -153,6 +170,10 @@ extension ItemBaseModelExtensions on ItemBaseModel {
     final downloadUrl = ref.read(userProvider.notifier).createDownloadUrl(this);
     final syncedItemFuture = ref.read(syncProvider.notifier).getSyncedItem(id);
     final hasSeerrData = overview.seerrUrl?.isNotEmpty == true;
+    final showMarkWatched = _showMarkWatchedMenuAction(this);
+    _debugWatchedLog(
+      'generateActions id=$id type=$runtimeType played=${userData.played} unPlayedCount=${userData.unPlayedItemCount} → ${showMarkWatched ? "menu:MarkWatched" : "menu:MarkUnwatched"}',
+    );
     return [
       if (!exclude.contains(ItemActions.play))
         if (playAble)
@@ -223,29 +244,35 @@ extension ItemBaseModelExtensions on ItemBaseModel {
             },
             label: Text(context.localized.addToPlaylist),
           ),
-      if (!exclude.contains(ItemActions.markPlayed))
+      if (!exclude.contains(ItemActions.markPlayed) && showMarkWatched)
         ItemActionButton(
           icon: const Icon(IconsaxPlusLinear.eye),
           action: () async {
+            _debugWatchedLog('tap markAsWatched id=$id type=$runtimeType');
             try {
               final userData = await ref.read(userProvider.notifier).markAsPlayedOxAware(true, this);
+              _debugWatchedLog('markAsWatched done id=$id userData=${userData?.bodyOrThrow != null}');
               onUserDataChanged?.call(userData?.bodyOrThrow);
             } finally {
-              context.refreshData();
+              await refreshAfterWatchStateChange(ref, this);
+              if (context.mounted) context.refreshData();
             }
           },
           label: Text(context.localized.markAsWatched),
         ),
-      if (!exclude.contains(ItemActions.markUnplayed))
+      if (!exclude.contains(ItemActions.markUnplayed) && !showMarkWatched)
         ItemActionButton(
           icon: const Icon(IconsaxPlusLinear.eye_slash),
           label: Text(context.localized.markAsUnwatched),
           action: () async {
+            _debugWatchedLog('tap markAsUnwatched id=$id type=$runtimeType');
             try {
               final userData = await ref.read(userProvider.notifier).markAsPlayedOxAware(false, this);
+              _debugWatchedLog('markAsUnwatched done id=$id userData=${userData?.bodyOrThrow != null}');
               onUserDataChanged?.call(userData?.bodyOrThrow);
             } finally {
-              context.refreshData();
+              await refreshAfterWatchStateChange(ref, this);
+              if (context.mounted) context.refreshData();
             }
           },
         ),

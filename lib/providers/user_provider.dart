@@ -1,5 +1,6 @@
 import 'package:chopper/chopper.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -192,6 +193,9 @@ class User extends _$User {
         : api.usersUserIdPlayedItemsItemIdDelete(
             itemId: itemId,
           ));
+    debugPrint(
+      '[DEBUG_WATCHED] markAsPlayed enable=$enable itemId=$itemId status=${response.base.statusCode} bodyEmpty=${response.body == null}',
+    );
     return Response(response.base, UserData.fromDto(response.body));
   }
 
@@ -203,10 +207,16 @@ class User extends _$User {
     } else {
       ids = [item.id];
     }
+    debugPrint(
+      '[DEBUG_WATCHED] markAsPlayedOxAware start enable=$enable itemType=${item.runtimeType} id=${item.id} idCount=${ids.length}',
+    );
     Response<UserData>? last;
     for (final itemId in ids) {
       last = await markAsPlayed(enable, itemId);
     }
+    debugPrint(
+      '[DEBUG_WATCHED] markAsPlayedOxAware end lastStatus=${last?.base.statusCode} lastHasBody=${last?.body != null}',
+    );
     return last;
   }
 

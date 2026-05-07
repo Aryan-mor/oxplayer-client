@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart' as mpv;
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/settings/subtitle_settings_model.dart';
@@ -88,12 +90,15 @@ class LibMPV extends BasePlayer {
 
     mpv.MediaKit.ensureInitialized();
 
+    // TV: keep ring buffer + demuxer read-ahead bounded so RAM / temp cache cannot track whole-file streams.
+    final bufferMb = leanBackMode ? math.min(settings.bufferSize, 24) : settings.bufferSize;
+
     _player = mpv.Player(
       configuration: mpv.PlayerConfiguration(
         title: "de.aryanmo.oxplayer",
         libassAndroidFont: libassFallbackFont,
         libass: !kIsWeb && settings.useLibass,
-        bufferSize: settings.bufferSize * 1024 * 1024, // MPV uses buffer size in bytes
+        bufferSize: bufferMb * 1024 * 1024, // MPV uses buffer size in bytes
       ),
     );
 
@@ -126,7 +131,27 @@ class LibMPV extends BasePlayer {
       if (defaultTargetPlatform == TargetPlatform.android) {
         await nativePlayer.setProperty('ao', 'audiotrack');
       }
+
+      if (leanBackMode) {
+        await _applyLeanBackMpvStreamLimits(nativePlayer);
+      }
     }
+  }
+
+  /// Android TV: cap demuxer read-ahead and disable on-disk cache so storage does not grow during long streams.
+  Future<void> _applyLeanBackMpvStreamLimits(dynamic nativePlayer) async {
+    Future<void> safeSet(String name, String value) async {
+      try {
+        await nativePlayer.setProperty(name, value);
+      } catch (e, st) {
+        log('mpv setProperty $name=$value failed: $e', stackTrace: st);
+      }
+    }
+
+    await safeSet('cache-on-disk', 'no');
+    await safeSet('demuxer-max-bytes', '64MiB');
+    await safeSet('demuxer-max-back-bytes', '8MiB');
+    await safeSet('demuxer-readahead-secs', '30');
   }
 
   @override

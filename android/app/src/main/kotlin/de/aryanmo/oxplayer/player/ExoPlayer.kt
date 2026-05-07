@@ -2,6 +2,8 @@ package de.aryanmo.oxplayer.player
 
 import PlaybackState
 import android.app.ActivityManager
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
@@ -33,8 +35,10 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.LoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -58,6 +62,25 @@ import de.aryanmo.oxplayer.utility.getSubtitleTracks
 import kotlin.time.Duration.Companion.seconds
 
 val LocalPlayer = compositionLocalOf<ExoPlayer?> { null }
+
+/** Android TV / low-RAM: cap buffered media ahead and total bytes so long progressive streams do not fill RAM or temp I/O. */
+@OptIn(UnstableApi::class)
+private fun playbackLoadControlForDevice(context: Context): LoadControl {
+    val isTv = context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    val lowRam = context.getSystemService<ActivityManager>()?.isLowRamDevice == true
+    if (!isTv && !lowRam) {
+        return DefaultLoadControl.Builder().build()
+    }
+    return DefaultLoadControl.Builder()
+        .setBufferDurationsMs(
+            /* minBufferMs */ 15_000,
+            /* maxBufferMs */ 120_000,
+            /* bufferForPlaybackMs */ 2_500,
+            /* bufferForPlaybackAfterRebufferMs */ 5_000,
+        )
+        .setTargetBufferBytes(56 * 1024 * 1024)
+        .build()
+}
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -110,6 +133,7 @@ internal fun ExoPlayer(
         ExoPlayer.Builder(context, renderersFactory)
             .setTrackSelector(trackSelector)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory))
+            .setLoadControl(playbackLoadControlForDevice(context))
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .setPauseAtEndOfMediaItems(true)

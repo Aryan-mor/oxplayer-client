@@ -180,7 +180,11 @@ Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(
 }
 
 /// Same contract as Android `POST /me/recover-from-backup` — [mediaFileId] is **Media.id** (API `mediaFileId`).
-Future<bool?> _postRecoverFromBackup(Ref ref, String mediaFileId) async {
+Future<bool?> _postRecoverFromBackup(
+  Ref ref,
+  String mediaFileId, {
+  bool fresh = false,
+}) async {
   final serverUrl = ref.read(serverUrlProvider);
   final login = ref.read(userProvider)?.credentials ??
       ref.read(authProvider).serverLoginModel?.tempCredentials;
@@ -194,7 +198,10 @@ Future<bool?> _postRecoverFromBackup(Ref ref, String mediaFileId) async {
     final response = await http.post(
       uri,
       headers: headers,
-      body: jsonEncode(<String, dynamic>{'mediaFileId': mediaFileId}),
+      body: jsonEncode(<String, dynamic>{
+        'mediaFileId': mediaFileId,
+        if (fresh) 'fresh': true,
+      }),
     );
     if (response.statusCode != 200) {
       oxTelegramLocalStreamLog(
@@ -225,7 +232,7 @@ Future<String?> _resolveRecoveredProviderBackupUrl({
   required String mediaFileId,
   required String overrideUrl,
 }) async {
-  final recovered = await _postRecoverFromBackup(ref, mediaFileId);
+  final recovered = await _postRecoverFromBackup(ref, mediaFileId, fresh: true);
   if (recovered != true) {
     oxTelegramLocalStreamLog(
       'recover',

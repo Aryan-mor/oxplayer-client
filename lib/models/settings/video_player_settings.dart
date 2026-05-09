@@ -103,16 +103,8 @@ abstract class VideoPlayerSettingsModel with _$VideoPlayerSettingsModel {
 
   factory VideoPlayerSettingsModel.fromJson(Map<String, dynamic> json) => _$VideoPlayerSettingsModelFromJson(json);
 
-  /// libmpv-reported muxed subtitles + `/verified-streams` until the server has a manifest; use MPV on TV when Ox is on.
-  PlayerOptions get wantedPlayer {
-    if (_tvStyleDefaultShortcuts()) {
-      if (OxplayerConfig.isEnabled) {
-        return playerOptions ?? PlayerOptions.libMPV;
-      }
-      return PlayerOptions.nativePlayer;
-    }
-    return playerOptions ?? PlayerOptions.platformDefaults;
-  }
+  /// Default engine is [PlayerOptions.nativePlayer] on mobile/TV; users may pick libMPV in settings when listed in [PlayerOptions.available].
+  PlayerOptions get wantedPlayer => playerOptions ?? PlayerOptions.platformDefaults;
 
   Map<VideoHotKeys, KeyCombination> get currentShortcuts =>
       _defaultVideoHotKeys.map((key, value) => MapEntry(key, hotKeys[key] ?? value));
@@ -178,10 +170,11 @@ enum PlayerOptions {
 
   static PlayerOptions get platformDefaults {
     if (_tvStyleDefaultShortcuts()) {
-      return OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer;
+      return PlayerOptions.nativePlayer;
     }
     if (kIsWeb) return PlayerOptions.libMPV;
     return switch (defaultTargetPlatform) {
+      TargetPlatform.android || TargetPlatform.iOS => PlayerOptions.nativePlayer,
       _ => PlayerOptions.libMPV,
     };
   }

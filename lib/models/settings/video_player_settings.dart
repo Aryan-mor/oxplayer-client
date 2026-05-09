@@ -15,6 +15,8 @@ import 'package:fladder/util/localization_helper.dart';
 part 'video_player_settings.freezed.dart';
 part 'video_player_settings.g.dart';
 
+bool _tvStyleDefaultShortcuts() => leanBackMode || androidTvRemoteStyleShortcuts;
+
 enum VideoHotKeys {
   playPause,
   seekForward,
@@ -101,10 +103,9 @@ abstract class VideoPlayerSettingsModel with _$VideoPlayerSettingsModel {
 
   factory VideoPlayerSettingsModel.fromJson(Map<String, dynamic> json) => _$VideoPlayerSettingsModelFromJson(json);
 
-  /// Android TV / lean-back uses [NativePlayer] by default (no muxed track discovery). OX relies on
   /// libmpv-reported muxed subtitles + `/verified-streams` until the server has a manifest; use MPV on TV when Ox is on.
   PlayerOptions get wantedPlayer {
-    if (leanBackMode) {
+    if (_tvStyleDefaultShortcuts()) {
       if (OxplayerConfig.isEnabled) {
         return playerOptions ?? PlayerOptions.libMPV;
       }
@@ -164,7 +165,7 @@ enum PlayerOptions {
 
   const PlayerOptions();
 
-  static Iterable<PlayerOptions> get available => leanBackMode
+  static Iterable<PlayerOptions> get available => _tvStyleDefaultShortcuts()
       ? (OxplayerConfig.isEnabled
           ? {PlayerOptions.libMPV, PlayerOptions.nativePlayer}
           : {PlayerOptions.nativePlayer})
@@ -176,7 +177,7 @@ enum PlayerOptions {
             };
 
   static PlayerOptions get platformDefaults {
-    if (leanBackMode) {
+    if (_tvStyleDefaultShortcuts()) {
       return OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer;
     }
     if (kIsWeb) return PlayerOptions.libMPV;
@@ -233,10 +234,16 @@ enum AutoNextType {
 Map<VideoHotKeys, KeyCombination> get _defaultVideoHotKeys => {
       for (var hotKey in VideoHotKeys.values)
         hotKey: switch (hotKey) {
-          VideoHotKeys.playPause => KeyCombination(
-              key: LogicalKeyboardKey.space,
-              altKey: LogicalKeyboardKey.keyK,
-            ),
+          // Lean-back / Android DPAD: remote center is Select, not Space; D-pad ↑/↓ must not map to in-app volume.
+          VideoHotKeys.playPause => _tvStyleDefaultShortcuts()
+              ? KeyCombination(
+                  key: LogicalKeyboardKey.space,
+                  altKey: LogicalKeyboardKey.select,
+                )
+              : KeyCombination(
+                  key: LogicalKeyboardKey.space,
+                  altKey: LogicalKeyboardKey.keyK,
+                ),
           VideoHotKeys.seekForward => KeyCombination(
               key: LogicalKeyboardKey.arrowRight,
               altKey: LogicalKeyboardKey.keyL,
@@ -260,8 +267,12 @@ Map<VideoHotKeys, KeyCombination> get _defaultVideoHotKeys => {
           VideoHotKeys.stepForward => KeyCombination(key: LogicalKeyboardKey.period),
           VideoHotKeys.stepBack => KeyCombination(key: LogicalKeyboardKey.comma),
           VideoHotKeys.mute => KeyCombination(key: LogicalKeyboardKey.keyM),
-          VideoHotKeys.volumeUp => KeyCombination(key: LogicalKeyboardKey.arrowUp),
-          VideoHotKeys.volumeDown => KeyCombination(key: LogicalKeyboardKey.arrowDown),
+          VideoHotKeys.volumeUp => _tvStyleDefaultShortcuts()
+              ? KeyCombination(key: LogicalKeyboardKey.audioVolumeUp)
+              : KeyCombination(key: LogicalKeyboardKey.arrowUp),
+          VideoHotKeys.volumeDown => _tvStyleDefaultShortcuts()
+              ? KeyCombination(key: LogicalKeyboardKey.audioVolumeDown)
+              : KeyCombination(key: LogicalKeyboardKey.arrowDown),
           VideoHotKeys.speedUp =>
             KeyCombination(key: LogicalKeyboardKey.arrowUp, modifier: LogicalKeyboardKey.controlLeft),
           VideoHotKeys.speedDown =>

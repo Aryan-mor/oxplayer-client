@@ -15,6 +15,7 @@ import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/oxplayer/oxplayer_hotkey_layout.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/video_player_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -50,8 +51,6 @@ class DesktopControls extends ConsumerStatefulWidget {
 
 class _DesktopControlsState extends ConsumerState<DesktopControls> {
   final GlobalKey _bottomControlsKey = GlobalKey();
-
-  late final initInputDevice = AdaptiveLayout.inputDeviceOf(context);
 
   late RestartableTimer timer = RestartableTimer(
     const Duration(seconds: 5),
@@ -93,6 +92,8 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(hotkeyLayoutEpochProvider);
+    final inputDevice = AdaptiveLayout.inputDeviceOf(context);
     final mediaSegments = ref.watch(playBackModel.select((value) => value?.mediaSegments));
     final player = ref.watch(videoPlayerProvider);
     final subtitleWidget = player.subtitleWidget(showOverlay, controlsKey: _bottomControlsKey);
@@ -129,16 +130,18 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
               children: [
                 Positioned.fill(
                   child: GestureDetector(
-                    onTap: initInputDevice == InputDevice.pointer ? () => player.playOrPause() : () => toggleOverlay(),
-                    onDoubleTapDown: initInputDevice == InputDevice.touch ? _handleDoubleTapDown : null,
-                    onDoubleTap: initInputDevice == InputDevice.pointer
+                    onTap: inputDevice == InputDevice.pointer || inputDevice == InputDevice.dPad
+                        ? () => player.playOrPause()
+                        : () => toggleOverlay(),
+                    onDoubleTapDown: inputDevice == InputDevice.touch ? _handleDoubleTapDown : null,
+                    onDoubleTap: inputDevice == InputDevice.pointer
                         ? () => fullScreenHelper.toggleFullScreen(ref)
                         : _handleDoubleTapSeek,
-                    onLongPressStart: initInputDevice == InputDevice.touch ? _handleLongPressStart : null,
-                    onLongPressEnd: initInputDevice == InputDevice.touch ? _handleLongPressEnd : null,
-                    onVerticalDragStart: initInputDevice == InputDevice.touch ? _handleVerticalDragStart : null,
-                    onVerticalDragUpdate: initInputDevice == InputDevice.touch ? _handleVerticalDragUpdate : null,
-                    onVerticalDragEnd: initInputDevice == InputDevice.touch ? _handleVerticalDragEnd : null,
+                    onLongPressStart: inputDevice == InputDevice.touch ? _handleLongPressStart : null,
+                    onLongPressEnd: inputDevice == InputDevice.touch ? _handleLongPressEnd : null,
+                    onVerticalDragStart: inputDevice == InputDevice.touch ? _handleVerticalDragStart : null,
+                    onVerticalDragUpdate: inputDevice == InputDevice.touch ? _handleVerticalDragUpdate : null,
+                    onVerticalDragEnd: inputDevice == InputDevice.touch ? _handleVerticalDragEnd : null,
                   ),
                 ),
                 if (subtitleWidget != null) subtitleWidget,
@@ -292,7 +295,7 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                           ],
                         ),
                       ),
-                    if (initInputDevice == InputDevice.touch)
+                    if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.touch)
                       Align(
                         alignment: Alignment.centerRight,
                         child: Tooltip(
@@ -411,7 +414,8 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (initInputDevice == InputDevice.pointer || AdaptiveLayout.of(context).isDesktop)
+                        if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.pointer ||
+                            AdaptiveLayout.of(context).isDesktop)
                           Tooltip(
                             message: context.localized.stop,
                             child: IconButton(
@@ -431,7 +435,8 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
                               ),
                             ),
                         },
-                        if ((initInputDevice == InputDevice.pointer || AdaptiveLayout.of(context).isDesktop) &&
+                        if ((AdaptiveLayout.inputDeviceOf(context) == InputDevice.pointer ||
+                                AdaptiveLayout.of(context).isDesktop) &&
                             AdaptiveLayout.viewSizeOf(context) > ViewSize.phone) ...[
                           VideoVolumeSlider(
                             onChanged: () => resetTimer(),
@@ -760,7 +765,7 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
 
   Future<void> clearOverlaySettings() async {
     toggleOverlay(value: true);
-    if (initInputDevice != InputDevice.pointer) {
+    if (AdaptiveLayout.inputDeviceOf(context) != InputDevice.pointer) {
       ScreenBrightness().resetApplicationScreenBrightness();
     } else {
       disableFullScreen();

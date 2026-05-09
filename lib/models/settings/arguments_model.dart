@@ -5,6 +5,10 @@ part 'arguments_model.freezed.dart';
 /// Prefer using the arguments provider over this boolean
 bool leanBackMode = false;
 
+/// Set when [InputDetector] sees DPAD navigation on Android (TV remote) so video hotkeys match TV even if
+/// [leanBackMode] was false at bootstrap (e.g. pigeon lean-back probe before engine was ready).
+bool androidTvRemoteStyleShortcuts = false;
+
 class NotificationKeys {
   static const String skipNotifications = '--skipNotifications';
   static const String newWindow = '--newWindow';

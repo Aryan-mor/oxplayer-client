@@ -16,6 +16,7 @@ import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/playback/tv_playback_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/oxplayer/oxplayer_hotkey_layout.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/video_player_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -51,8 +52,6 @@ class TvPlayerControls extends ConsumerStatefulWidget {
 class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
   final GlobalKey _bottomControlsKey = GlobalKey();
 
-  late final initInputDevice = AdaptiveLayout.inputDeviceOf(context);
-
   late RestartableTimer timer = RestartableTimer(
     const Duration(seconds: 5),
     () => mounted ? toggleOverlay(value: false) : null,
@@ -76,6 +75,8 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(hotkeyLayoutEpochProvider);
+    final inputDevice = AdaptiveLayout.inputDeviceOf(context);
     final player = ref.watch(videoPlayerProvider);
     return Listener(
       onPointerSignal: setVolume,
@@ -99,9 +100,11 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
               children: [
                 Positioned.fill(
                   child: GestureDetector(
-                    onTap: initInputDevice == InputDevice.pointer ? () => player.playOrPause() : () => toggleOverlay(),
+                    onTap: inputDevice == InputDevice.pointer || inputDevice == InputDevice.dPad
+                        ? () => player.playOrPause()
+                        : () => toggleOverlay(),
                     onDoubleTap:
-                        initInputDevice == InputDevice.pointer ? () => fullScreenHelper.toggleFullScreen(ref) : null,
+                        inputDevice == InputDevice.pointer ? () => fullScreenHelper.toggleFullScreen(ref) : null,
                   ),
                 ),
                 if (AdaptiveLayout.of(context).isDesktop)
@@ -206,7 +209,7 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                           ],
                         ),
                       ),
-                    if (initInputDevice == InputDevice.touch)
+                    if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.touch)
                       Align(
                         alignment: Alignment.centerRight,
                         child: Tooltip(
@@ -294,7 +297,8 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       spacing: 8,
                       children: [
-                        if (initInputDevice == InputDevice.pointer || AdaptiveLayout.of(context).isDesktop)
+                        if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.pointer ||
+                            AdaptiveLayout.of(context).isDesktop)
                           Tooltip(
                             message: context.localized.stop,
                             child: IconButton(
@@ -314,7 +318,8 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                               ),
                             ),
                         },
-                        if ((initInputDevice == InputDevice.pointer || AdaptiveLayout.of(context).isDesktop) &&
+                        if ((AdaptiveLayout.inputDeviceOf(context) == InputDevice.pointer ||
+                                AdaptiveLayout.of(context).isDesktop) &&
                             AdaptiveLayout.viewSizeOf(context) > ViewSize.phone) ...[
                           VideoVolumeSlider(
                             onChanged: () => resetTimer(),
@@ -648,7 +653,7 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
 
   Future<void> clearOverlaySettings() async {
     toggleOverlay(value: true);
-    if (initInputDevice != InputDevice.pointer) {
+    if (AdaptiveLayout.inputDeviceOf(context) != InputDevice.pointer) {
       ScreenBrightness().resetApplicationScreenBrightness();
     } else {
       disableFullScreen();

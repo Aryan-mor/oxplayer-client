@@ -13,7 +13,6 @@ import 'package:fladder/util/muxed_subtitle_from_player.dart';
 import 'package:image/image.dart' as img;
 import 'package:video_player/video_player.dart';
 
-import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/settings/subtitle_settings_model.dart';
@@ -152,10 +151,9 @@ class LibMDK extends BasePlayer {
     if (play) {
       await _controller?.play();
     }
-    // TV (lean-back): tighter network buffer so decoded/read-ahead storage stays near playback window.
     _controller?.setBufferRange(
-      min: Duration(seconds: leanBackMode ? 8 : 15).inMilliseconds,
-      max: Duration(seconds: leanBackMode ? 20 : 30).inMilliseconds,
+      min: const Duration(seconds: 15).inMilliseconds,
+      max: const Duration(seconds: 30).inMilliseconds,
     );
     _emitMdkMuxedIfChanged();
     return setState(lastState.update(

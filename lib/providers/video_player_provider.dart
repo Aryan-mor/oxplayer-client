@@ -208,6 +208,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
     await state.setAudioTrack(null, updated);
     _sawMuxedAudioDiscovery = true;
     _scheduleVerifiedStreamsUpload();
+    await state.syncNativePlaybackAfterMuxMerge(updated);
   }
 
   Future<void> _onMuxedSubtitleTracksDiscovered(List<SubStreamModel> muxed) async {
@@ -248,6 +249,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
     await state.setSubtitleTrack(null, updated);
     _sawMuxedSubtitleDiscovery = true;
     _scheduleVerifiedStreamsUpload();
+    await state.syncNativePlaybackAfterMuxMerge(updated);
   }
 
   Future<void> updateBuffering(bool event) async =>

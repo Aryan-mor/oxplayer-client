@@ -243,6 +243,10 @@ abstract class VideoPlayerApi {
   void stop();
 
   void setSubtitleSettings(SubtitleSettings settings);
+
+  /// Re-applies default audio/subtitle selection from the last [sendPlayableModel] (e.g. after Flutter merges muxed streams).
+  @async
+  bool refreshDefaultTrackSelection();
 }
 
 class PlaybackState {

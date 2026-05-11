@@ -1041,6 +1041,8 @@ interface VideoPlayerApi {
   fun seekTo(position: Long)
   fun stop()
   fun setSubtitleSettings(settings: SubtitleSettings)
+  /** Re-applies default audio/subtitle selection from the last [sendPlayableModel] (e.g. after Flutter merges muxed streams). */
+  fun refreshDefaultTrackSelection(callback: (Result<Boolean>) -> Unit)
 
   companion object {
     /** The codec used by VideoPlayerApi. */
@@ -1245,6 +1247,24 @@ interface VideoPlayerApi {
               VideoPlayerHelperPigeonUtils.wrapError(exception)
             }
             reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerApi.refreshDefaultTrackSelection$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.refreshDefaultTrackSelection{ result: Result<Boolean> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(VideoPlayerHelperPigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(VideoPlayerHelperPigeonUtils.wrapResult(data))
+              }
+            }
           }
         } else {
           channel.setMessageHandler(null)

@@ -152,6 +152,14 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     }
   }
 
+  /// Pushes merged stream metadata to the Android Exo host and re-applies default track selection (no media reload).
+  Future<void> syncNativePlaybackAfterMuxMerge(PlaybackModel model) async {
+    if (_player is! NativePlayer) return;
+    final context = ref.read(localizationContextProvider);
+    final position = ref.read(mediaPlaybackProvider).position;
+    await (_player as NativePlayer).applyMergedPlaybackModelToHost(context, model, position);
+  }
+
   Future<void> updateTVGuide(TVGuideModel guide) async {
     if (_player is NativePlayer) {
       (_player as NativePlayer).sendTVGuideModel(guide);

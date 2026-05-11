@@ -241,4 +241,14 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
     );
     await player.sendPlayableModel(playableData);
   }
+
+  /// After Flutter merges muxed streams into [model], push updated `PlayableData` and re-apply Exo track selection.
+  Future<void> applyMergedPlaybackModelToHost(
+    BuildContext? context,
+    PlaybackModel model,
+    Duration currentPosition,
+  ) async {
+    await sendPlaybackDataToNative(context, model, currentPosition);
+    await player.refreshDefaultTrackSelection();
+  }
 }

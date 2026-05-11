@@ -72,6 +72,26 @@ class VideoPlayerImplementation(
         }
     }
 
+    override fun refreshDefaultTrackSelection(callback: (Result<Boolean>) -> Unit) {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val data = playbackData.value
+                val exo = player
+                if (data == null || exo == null) {
+                    callback(Result.success(false))
+                    return@post
+                }
+                VideoPlayerObject.setAudioTrackIndex(data.defaultAudioTrack.toInt(), true)
+                VideoPlayerObject.setSubtitleTrackIndex(data.defaultSubtrack.toInt(), true)
+                exo.properlySetSubAndAudioTracks(data)
+                callback(Result.success(true))
+            } catch (e: Exception) {
+                println("Error refreshDefaultTrackSelection $e")
+                callback(Result.success(false))
+            }
+        }
+    }
+
     override fun open(url: String, play: Boolean, callback: (Result<Boolean>) -> Unit) {
         Handler(Looper.getMainLooper()).postDelayed(delayInMillis = 1.seconds.inWholeMilliseconds) {
             try {

@@ -460,6 +460,120 @@ class SubtitleTrack {
 ;
 }
 
+/// Muxed audio row reported by the native (Exo) player for client-side merge + verified manifest.
+class NativeMuxedAudioRow {
+  NativeMuxedAudioRow({
+    required this.trackId,
+    required this.title,
+    required this.languageCode,
+    required this.codec,
+  });
+
+  String trackId;
+
+  String title;
+
+  String languageCode;
+
+  String codec;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      trackId,
+      title,
+      languageCode,
+      codec,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static NativeMuxedAudioRow decode(Object result) {
+    result as List<Object?>;
+    return NativeMuxedAudioRow(
+      trackId: result[0]! as String,
+      title: result[1]! as String,
+      languageCode: result[2]! as String,
+      codec: result[3]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! NativeMuxedAudioRow || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
+/// Muxed subtitle row reported by the native (Exo) player for client-side merge + verified manifest.
+class NativeMuxedSubtitleRow {
+  NativeMuxedSubtitleRow({
+    required this.trackId,
+    required this.title,
+    required this.languageCode,
+    required this.codec,
+  });
+
+  String trackId;
+
+  String title;
+
+  String languageCode;
+
+  String codec;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      trackId,
+      title,
+      languageCode,
+      codec,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static NativeMuxedSubtitleRow decode(Object result) {
+    result as List<Object?>;
+    return NativeMuxedSubtitleRow(
+      trackId: result[0]! as String,
+      title: result[1]! as String,
+      languageCode: result[2]! as String,
+      codec: result[3]! as String,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! NativeMuxedSubtitleRow || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 class Chapter {
   Chapter({
     required this.name,
@@ -995,29 +1109,35 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is SubtitleTrack) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is Chapter) {
+    }    else if (value is NativeMuxedAudioRow) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is TrickPlayModel) {
+    }    else if (value is NativeMuxedSubtitleRow) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is StartResult) {
+    }    else if (value is Chapter) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is PlaybackState) {
+    }    else if (value is TrickPlayModel) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is SubtitleSettings) {
+    }    else if (value is StartResult) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is TVGuideModel) {
+    }    else if (value is PlaybackState) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is GuideChannel) {
+    }    else if (value is SubtitleSettings) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is GuideProgram) {
+    }    else if (value is TVGuideModel) {
       buffer.putUint8(144);
+      writeValue(buffer, value.encode());
+    }    else if (value is GuideChannel) {
+      buffer.putUint8(145);
+      writeValue(buffer, value.encode());
+    }    else if (value is GuideProgram) {
+      buffer.putUint8(146);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -1046,20 +1166,24 @@ class _PigeonCodec extends StandardMessageCodec {
       case 136: 
         return SubtitleTrack.decode(readValue(buffer)!);
       case 137: 
-        return Chapter.decode(readValue(buffer)!);
+        return NativeMuxedAudioRow.decode(readValue(buffer)!);
       case 138: 
-        return TrickPlayModel.decode(readValue(buffer)!);
+        return NativeMuxedSubtitleRow.decode(readValue(buffer)!);
       case 139: 
-        return StartResult.decode(readValue(buffer)!);
+        return Chapter.decode(readValue(buffer)!);
       case 140: 
-        return PlaybackState.decode(readValue(buffer)!);
+        return TrickPlayModel.decode(readValue(buffer)!);
       case 141: 
-        return SubtitleSettings.decode(readValue(buffer)!);
+        return StartResult.decode(readValue(buffer)!);
       case 142: 
-        return TVGuideModel.decode(readValue(buffer)!);
+        return PlaybackState.decode(readValue(buffer)!);
       case 143: 
-        return GuideChannel.decode(readValue(buffer)!);
+        return SubtitleSettings.decode(readValue(buffer)!);
       case 144: 
+        return TVGuideModel.decode(readValue(buffer)!);
+      case 145: 
+        return GuideChannel.decode(readValue(buffer)!);
+      case 146: 
         return GuideProgram.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1451,6 +1575,9 @@ abstract class VideoPlayerListenerCallback {
 
   void onPlaybackStateChanged(PlaybackState state);
 
+  /// Current muxed audio + subtitle snapshot from the native ExoPlayer demuxer (embedded tracks only).
+  void onMuxedTracksDiscovered(List<NativeMuxedAudioRow> audio, List<NativeMuxedSubtitleRow> subtitles);
+
   static void setUp(VideoPlayerListenerCallback? api, {BinaryMessenger? binaryMessenger, String messageChannelSuffix = '',}) {
     messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
     {
@@ -1469,6 +1596,34 @@ abstract class VideoPlayerListenerCallback {
               'Argument for dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onPlaybackStateChanged was null, expected non-null PlaybackState.');
           try {
             api.onPlaybackStateChanged(arg_state!);
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          }
+        });
+      }
+    }
+    {
+      final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onMuxedTracksDiscovered$messageChannelSuffix', pigeonChannelCodec,
+          binaryMessenger: binaryMessenger);
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          assert(message != null,
+          'Argument for dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onMuxedTracksDiscovered was null.');
+          final List<Object?> args = (message as List<Object?>?)!;
+          final List<NativeMuxedAudioRow>? arg_audio = (args[0] as List<Object?>?)?.cast<NativeMuxedAudioRow>();
+          assert(arg_audio != null,
+              'Argument for dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onMuxedTracksDiscovered was null, expected non-null List<NativeMuxedAudioRow>.');
+          final List<NativeMuxedSubtitleRow>? arg_subtitles = (args[1] as List<Object?>?)?.cast<NativeMuxedSubtitleRow>();
+          assert(arg_subtitles != null,
+              'Argument for dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onMuxedTracksDiscovered was null, expected non-null List<NativeMuxedSubtitleRow>.');
+          try {
+            api.onMuxedTracksDiscovered(arg_audio!, arg_subtitles!);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

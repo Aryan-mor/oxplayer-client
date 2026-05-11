@@ -1,5 +1,7 @@
 package de.aryanmo.oxplayer.utility
 
+import NativeMuxedAudioRow
+import NativeMuxedSubtitleRow
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
@@ -11,7 +13,9 @@ data class InternalTrack(
     val rendererIndex: Int,
     val groupIndex: Int,
     val trackIndex: Int,
-    val label: String
+    val label: String,
+    val language: String? = null,
+    val codec: String? = null,
 )
 
 @OptIn(UnstableApi::class)
@@ -34,6 +38,8 @@ fun ExoPlayer.getAudioTracks(): List<InternalTrack> {
                         groupIndex = groupIndex,
                         trackIndex = trackIndex,
                         label = format.label ?: format.language ?: "Audiotrack: $trackIndex",
+                        language = format.language,
+                        codec = format.sampleMimeType ?: format.codecs,
                     )
                 )
             }
@@ -103,6 +109,8 @@ fun ExoPlayer.getSubtitleTracks(): List<InternalTrack> {
                         groupIndex = groupIndex,
                         trackIndex = trackIndex,
                         label = format.label ?: format.language ?: "Subtitletrack: $trackIndex",
+                        language = format.language,
+                        codec = format.sampleMimeType ?: format.codecs,
                     )
                 )
             }
@@ -166,3 +174,19 @@ fun ExoPlayer.setInternalSubtitleTrack(subtitleTrack: InternalTrack) {
         e.printStackTrace()
     }
 }
+
+fun InternalTrack.toNativeMuxedAudioRow(): NativeMuxedAudioRow =
+    NativeMuxedAudioRow(
+        trackId = "${rendererIndex}:${groupIndex}:${trackIndex}",
+        title = label,
+        languageCode = language.orEmpty(),
+        codec = codec.orEmpty(),
+    )
+
+fun InternalTrack.toNativeMuxedSubtitleRow(): NativeMuxedSubtitleRow =
+    NativeMuxedSubtitleRow(
+        trackId = "${rendererIndex}:${groupIndex}:${trackIndex}",
+        title = label,
+        languageCode = language.orEmpty(),
+        codec = codec.orEmpty(),
+    )

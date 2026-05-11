@@ -371,6 +371,88 @@ data class SubtitleTrack (
   override fun hashCode(): Int = toList().hashCode()
 }
 
+/**
+ * Muxed audio row reported by the native (Exo) player for client-side merge + verified manifest.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class NativeMuxedAudioRow (
+  val trackId: String,
+  val title: String,
+  val languageCode: String,
+  val codec: String
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): NativeMuxedAudioRow {
+      val trackId = pigeonVar_list[0] as String
+      val title = pigeonVar_list[1] as String
+      val languageCode = pigeonVar_list[2] as String
+      val codec = pigeonVar_list[3] as String
+      return NativeMuxedAudioRow(trackId, title, languageCode, codec)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      trackId,
+      title,
+      languageCode,
+      codec,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other !is NativeMuxedAudioRow) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    return VideoPlayerHelperPigeonUtils.deepEquals(toList(), other.toList())  }
+
+  override fun hashCode(): Int = toList().hashCode()
+}
+
+/**
+ * Muxed subtitle row reported by the native (Exo) player for client-side merge + verified manifest.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class NativeMuxedSubtitleRow (
+  val trackId: String,
+  val title: String,
+  val languageCode: String,
+  val codec: String
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): NativeMuxedSubtitleRow {
+      val trackId = pigeonVar_list[0] as String
+      val title = pigeonVar_list[1] as String
+      val languageCode = pigeonVar_list[2] as String
+      val codec = pigeonVar_list[3] as String
+      return NativeMuxedSubtitleRow(trackId, title, languageCode, codec)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      trackId,
+      title,
+      languageCode,
+      codec,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other !is NativeMuxedSubtitleRow) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    return VideoPlayerHelperPigeonUtils.deepEquals(toList(), other.toList())  }
+
+  override fun hashCode(): Int = toList().hashCode()
+}
+
 /** Generated class from Pigeon that represents data sent in messages. */
 data class Chapter (
   val name: String,
@@ -744,40 +826,50 @@ private open class VideoPlayerHelperPigeonCodec : StandardMessageCodec() {
       }
       137.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          Chapter.fromList(it)
+          NativeMuxedAudioRow.fromList(it)
         }
       }
       138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TrickPlayModel.fromList(it)
+          NativeMuxedSubtitleRow.fromList(it)
         }
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          StartResult.fromList(it)
+          Chapter.fromList(it)
         }
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlaybackState.fromList(it)
+          TrickPlayModel.fromList(it)
         }
       }
       141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          SubtitleSettings.fromList(it)
+          StartResult.fromList(it)
         }
       }
       142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TVGuideModel.fromList(it)
+          PlaybackState.fromList(it)
         }
       }
       143.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          GuideChannel.fromList(it)
+          SubtitleSettings.fromList(it)
         }
       }
       144.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          TVGuideModel.fromList(it)
+        }
+      }
+      145.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          GuideChannel.fromList(it)
+        }
+      }
+      146.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           GuideProgram.fromList(it)
         }
@@ -819,36 +911,44 @@ private open class VideoPlayerHelperPigeonCodec : StandardMessageCodec() {
         stream.write(136)
         writeValue(stream, value.toList())
       }
-      is Chapter -> {
+      is NativeMuxedAudioRow -> {
         stream.write(137)
         writeValue(stream, value.toList())
       }
-      is TrickPlayModel -> {
+      is NativeMuxedSubtitleRow -> {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is StartResult -> {
+      is Chapter -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is PlaybackState -> {
+      is TrickPlayModel -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is SubtitleSettings -> {
+      is StartResult -> {
         stream.write(141)
         writeValue(stream, value.toList())
       }
-      is TVGuideModel -> {
+      is PlaybackState -> {
         stream.write(142)
         writeValue(stream, value.toList())
       }
-      is GuideChannel -> {
+      is SubtitleSettings -> {
         stream.write(143)
         writeValue(stream, value.toList())
       }
-      is GuideProgram -> {
+      is TVGuideModel -> {
         stream.write(144)
+        writeValue(stream, value.toList())
+      }
+      is GuideChannel -> {
+        stream.write(145)
+        writeValue(stream, value.toList())
+      }
+      is GuideProgram -> {
+        stream.write(146)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1167,6 +1267,24 @@ class VideoPlayerListenerCallback(private val binaryMessenger: BinaryMessenger, 
     val channelName = "dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onPlaybackStateChanged$separatedMessageChannelSuffix"
     val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
     channel.send(listOf(stateArg)) {
+      if (it is List<*>) {
+        if (it.size > 1) {
+          callback(Result.failure(FlutterError(it[0] as String, it[1] as String, it[2] as String?)))
+        } else {
+          callback(Result.success(Unit))
+        }
+      } else {
+        callback(Result.failure(VideoPlayerHelperPigeonUtils.createConnectionError(channelName)))
+      } 
+    }
+  }
+  /** Current muxed audio + subtitle snapshot from the native ExoPlayer demuxer (embedded tracks only). */
+  fun onMuxedTracksDiscovered(audioArg: List<NativeMuxedAudioRow>, subtitlesArg: List<NativeMuxedSubtitleRow>, callback: (Result<Unit>) -> Unit)
+{
+    val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+    val channelName = "dev.flutter.pigeon.nl_jknaapen_fladder.video.VideoPlayerListenerCallback.onMuxedTracksDiscovered$separatedMessageChannelSuffix"
+    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+    channel.send(listOf(audioArg, subtitlesArg)) {
       if (it is List<*>) {
         if (it.size > 1) {
           callback(Result.failure(FlutterError(it[0] as String, it[1] as String, it[2] as String?)))

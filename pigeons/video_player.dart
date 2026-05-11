@@ -4,7 +4,7 @@ import 'package:pigeon/pigeon.dart';
   PigeonOptions(
     dartOut: 'lib/src/video_player_helper.g.dart',
     dartOptions: DartOptions(),
-    kotlinOut: 'android/app/src/main/kotlin/nl/jknaapen/fladder/api/VideoPlayerHelper.g.kt',
+    kotlinOut: 'android/app/src/main/kotlin/de/aryanmo/oxplayer/api/VideoPlayerHelper.g.kt',
     kotlinOptions: KotlinOptions(),
     dartPackageName: 'nl_jknaapen_fladder.video',
   ),
@@ -133,6 +133,36 @@ class SubtitleTrack {
     required this.index,
     required this.external,
     required this.url,
+  });
+}
+
+/// Muxed audio row reported by the native (Exo) player for client-side merge + verified manifest.
+class NativeMuxedAudioRow {
+  final String trackId;
+  final String title;
+  final String languageCode;
+  final String codec;
+
+  const NativeMuxedAudioRow({
+    required this.trackId,
+    required this.title,
+    required this.languageCode,
+    required this.codec,
+  });
+}
+
+/// Muxed subtitle row reported by the native (Exo) player for client-side merge + verified manifest.
+class NativeMuxedSubtitleRow {
+  final String trackId;
+  final String title;
+  final String languageCode;
+  final String codec;
+
+  const NativeMuxedSubtitleRow({
+    required this.trackId,
+    required this.title,
+    required this.languageCode,
+    required this.codec,
   });
 }
 
@@ -315,6 +345,12 @@ class GuideProgram {
 @FlutterApi()
 abstract class VideoPlayerListenerCallback {
   void onPlaybackStateChanged(PlaybackState state);
+
+  /// Current muxed audio + subtitle snapshot from the native ExoPlayer demuxer (embedded tracks only).
+  void onMuxedTracksDiscovered(
+    List<NativeMuxedAudioRow> audio,
+    List<NativeMuxedSubtitleRow> subtitles,
+  );
 }
 
 @FlutterApi()

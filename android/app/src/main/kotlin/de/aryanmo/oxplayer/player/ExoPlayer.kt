@@ -55,6 +55,8 @@ import de.aryanmo.oxplayer.utility.AllowedOrientations
 import de.aryanmo.oxplayer.utility.conditional
 import de.aryanmo.oxplayer.utility.getAudioTracks
 import de.aryanmo.oxplayer.utility.getSubtitleTracks
+import de.aryanmo.oxplayer.utility.toNativeMuxedAudioRow
+import de.aryanmo.oxplayer.utility.toNativeMuxedSubtitleRow
 import kotlin.time.Duration.Companion.seconds
 
 val LocalPlayer = compositionLocalOf<ExoPlayer?> { null }
@@ -182,22 +184,33 @@ internal fun ExoPlayer(
                 val subTracks = exoPlayer.getSubtitleTracks()
                 val audioTracks = exoPlayer.getAudioTracks()
 
-                val subsInitialized = VideoPlayerObject.implementation.subsInitialized
-
                 if (subTracks.isEmpty() && audioTracks.isEmpty()) return
 
-                if (!subsInitialized) {
-                    VideoPlayerObject.implementation.subsInitialized = true
-                    val playbackData = VideoPlayerObject.implementation.playbackData.value
+                // Always publish Exo track lists so UI (e.g. hasSubtracks) matches the player.
+                // Exo can fire onTracksChanged first with audio-only, then again when embedded
+                // text tracks appear; the old logic set subsInitialized on the first callback and
+                // never refreshed exoSubTracks, so subtitles stayed hidden until a later session.
+                val hadNoExoSubtitleTracks = VideoPlayerObject.exoSubTracks.value.isEmpty()
+                VideoPlayerObject.exoSubTracks.value = subTracks
+                VideoPlayerObject.exoAudioTracks.value = audioTracks
+
+                val impl = VideoPlayerObject.implementation
+                val scheduleApplyDefaults: () -> Unit = {
+                    val playbackData = impl.playbackData.value
                     Handler(Looper.getMainLooper()).postDelayed(delayInMillis = 1.seconds.inWholeMilliseconds) {
-                        playbackData?.let {
-                            exoPlayer.properlySetSubAndAudioTracks(it)
-                        }
-                        VideoPlayerObject.exoSubTracks.value = subTracks
-                        VideoPlayerObject.exoAudioTracks.value = audioTracks
+                        playbackData?.let { exoPlayer.properlySetSubAndAudioTracks(it) }
                     }
                 }
 
+                if (!impl.subsInitialized) {
+                    impl.subsInitialized = true
+                    scheduleApplyDefaults()
+                } else if (hadNoExoSubtitleTracks && subTracks.isNotEmpty()) {
+                    // Late-mapped text tracks after the initial audio-only snapshot.
+                    scheduleApplyDefaults()
+                }
+
+                notifyFlutterMuxedTrackDiscovery(exoPlayer)
             }
         }
         exoPlayer.addListener(listener)
@@ -310,4 +323,14 @@ internal fun ExoPlayer(
             )
         }
     }
+}
+
+private fun notifyFlutterMuxedTrackDiscovery(exoPlayer: ExoPlayer) {
+    val listener = VideoPlayerObject.videoPlayerListener ?: return
+    val audioTracks = exoPlayer.getAudioTracks()
+    val subTracks = exoPlayer.getSubtitleTracks()
+    if (audioTracks.isEmpty() && subTracks.isEmpty()) return
+    val audioRows = audioTracks.map { it.toNativeMuxedAudioRow() }
+    val subRows = subTracks.map { it.toNativeMuxedSubtitleRow() }
+    listener.onMuxedTracksDiscovered(audioRows, subRows) { }
 }

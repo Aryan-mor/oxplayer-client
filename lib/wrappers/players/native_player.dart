@@ -10,6 +10,8 @@ import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/playback/transcode_playback_model.dart';
 import 'package:fladder/models/playback/tv_playback_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/oxplayer/native_exo_muxed_discovery.dart';
+import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
 import 'package:fladder/src/video_player_helper.g.dart';
 import 'package:fladder/wrappers/players/base_player.dart';
 import 'package:fladder/wrappers/players/player_states.dart';
@@ -20,14 +22,33 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
   final player = VideoPlayerApi();
   final activity = NativeVideoActivity();
 
+  StreamController<List<AudioStreamModel>>? _muxedAudioTracksController;
+  StreamController<List<SubStreamModel>>? _muxedSubtitleTracksController;
+
+  @override
+  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream => _muxedAudioTracksController?.stream;
+
+  @override
+  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream => _muxedSubtitleTracksController?.stream;
+
   @override
   Future<void> dispose() async {
     nativeActivityStarted = false;
+    await _muxedSubtitleTracksController?.close();
+    _muxedSubtitleTracksController = null;
+    await _muxedAudioTracksController?.close();
+    _muxedAudioTracksController = null;
     return activity.disposeActivity();
   }
 
   @override
-  Future<void> init(VideoPlayerSettingsModel settings) async => VideoPlayerListenerCallback.setUp(this);
+  Future<void> init(VideoPlayerSettingsModel settings) async {
+    await _muxedSubtitleTracksController?.close();
+    await _muxedAudioTracksController?.close();
+    _muxedSubtitleTracksController = StreamController<List<SubStreamModel>>.broadcast();
+    _muxedAudioTracksController = StreamController<List<AudioStreamModel>>.broadcast();
+    VideoPlayerListenerCallback.setUp(this);
+  }
 
   @override
   Future<void> loop(bool loop) {
@@ -110,6 +131,27 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
       buffering: state.buffering,
     );
     _stateController.add(lastState);
+  }
+
+  @override
+  void onMuxedTracksDiscovered(List<NativeMuxedAudioRow> audio, List<NativeMuxedSubtitleRow> subtitles) {
+    final audioModels = audioStreamsFromNativeExoRows(audio);
+    final subModels = subStreamsFromNativeExoRows(
+      subtitles,
+      firstJellyfinIndex: 1 + audioModels.length,
+    );
+    oxMuxedStreamsLog(
+      'Native Exo muxed: raw audio=${audio.length} sub=${subtitles.length} '
+      '→ models audio=${audioModels.length} sub=${subModels.length}',
+    );
+    final ac = _muxedAudioTracksController;
+    if (ac != null && !ac.isClosed && audioModels.isNotEmpty) {
+      ac.add(audioModels);
+    }
+    final sc = _muxedSubtitleTracksController;
+    if (sc != null && !sc.isClosed && subModels.isNotEmpty) {
+      sc.add(subModels);
+    }
   }
 
   final StreamController<PlayerState> _stateController = StreamController.broadcast();

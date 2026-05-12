@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
+import 'package:fladder/models/settings/video_player_settings.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
 import 'package:fladder/oxplayer/oxplayer_verified_streams_client.dart';
@@ -17,6 +18,7 @@ import 'package:fladder/util/muxed_subtitle_from_player.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/video_player_settings_provider.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
+import 'package:fladder/wrappers/players/player_states.dart';
 
 final mediaPlaybackProvider = StateProvider<MediaPlaybackModel>((ref) => MediaPlaybackModel());
 
@@ -41,6 +43,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
   Timer? _verifiedStreamsUploadTimer;
   bool _sawMuxedAudioDiscovery = false;
   bool _sawMuxedSubtitleDiscovery = false;
+  bool _nativeEndProgressSynced = false;
 
   late final mediaState = ref.read(mediaPlaybackProvider.notifier);
 
@@ -49,6 +52,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
   Future<void> init() async {
     await state.dispose();
     await state.init();
+    _nativeEndProgressSynced = false;
 
     for (final s in subscriptions) {
       s.cancel();
@@ -60,6 +64,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
       updatePlaying(value.playing);
       updatePosition(value.position);
       updateDuration(value.duration);
+      _handleNativePlaybackCompleted(value);
     });
 
     if (subscription != null) {
@@ -68,6 +73,33 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
 
     _wireMuxedSubtitleDiscovery();
     oxMuxedStreamsLog('VideoPlayerNotifier.init done (mux wiring)');
+  }
+
+  /// When native Exo reaches [PlayerState.completed], push end progress once so Jellyfin
+  /// can mark the item watched under normal session rules, even if the user stays on the
+  /// last frame before Next Up or back.
+  void _handleNativePlaybackCompleted(PlayerState value) {
+    if (ref.read(videoPlayerSettingsProvider).wantedPlayer != PlayerOptions.nativePlayer) {
+      return;
+    }
+    if (!value.completed) {
+      _nativeEndProgressSynced = false;
+      return;
+    }
+    if (_nativeEndProgressSynced) return;
+    _nativeEndProgressSynced = true;
+    Future.microtask(() async {
+      final model = ref.read(playBackModel);
+      if (model == null) return;
+      final runTime = model.item.overview.runTime;
+      final reported = value.duration > Duration.zero
+          ? value.duration
+          : ((runTime != null && runTime > Duration.zero) ? runTime : value.position);
+      if (reported <= Duration.zero) return;
+      try {
+        await model.updatePlaybackPosition(reported, false, ref);
+      } catch (_) {}
+    });
   }
 
   void _scheduleVerifiedStreamsUpload() {
@@ -318,6 +350,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
   }
 
   Future<bool> loadPlaybackItem(PlaybackModel model, Duration startPosition) async {
+    _nativeEndProgressSynced = false;
     _muxedDiscoveryGeneration++;
     _muxedDiscoveryMediaUrl = model.media?.url;
     _sawMuxedAudioDiscovery = false;

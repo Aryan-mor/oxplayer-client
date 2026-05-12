@@ -219,21 +219,27 @@ fun ExoPlayer.properlySetSubAndAudioTracks(playableData: PlayableData) {
         val internalAudioTracks = this.getAudioTracks()
 
         val wantedAudioIndex = indexOfAudioTrack - 1
+        // playableData.audioTracks[0] is the Jellyfin "Off" row; real streams start at index 1.
+        fun serverIndexForInternal(internalIdx: Int) {
+            playableData.audioTracks.getOrNull(internalIdx + 1)?.index?.let {
+                VideoPlayerObject.setAudioTrackIndex(it.toInt(), true)
+            }
+        }
         if (internalAudioTracks.isEmpty()) {
             clearAudioTrack()
         } else if (wantedAudioIndex < 0) {
             // Off / no match / first list slot maps to wanted -1: still pick first real track.
             clearAudioTrack(false)
             setInternalAudioTrack(internalAudioTracks[0])
-            playableData.audioTracks.firstOrNull()?.index?.let {
-                VideoPlayerObject.setAudioTrackIndex(it.toInt(), true)
-            }
+            serverIndexForInternal(0)
         } else if (wantedAudioIndex >= internalAudioTracks.size) {
             clearAudioTrack(false)
             setInternalAudioTrack(internalAudioTracks[internalAudioTracks.lastIndex])
+            serverIndexForInternal(internalAudioTracks.lastIndex)
         } else {
             clearAudioTrack(false)
             setInternalAudioTrack(internalAudioTracks[wantedAudioIndex])
+            serverIndexForInternal(wantedAudioIndex)
         }
     } catch (e: Exception) {
         e.printStackTrace()

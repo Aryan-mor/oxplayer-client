@@ -479,7 +479,9 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     final newModel = await playbackModel?.setAudio(
         playbackModel.audioStreams?.firstWhere((element) => element.index == value), this);
     ref.read(playBackModel.notifier).update((state) => newModel);
-    if (newModel != null) {
+    // Native Exo already switched the muxed audio track; reloading playback tears down loopback
+    // and other short-lived sources while Media3 may still fetch embedded cue/SRT over old URIs.
+    if (newModel != null && _player is! NativePlayer) {
       await ref.read(playbackModelHelper).shouldReload(newModel);
     }
   }

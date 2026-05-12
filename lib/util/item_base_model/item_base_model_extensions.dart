@@ -42,6 +42,24 @@ import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_item_stream_ox_ids.dart';
 import 'package:fladder/oxplayer/oxplayer_library_media_api.dart';
 import 'package:fladder/oxplayer/providers/oxplayer_watch_later_provider.dart';
+import 'package:fladder/oxplayer/oxplayer_library_share_sheet.dart';
+
+extension ItemBaseModelOxShareEligible on ItemBaseModel {
+  bool get oxSupportsLibraryShare {
+    if (!OxplayerConfig.isEnabled) return false;
+    switch (type) {
+      case FladderItemType.movie:
+      case FladderItemType.series:
+      case FladderItemType.season:
+      case FladderItemType.episode:
+      case FladderItemType.playlist:
+      case FladderItemType.video:
+        return true;
+      default:
+        return false;
+    }
+  }
+}
 
 extension ItemBaseModelsBooleans on List<ItemBaseModel> {
   Map<FladderItemType, List<ItemBaseModel>> get groupedItems {
@@ -134,6 +152,7 @@ enum ItemActions {
   identify,
   download,
   watchLater,
+  share,
 }
 
 void _debugWatchedLog(String message) {
@@ -305,6 +324,14 @@ extension ItemBaseModelExtensions on ItemBaseModel {
             label: Text(isWatchLater ? "Remove from Watch Later" : "Add to Watch Later"),
           );
         }(),
+      if (OxplayerConfig.isEnabled && !exclude.contains(ItemActions.share) && oxSupportsLibraryShare)
+        ItemActionButton(
+          icon: const Icon(IconsaxPlusLinear.share),
+          action: () async {
+            await showOxplayerLibraryShareSheet(context: context, ref: ref, itemId: id);
+          },
+          label: const Text('Share'),
+        ),
       ..._oxplayerLibraryIssueActions(
         context: context,
         ref: ref,

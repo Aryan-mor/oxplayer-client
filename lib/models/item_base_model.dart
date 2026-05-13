@@ -150,21 +150,8 @@ class ItemBaseModel with ItemBaseModelMappable {
 
   double get progress => userData.progress;
 
-  bool get shouldOfferResumePlayback => userData.shouldOfferResumePlayback;
-
-  /// 0–1 for play button progress fill; uses Jellyfin percentage or position vs [overview.runTime].
-  double get playbackProgressFraction {
-    if (userData.progress > 0) return (userData.progress / 100).clamp(0.0, 1.0);
-    final total = overview.runTime;
-    if (total != null && total.inMilliseconds > 0 && userData.playbackPositionTicks > 0) {
-      final posMs = userData.playBackPosition.inMilliseconds;
-      return (posMs / total.inMilliseconds).clamp(0.0, 1.0);
-    }
-    return 0;
-  }
-
   String playButtonLabel(AppLocalizations l10n) =>
-      shouldOfferResumePlayback ? l10n.resume(name.maxLength()) : l10n.play(name.maxLength());
+      progress != 0 ? l10n.resume(name.maxLength()) : l10n.play(name.maxLength());
 
   Widget get detailScreenWidget {
     switch (this) {

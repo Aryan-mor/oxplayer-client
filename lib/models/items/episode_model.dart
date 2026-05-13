@@ -143,7 +143,7 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
   @override
   String playButtonLabel(AppLocalizations l10n) {
     final string = seasonEpisodeLabel(l10n).maxLength();
-    return shouldOfferResumePlayback ? l10n.resume(string) : l10n.play(string);
+    return progress != 0 ? l10n.resume(string) : l10n.play(string);
   }
 
   String seasonAnnotation(AppLocalizations l10n) => l10n.season(1)[0];

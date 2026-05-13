@@ -29,8 +29,8 @@ class MediaPlayButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progress = item?.playbackProgressFraction ?? 0;
-    final showRestart = item?.shouldOfferResumePlayback == true && showRestartOption;
+    final progress = (item?.progress ?? 0) / 100.0;
+    final showRestart = progress != 0 && showRestartOption;
     final radius = BorderRadius.circular(16);
     final smallRadius = const Radius.circular(4);
     final theme = Theme.of(context);

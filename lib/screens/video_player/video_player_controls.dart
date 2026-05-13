@@ -52,6 +52,8 @@ class DesktopControls extends ConsumerStatefulWidget {
 class _DesktopControlsState extends ConsumerState<DesktopControls> {
   final GlobalKey _bottomControlsKey = GlobalKey();
 
+  late final initInputDevice = AdaptiveLayout.inputDeviceOf(context);
+
   late RestartableTimer timer = RestartableTimer(
     const Duration(seconds: 5),
     () => mounted ? toggleOverlay(value: false) : null,
@@ -93,7 +95,6 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
   @override
   Widget build(BuildContext context) {
     ref.watch(hotkeyLayoutEpochProvider);
-    final inputDevice = AdaptiveLayout.inputDeviceOf(context);
     final mediaSegments = ref.watch(playBackModel.select((value) => value?.mediaSegments));
     final player = ref.watch(videoPlayerProvider);
     final subtitleWidget = player.subtitleWidget(showOverlay, controlsKey: _bottomControlsKey);
@@ -130,18 +131,16 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
               children: [
                 Positioned.fill(
                   child: GestureDetector(
-                    onTap: inputDevice == InputDevice.pointer || inputDevice == InputDevice.dPad
-                        ? () => player.playOrPause()
-                        : () => toggleOverlay(),
-                    onDoubleTapDown: inputDevice == InputDevice.touch ? _handleDoubleTapDown : null,
-                    onDoubleTap: inputDevice == InputDevice.pointer
+                    onTap: initInputDevice == InputDevice.pointer ? () => player.playOrPause() : () => toggleOverlay(),
+                    onDoubleTapDown: initInputDevice == InputDevice.touch ? _handleDoubleTapDown : null,
+                    onDoubleTap: initInputDevice == InputDevice.pointer
                         ? () => fullScreenHelper.toggleFullScreen(ref)
                         : _handleDoubleTapSeek,
-                    onLongPressStart: inputDevice == InputDevice.touch ? _handleLongPressStart : null,
-                    onLongPressEnd: inputDevice == InputDevice.touch ? _handleLongPressEnd : null,
-                    onVerticalDragStart: inputDevice == InputDevice.touch ? _handleVerticalDragStart : null,
-                    onVerticalDragUpdate: inputDevice == InputDevice.touch ? _handleVerticalDragUpdate : null,
-                    onVerticalDragEnd: inputDevice == InputDevice.touch ? _handleVerticalDragEnd : null,
+                    onLongPressStart: initInputDevice == InputDevice.touch ? _handleLongPressStart : null,
+                    onLongPressEnd: initInputDevice == InputDevice.touch ? _handleLongPressEnd : null,
+                    onVerticalDragStart: initInputDevice == InputDevice.touch ? _handleVerticalDragStart : null,
+                    onVerticalDragUpdate: initInputDevice == InputDevice.touch ? _handleVerticalDragUpdate : null,
+                    onVerticalDragEnd: initInputDevice == InputDevice.touch ? _handleVerticalDragEnd : null,
                   ),
                 ),
                 if (subtitleWidget != null) subtitleWidget,

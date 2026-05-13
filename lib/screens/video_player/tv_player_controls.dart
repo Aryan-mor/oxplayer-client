@@ -52,6 +52,8 @@ class TvPlayerControls extends ConsumerStatefulWidget {
 class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
   final GlobalKey _bottomControlsKey = GlobalKey();
 
+  late final initInputDevice = AdaptiveLayout.inputDeviceOf(context);
+
   late RestartableTimer timer = RestartableTimer(
     const Duration(seconds: 5),
     () => mounted ? toggleOverlay(value: false) : null,
@@ -76,7 +78,6 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
   @override
   Widget build(BuildContext context) {
     ref.watch(hotkeyLayoutEpochProvider);
-    final inputDevice = AdaptiveLayout.inputDeviceOf(context);
     final player = ref.watch(videoPlayerProvider);
     return Listener(
       onPointerSignal: setVolume,
@@ -100,11 +101,9 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
               children: [
                 Positioned.fill(
                   child: GestureDetector(
-                    onTap: inputDevice == InputDevice.pointer || inputDevice == InputDevice.dPad
-                        ? () => player.playOrPause()
-                        : () => toggleOverlay(),
+                    onTap: initInputDevice == InputDevice.pointer ? () => player.playOrPause() : () => toggleOverlay(),
                     onDoubleTap:
-                        inputDevice == InputDevice.pointer ? () => fullScreenHelper.toggleFullScreen(ref) : null,
+                        initInputDevice == InputDevice.pointer ? () => fullScreenHelper.toggleFullScreen(ref) : null,
                   ),
                 ),
                 if (AdaptiveLayout.of(context).isDesktop)

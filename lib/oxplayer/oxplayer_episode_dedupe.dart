@@ -15,7 +15,7 @@ UserData _mergeOxEpisodeGroupUserData(List<EpisodeModel> group, EpisodeModel can
   }
   return canon.userData.copyWith(
     played: group.any((e) => e.userData.played),
-    progress: group.map((e) => e.userData.progress).max,
+    progress: group.map((e) => e.progress).max,
     playbackPositionTicks: group.map((e) => e.userData.playbackPositionTicks).max,
     isFavourite: group.any((e) => e.userData.isFavourite),
     playCount: group.map((e) => e.userData.playCount).max,

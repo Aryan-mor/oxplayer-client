@@ -228,7 +228,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
           label: Text(context.localized.showAlbum),
         ),
       if (!exclude.contains(ItemActions.playFromStart))
-        if ((userData.progress) > 0)
+        if (progress > 0)
           ItemActionButton(
             icon: const Icon(IconsaxPlusLinear.refresh),
             action: (this is BookModel)

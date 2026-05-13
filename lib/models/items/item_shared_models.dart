@@ -65,6 +65,19 @@ class UserData with UserDataMappable {
 
   Duration get playBackPosition => Duration(milliseconds: playbackPositionTicks ~/ 10000);
 
+  /// ~3s of Jellyfin 100-ns ticks; align with "resume" when [playedPercentage] is absent.
+  static const int minResumePlaybackTicks = 30000000;
+
+  /// Prefer Jellyfin [playedPercentage]; if missing, estimate from [playbackPositionTicks] vs [runTime] (OX list/detail DTOs often omit %).
+  double displayProgressPercent(Duration? runTime) {
+    if (progress > 0) return progress;
+    if (played) return 100;
+    if (runTime == null || runTime.inMilliseconds <= 0) return 0;
+    if (playbackPositionTicks < minResumePlaybackTicks) return 0;
+    final posMs = playBackPosition.inMilliseconds;
+    return (100.0 * posMs / runTime.inMilliseconds).clamp(0.0, 100.0);
+  }
+
   // Returns null if unplayed with no progress
   static bool? isPlayed(Duration position, Duration totalDuration) {
     Duration startBuffer = totalDuration * 0.05;

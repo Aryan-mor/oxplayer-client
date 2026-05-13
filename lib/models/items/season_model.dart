@@ -74,7 +74,7 @@ class SeasonModel extends ItemBaseModel with SeasonModelMappable {
   }
 
   EpisodeModel? get nextUp {
-    return episodes.lastWhereOrNull((element) => element.userData.progress > 0) ??
+    return episodes.lastWhereOrNull((element) => element.progress > 0) ??
         episodes.firstWhereOrNull((element) => element.userData.played == false);
   }
 

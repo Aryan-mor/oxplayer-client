@@ -178,13 +178,13 @@ class SpecialFeaturePoster extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if ((specialFeature.userData.progress) > 0)
+                if (specialFeature.progress > 0)
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: LinearProgressIndicator(
                       minHeight: 6,
                       backgroundColor: Colors.black.withValues(alpha: 0.75),
-                      value: specialFeature.userData.progress / 100,
+                      value: specialFeature.progress / 100,
                     ),
                   ),
               ],

@@ -79,7 +79,7 @@ class SeriesModel extends ItemBaseModel with SeriesModelMappable {
 
   @override
   bool get unWatched =>
-      !userData.played && userData.progress <= 0 && userData.unPlayedItemCount == 0 && childCount != 0;
+      !userData.played && progress <= 0 && userData.unPlayedItemCount == 0 && childCount != 0;
 
   @override
   String get subText => overview.yearAired?.toString() ?? "";

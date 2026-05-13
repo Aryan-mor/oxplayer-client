@@ -115,7 +115,7 @@ class ItemBaseModel with ItemBaseModelMappable {
 
   int? get unPlayedItemCount => userData.unPlayedItemCount;
 
-  bool get unWatched => !userData.played && userData.progress <= 0 && userData.unPlayedItemCount == 0;
+  bool get unWatched => !userData.played && progress <= 0 && userData.unPlayedItemCount == 0;
 
   bool get watched => userData.played;
 
@@ -148,7 +148,8 @@ class ItemBaseModel with ItemBaseModelMappable {
 
   String playText(AppLocalizations l10n) => l10n.play(name);
 
-  double get progress => userData.progress;
+  /// 0–100 for UI (play button, posters). Uses [UserData.displayProgressPercent] when API omits played %.
+  double get progress => userData.displayProgressPercent(overview.runTime);
 
   String playButtonLabel(AppLocalizations l10n) =>
       progress != 0 ? l10n.resume(name.maxLength()) : l10n.play(name.maxLength());

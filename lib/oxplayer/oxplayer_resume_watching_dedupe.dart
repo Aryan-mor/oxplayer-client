@@ -46,8 +46,8 @@ ItemBaseModel _pickPreferredResume(ItemBaseModel a, ItemBaseModel b) {
   final ta = a.userData.playbackPositionTicks;
   final tb = b.userData.playbackPositionTicks;
   if (ta != tb) return ta > tb ? a : b;
-  final pa = a.userData.progress;
-  final pb = b.userData.progress;
+  final pa = a.progress;
+  final pb = b.progress;
   return pa >= pb ? a : b;
 }
 

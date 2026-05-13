@@ -352,13 +352,13 @@ class EpisodePoster extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if ((episode.userData.progress) > 0)
+                if (episode.progress > 0)
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: LinearProgressIndicator(
                       minHeight: 6,
                       backgroundColor: Colors.black.withValues(alpha: 0.75),
-                      value: episode.userData.progress / 100,
+                      value: episode.progress / 100,
                     ),
                   ),
               ],

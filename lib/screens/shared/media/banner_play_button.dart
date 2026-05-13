@@ -30,7 +30,7 @@ class BannerPlayButton extends ConsumerWidget {
                   child: Transform.scale(
                     scale: 1.01,
                     child: SquareProgressIndicator(
-                      value: item.userData.progress / 100,
+                      value: item.progress / 100,
                       borderRadius: 12,
                       strokeWidth: 12,
                       strokeAlign: SquareStrokeAlign.center,

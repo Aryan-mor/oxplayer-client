@@ -102,6 +102,24 @@ extension PlaybackModelExtension on PlaybackModel? {
 
 bool _sameSeasonEpisodeSlot(EpisodeModel a, EpisodeModel b) => a.season == b.season && a.episode == b.episode;
 
+/// [PlaybackInfoResponse.mediaSources] is not guaranteed to match catalog
+/// [MediaStreamsModel.versionStreams] order (or length). Prefer the requested
+/// [MediaSourceInfo.id] from the detail UI, then fall back to catalog index.
+int _playbackInfoMediaSourceIndex(
+  List<MediaSourceInfo>? sources,
+  MediaStreamsModel? catalogSelection,
+) {
+  if (sources == null || sources.isEmpty) return 0;
+  final requestedId = catalogSelection?.currentVersionStream?.id;
+  if (requestedId != null && requestedId.isNotEmpty) {
+    final byId = sources.indexWhere((s) => s.id == requestedId);
+    if (byId >= 0) return byId;
+  }
+  final catalogIdx = catalogSelection?.versionStreamIndex ?? 0;
+  if (catalogIdx >= 0 && catalogIdx < sources.length) return catalogIdx;
+  return 0;
+}
+
 class PlaybackModel {
   final ItemBaseModel item;
   final Media? media;
@@ -342,7 +360,7 @@ class PlaybackModelHelper {
         return switch (playbackType) {
           PlaybackType.directStream || PlaybackType.transcode || PlaybackType.tv => await _createServerPlaybackModel(
               fullItem,
-              item.streamModel,
+              firstItemToPlay.streamModel,
               forcedPlaybackType ?? playbackType,
               oldModel: oldModel,
               libraryQueue: queue,
@@ -350,7 +368,7 @@ class PlaybackModelHelper {
             ),
           PlaybackType.offline => await _createOfflinePlaybackModel(
               fullItem,
-              item.streamModel,
+              firstItemToPlay.streamModel,
               syncedItem,
             ),
           null => null
@@ -358,7 +376,7 @@ class PlaybackModelHelper {
       } else {
         return (await _createServerPlaybackModel(
               fullItem,
-              item.streamModel,
+              firstItemToPlay.streamModel,
               forcedPlaybackType ?? PlaybackType.directStream,
               startPosition: actualStartPosition,
               oldModel: oldModel,
@@ -366,7 +384,7 @@ class PlaybackModelHelper {
             )) ??
             await _createOfflinePlaybackModel(
               fullItem,
-              item.streamModel,
+              firstItemToPlay.streamModel,
               syncedItem,
             );
       }
@@ -451,13 +469,15 @@ class PlaybackModelHelper {
         'playbackMediaSourcesCount=${playbackInfo.mediaSources?.length ?? 0}',
       );
 
-      final mediaSource = playbackInfo.mediaSources?[newStreamModel?.versionStreamIndex ?? 0];
+      final playbackSourceIdx = _playbackInfoMediaSourceIndex(playbackInfo.mediaSources, newStreamModel);
+      final mediaSource = playbackInfo.mediaSources?[playbackSourceIdx];
 
       if (mediaSource == null) {
         return null;
       }
 
       final mediaStreamsWithUrls = MediaStreamsModel.fromMediaStreamsList(playbackInfo.mediaSources, ref).copyWith(
+        versionStreamIndex: playbackSourceIdx,
         defaultAudioStreamIndex: audioStreamIndex,
         defaultSubStreamIndex: subStreamIndex,
       );
@@ -646,9 +666,11 @@ class PlaybackModelHelper {
       'playbackMediaSourcesCount=${playbackInfo.mediaSources?.length ?? 0}',
     );
 
-    final mediaSource = playbackInfo.mediaSources?.first;
+    final playbackSourceIdx = _playbackInfoMediaSourceIndex(playbackInfo.mediaSources, playbackModel.mediaStreams);
+    final mediaSource = playbackInfo.mediaSources?[playbackSourceIdx];
 
     final mediaStreamsWithUrls = MediaStreamsModel.fromMediaStreamsList(playbackInfo.mediaSources, ref).copyWith(
+      versionStreamIndex: playbackSourceIdx,
       defaultAudioStreamIndex: audioIndex,
       defaultSubStreamIndex: subIndex,
     );

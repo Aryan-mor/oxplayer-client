@@ -103,7 +103,7 @@ abstract class VideoPlayerSettingsModel with _$VideoPlayerSettingsModel {
 
   factory VideoPlayerSettingsModel.fromJson(Map<String, dynamic> json) => _$VideoPlayerSettingsModelFromJson(json);
 
-  /// Default engine is [PlayerOptions.nativePlayer] on mobile/TV; users may pick libMPV in settings when listed in [PlayerOptions.available].
+  /// Default engine is [PlayerOptions.libMPV] when listed in [PlayerOptions.available]; lean-back TV without OX stays on [PlayerOptions.nativePlayer].
   PlayerOptions get wantedPlayer => playerOptions ?? PlayerOptions.platformDefaults;
 
   Map<VideoHotKeys, KeyCombination> get currentShortcuts =>
@@ -170,13 +170,9 @@ enum PlayerOptions {
 
   static PlayerOptions get platformDefaults {
     if (_tvStyleDefaultShortcuts()) {
-      return PlayerOptions.nativePlayer;
+      return OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer;
     }
-    if (kIsWeb) return PlayerOptions.libMPV;
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android || TargetPlatform.iOS => PlayerOptions.nativePlayer,
-      _ => PlayerOptions.libMPV,
-    };
+    return PlayerOptions.libMPV;
   }
 
   String label(BuildContext context) => switch (this) {

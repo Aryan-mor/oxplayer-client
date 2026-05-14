@@ -256,22 +256,15 @@ Future<String?> _resolveRecoveredProviderBackupUrl({
     'recover.detail',
     'refetched backupPostUrl len=${backupAfter.length} excerpt=${_truncateForLog(backupAfter, max: 120)}',
   );
-  final directAfter =
-      await _resolveFromProviderBackupPostUrl(tdlib, backupAfter);
-  if (directAfter == null) {
+  final urlAfter = await _tryPlayableUrlFromProviderBackupPost(tdlib, backupAfter);
+  if (urlAfter == null) {
     oxTelegramLocalStreamLog(
       'tdlib.file',
       'FAIL provider URL after recovery — see provider.tme lines above (GetMessage / SearchPublicChat / channel access)',
     );
     return null;
   }
-  final urlAfter = await _resolveToStreamOrFileUrl(
-    tdlib: tdlib,
-    resolvedFile: directAfter.file,
-    messageForMime: null,
-  );
-  if (urlAfter != null)
-    oxTelegramLocalStreamLog('resolve.done', 'OK $urlAfter');
+  oxTelegramLocalStreamLog('resolve.done', 'OK $urlAfter');
   return urlAfter;
 }
 
@@ -434,6 +427,25 @@ Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
     locatorMessageId: msgObj.id,
     locatorType: 'CHAT_MESSAGE',
     resolutionReason: 'provider_backup_post_url',
+  );
+}
+
+/// Resolve public `t.me/...` backup → playable stream / file URL, or null if any step fails.
+Future<String?> _tryPlayableUrlFromProviderBackupPost(
+  TdlibFacade tdlib,
+  String providerBackupPostUrl,
+) async {
+  final direct =
+      await _resolveFromProviderBackupPostUrl(tdlib, providerBackupPostUrl);
+  if (direct == null) return null;
+  oxTelegramLocalStreamLog(
+    'tdlib.file',
+    'OK provider_backup_post_url fileId=${direct.file.id}',
+  );
+  return _resolveToStreamOrFileUrl(
+    tdlib: tdlib,
+    resolvedFile: direct.file,
+    messageForMime: null,
   );
 }
 
@@ -611,17 +623,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
       return null;
     }
     final tdlib = OxplayerTelegramTdRuntime.facade;
-    final direct = await _resolveFromProviderBackupPostUrl(tdlib, overrideUrl);
-    if (direct == null) {
-      oxTelegramLocalStreamLog(
-          'tdlib.file', 'FAIL provider override URL resolve');
-      return null;
-    }
-    final url = await _resolveToStreamOrFileUrl(
-      tdlib: tdlib,
-      resolvedFile: direct.file,
-      messageForMime: null,
-    );
+    final url =
+        await _tryPlayableUrlFromProviderBackupPost(tdlib, overrideUrl);
     if (url != null) oxTelegramLocalStreamLog('resolve.done', 'OK $url');
     return url;
   }
@@ -653,42 +656,67 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
 
   final tdlib = OxplayerTelegramTdRuntime.facade;
 
-  final apiBackup = detail.providerBackupPostUrl?.trim() ?? '';
-  final effectiveBackup = overrideUrl.isNotEmpty ? overrideUrl : apiBackup;
-  if (effectiveBackup.isNotEmpty) {
-    final direct =
-        await _resolveFromProviderBackupPostUrl(tdlib, effectiveBackup);
-    if (direct != null) {
-      oxTelegramLocalStreamLog(
-        'tdlib.file',
-        'OK provider_backup_post_url fileId=${direct.file.id}',
-      );
-      final url = await _resolveToStreamOrFileUrl(
-        tdlib: tdlib,
-        resolvedFile: direct.file,
-        messageForMime: null,
-      );
-      if (url == null) {
-        oxTelegramLocalStreamLog(
-            'resolve.done', 'FAIL after provider_backup_post_url');
-      } else {
-        oxTelegramLocalStreamLog('resolve.done', 'OK $url');
-      }
+  /// Prefer API backup unless dev override is set.
+  final useApiBackup = overrideUrl.trim().isEmpty;
+  var backup =
+      useApiBackup ? (detail.providerBackupPostUrl?.trim() ?? '') : overrideUrl.trim();
+
+  // 1) No link yet → ask server/provider-bot to provision one, then refetch.
+  if (backup.isEmpty && useApiBackup) {
+    oxTelegramLocalStreamLog(
+      'prep',
+      'no providerBackupPostUrl → POST me/recover-from-backup (provision)',
+    );
+    final provisioned = await _postRecoverFromBackup(ref, file.mediaId, fresh: false);
+    if (provisioned == true) {
+      final detailAfter = await _fetchLibraryMediaDetail(ref, mediaId);
+      backup = detailAfter?.providerBackupPostUrl?.trim() ?? '';
+    }
+  }
+
+  // 2) Try reading via provider `t.me` link (resolve + stream).
+  if (backup.isNotEmpty) {
+    var url = await _tryPlayableUrlFromProviderBackupPost(tdlib, backup);
+    if (url != null) {
+      oxTelegramLocalStreamLog('resolve.done', 'OK $url');
       return url;
     }
+    oxTelegramLocalStreamLog(
+      'prep',
+      'provider path failed (resolve or stream) → recover fresh + one retry',
+    );
+
+    // 3) Same link unusable → clear and get a new post URL, then retry once.
+    if (useApiBackup) {
+      final rotated = await _postRecoverFromBackup(ref, file.mediaId, fresh: true);
+      if (rotated == true) {
+        final detailFresh = await _fetchLibraryMediaDetail(ref, mediaId);
+        final backup2 = detailFresh?.providerBackupPostUrl?.trim() ?? '';
+        if (backup2.isNotEmpty) {
+          url = await _tryPlayableUrlFromProviderBackupPost(tdlib, backup2);
+          if (url != null) {
+            oxTelegramLocalStreamLog('resolve.done', 'OK $url');
+            return url;
+          }
+        }
+      }
+    }
+
     if (providerOnly) {
       oxTelegramLocalStreamLog(
         'tdlib.file',
-        'FAIL provider URL (OX_FALLBACK_PROVIDER_ONLY — no locator fallback) — see provider.tme lines above',
+        'FAIL provider path (OX_FALLBACK_PROVIDER_ONLY — no locator fallback)',
       );
       return null;
     }
     oxTelegramLocalStreamLog(
-        'prep', 'provider_backup_post_url failed → full locator chain');
+      'prep',
+      'provider path exhausted after fresh rotate → full locator chain',
+    );
   } else if (providerOnly) {
     oxTelegramLocalStreamLog(
       'prep',
-      'OX_FALLBACK_PROVIDER_ONLY: no providerBackupPostUrl → API recover-from-backup (provider-bot fills DB)',
+      'OX_FALLBACK_PROVIDER_ONLY: still no providerBackupPostUrl → recover-from-backup (fresh)',
     );
     return _resolveRecoveredProviderBackupUrl(
       ref: ref,

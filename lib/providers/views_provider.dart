@@ -10,6 +10,7 @@ import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
+import 'package:fladder/util/home_library_order.dart';
 
 //Known supported collection types
 const enableCollectionTypes = {
@@ -118,7 +119,7 @@ class ViewsNotifier extends StateNotifier<ViewsModel> {
 
   List<ViewModel> _applyLibraryOrdering(List<ViewModel> views) {
     final orderedViews = ref.read(userProvider)?.userConfiguration?.orderedViews ?? [];
-    if (orderedViews.isEmpty) return views;
+    if (orderedViews.isEmpty) return applyDefaultHomeLibraryOrdering(views);
 
     final viewMap = {for (var v in views) v.id: v};
     final ordered = <ViewModel>[];

@@ -169,10 +169,11 @@ enum PlayerOptions {
 
   static PlayerOptions get platformDefaults {
     if (leanBackMode) {
-      return OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer;
+      return PlayerOptions.nativePlayer;
     }
     if (kIsWeb) return PlayerOptions.libMPV;
     return switch (defaultTargetPlatform) {
+      TargetPlatform.android => PlayerOptions.nativePlayer,
       _ => PlayerOptions.libMPV,
     };
   }

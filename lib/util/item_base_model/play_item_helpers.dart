@@ -18,6 +18,7 @@ import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/playback/tv_playback_model.dart';
 import 'package:fladder/models/video_stream_model.dart';
+import 'package:fladder/oxplayer/native_playback_trace_log.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/book_viewer_provider.dart';
 import 'package:fladder/providers/items/book_details_provider.dart';
@@ -427,10 +428,15 @@ Future<void> _playVideo(
 
   final actualStartPosition = startPosition ?? await current.startDuration() ?? Duration.zero;
 
+  oxNativePlaybackTrace(
+    '_playVideo before loadPlaybackItem itemId=${current.item.id} name=${current.item.name} '
+    'startMs=${actualStartPosition.inMilliseconds}',
+  );
   final loadedCorrectly = await ref.read(videoPlayerProvider.notifier).loadPlaybackItem(
         current,
         actualStartPosition,
       );
+  oxNativePlaybackTrace('_playVideo loadPlaybackItem returned success=$loadedCorrectly');
 
   if (!loadedCorrectly) {
     if (context.mounted) {
@@ -454,7 +460,9 @@ Future<void> _playVideo(
 
   if (cancelOperation?.isCanceled ?? false) return;
 
+  oxNativePlaybackTrace('_playVideo calling openPlayer (native activity / window)');
   await ref.read(videoPlayerProvider.notifier).openPlayer(context);
+  oxNativePlaybackTrace('_playVideo openPlayer returned');
   if (AdaptiveLayout.of(context).isDesktop && defaultTargetPlatform != TargetPlatform.macOS) {
     fullScreenHelper.closeFullScreen(ref);
   }

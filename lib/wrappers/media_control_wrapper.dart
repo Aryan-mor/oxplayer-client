@@ -16,6 +16,7 @@ import 'package:fladder/models/items/channel_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
+import 'package:fladder/oxplayer/native_playback_trace_log.dart';
 import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_playback_release.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
@@ -129,6 +130,10 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
 
   Future<void> loadVideo(PlaybackModel model, Duration startPosition, bool play) async {
     final playUrl = model.media?.url ?? "";
+    oxNativePlaybackTrace(
+      'MediaControlsWrapper.loadVideo enter player=${_player.runtimeType} play=$play '
+      'startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(playUrl)}',
+    );
     if (kDebugMode &&
         !kIsWeb &&
         (Platform.isAndroid || Platform.isIOS) &&
@@ -140,9 +145,11 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     }
     if (_player is NativePlayer) {
       final context = ref.read(localizationContextProvider);
+      oxNativePlaybackTrace('MediaControlsWrapper.loadVideo calling sendPlaybackDataToNative');
       await (_player as NativePlayer).sendPlaybackDataToNative(context, model, startPosition);
     }
     _isNewPlayback = play;
+    oxNativePlaybackTrace('MediaControlsWrapper.loadVideo calling player.loadVideo');
     await _player?.loadVideo(playUrl, play, startPosition: startPosition);
     _player?.applySubtitleSettings(ref.read(subtitleSettingsProvider));
 
@@ -150,6 +157,7 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     if (context != null) {
       ref.read(windowTitleProvider.notifier).setPlayTitle(model.item.windowTitle(context.localized));
     }
+    oxNativePlaybackTrace('MediaControlsWrapper.loadVideo done');
   }
 
   /// Pushes merged stream metadata to the Android Exo host and re-applies default track selection (no media reload).

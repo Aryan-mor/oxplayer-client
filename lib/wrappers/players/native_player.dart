@@ -11,6 +11,7 @@ import 'package:fladder/models/playback/transcode_playback_model.dart';
 import 'package:fladder/models/playback/tv_playback_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
 import 'package:fladder/oxplayer/native_exo_muxed_discovery.dart';
+import 'package:fladder/oxplayer/native_playback_trace_log.dart';
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
 import 'package:fladder/src/video_player_helper.g.dart';
 import 'package:fladder/wrappers/players/base_player.dart';
@@ -56,13 +57,34 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
   }
 
   @override
-  Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero}) async =>
-      player.open(url, play);
+  Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero}) async {
+    oxNativePlaybackTrace(
+      'NativePlayer.loadVideo enter play=$play startMs=${startPosition.inMilliseconds} '
+      '${oxNativePlaybackUrlHint(url)}',
+    );
+    try {
+      final ok = await player.open(url, play);
+      oxNativePlaybackTrace('NativePlayer.loadVideo pigeon open returned ok=$ok');
+      if (!ok) {
+        oxNativePlaybackTrace(
+          'NativePlayer.loadVideo WARNING: native open returned false '
+          '(Exo prepare may still be running; check Android OX_NATIVE_PLY / onPlayerError)',
+        );
+      }
+    } catch (e, st) {
+      oxNativePlaybackTrace('NativePlayer.loadVideo ERROR: $e');
+      oxNativePlaybackTrace('NativePlayer.loadVideo stack: $st');
+      rethrow;
+    }
+  }
 
   @override
   Future<StartResult> open(BuildContext newContext) async {
+    oxNativePlaybackTrace('NativePlayer.open launchActivity');
     nativeActivityStarted = true;
-    return activity.launchActivity();
+    final result = await activity.launchActivity();
+    oxNativePlaybackTrace('NativePlayer.open launchActivity result=$result');
+    return result;
   }
 
   @override
@@ -170,6 +192,10 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
     PlaybackModel model,
     Duration startPosition,
   ) async {
+    oxNativePlaybackTrace(
+      'NativePlayer.sendPlaybackDataToNative start itemId=${model.item.id} name=${model.item.name} '
+      'startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(model.media?.url)}',
+    );
     final audioIdx = effectiveDefaultAudioStreamForPlayback(model).index;
     final playableData = PlayableData(
       currentItem: model.item.toSimpleItem(context),
@@ -241,7 +267,12 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
       ),
       url: model.media?.url ?? "",
     );
-    await player.sendPlayableModel(playableData);
+    final sentOk = await player.sendPlayableModel(playableData);
+    oxNativePlaybackTrace(
+      'NativePlayer.sendPlaybackDataToNative sendPlayableModel ok=$sentOk '
+      'audioRows=${playableData.audioTracks.length} subRows=${playableData.subtitleTracks.length} '
+      'playbackType=${playableData.mediaInfo.playbackType}',
+    );
   }
 
   /// After Flutter merges muxed streams into [model], push updated `PlayableData` and re-apply Exo track selection.

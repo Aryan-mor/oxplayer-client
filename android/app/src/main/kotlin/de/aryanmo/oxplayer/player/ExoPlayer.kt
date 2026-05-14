@@ -27,6 +27,7 @@ import androidx.core.content.getSystemService
 import androidx.core.os.postDelayed
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
@@ -42,6 +43,7 @@ import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import android.util.Log
 import io.github.peerless2012.ass.media.kt.buildWithAssSupport
 import io.github.peerless2012.ass.media.type.AssRenderType
 import kotlinx.coroutines.delay
@@ -58,6 +60,8 @@ import de.aryanmo.oxplayer.utility.getSubtitleTracks
 import de.aryanmo.oxplayer.utility.toNativeMuxedAudioRow
 import de.aryanmo.oxplayer.utility.toNativeMuxedSubtitleRow
 import kotlin.time.Duration.Companion.seconds
+
+private const val OX_NATIVE_PLY_TAG = "OX_NATIVE_PLY"
 
 val LocalPlayer = compositionLocalOf<ExoPlayer?> { null }
 
@@ -149,6 +153,16 @@ internal fun ExoPlayer(
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e(
+                    OX_NATIVE_PLY_TAG,
+                    "onPlayerError code=${error.errorCode} name=${error.errorCodeName} " +
+                        "msg=${error.message} cause=${error.cause?.message}",
+                    error,
+                )
+                super.onPlayerError(error)
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 activity?.window?.let {
                     if (isPlaying) {

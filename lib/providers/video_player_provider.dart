@@ -10,6 +10,7 @@ import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/oxplayer/native_playback_trace_log.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
 import 'package:fladder/oxplayer/oxplayer_verified_streams_client.dart';
@@ -358,6 +359,11 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
     _verifiedStreamsUploadTimer?.cancel();
     _verifiedStreamsUploadTimer = null;
     final u = model.media?.url ?? '';
+    final wantedPlayer = ref.read(videoPlayerSettingsProvider).wantedPlayer;
+    oxNativePlaybackTrace(
+      'VideoPlayerNotifier.loadPlaybackItem itemId=${model.item.id} name=${model.item.name} '
+      'wantedPlayer=$wantedPlayer startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(u)}',
+    );
     oxMuxedStreamsLog(
       'loadPlaybackItem gen=$_muxedDiscoveryGeneration ox=${OxplayerConfig.isEnabled} '
       'backend=${state.backend} urlScheme=${Uri.tryParse(u)?.scheme ?? "?"} '
@@ -381,6 +387,7 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
 
     if (media != null) {
       ref.read(playBackModel.notifier).update((_) => newPlaybackModel);
+      oxNativePlaybackTrace('VideoPlayerNotifier.loadPlaybackItem calling state.loadVideo');
       await state.loadVideo(model, startPosition, true);
       await state.setVolume(ref.read(videoPlayerSettingsProvider).volume);
 
@@ -390,9 +397,11 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
       await state.play();
       _wireMuxedSubtitleDiscovery();
       oxMuxedStreamsLog('loadPlaybackItem finished play(); mux discovery re-wired');
+      oxNativePlaybackTrace('VideoPlayerNotifier.loadPlaybackItem success=true');
       return true;
     }
 
+    oxNativePlaybackTrace('VideoPlayerNotifier.loadPlaybackItem FAIL media==null');
     mediaState.update((state) => state.copyWith(errorPlaying: true));
     return false;
   }

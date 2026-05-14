@@ -7,9 +7,10 @@ import 'package:tdlib/td_api.dart' as td;
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
 
-const int _kChunkBytes = 2 * 1024 * 1024;
+/// First (and capped) HTTP ranges: large enough for moov + Exo progressive sniffing on Telegram-sized files.
+const int _kChunkBytes = 8 * 1024 * 1024;
 const int _kPrefetchBytes = 2 * 1024 * 1024;
-const int _kMaxTdlibLimit = 4 * 1024 * 1024;
+const int _kMaxTdlibLimit = 8 * 1024 * 1024;
 const int _kSeekThresholdBytes = 8 * 1024 * 1024;
 const int _kSeekAlignBytes = 512 * 1024;
 const int _kFarSeekSyncMinOffsetBytes = 32 * 1024 * 1024;
@@ -91,6 +92,9 @@ class TelegramRangePlayback {
       oxTelegramLocalStreamLog('loopback', 'FAIL no TDLib local path within 20s');
       return null;
     }
+
+    await _sniffAndRefineMimeFromLocalFile();
+    oxTelegramLocalStreamLog('loopback', 'mime after sniff=$_activeMime');
 
     await _ensureServer();
     final port = _server?.port;
@@ -290,23 +294,42 @@ class TelegramRangePlayback {
         }
       }
 
+      // ExoPlayer progressive: if we reply **200** with a short `Content-Length`, the stack treats the
+      // body as the **entire** resource and will not fetch past it → Mp4Extractor `readFully` hits EOF
+      // while parsing atoms that span follow-up ranges. For any **partial** chunk, use **206** +
+      // `Content-Range …/total` so total extent is known (even when the client did not send `Range`).
       final raf = await file.open(mode: FileMode.read);
       try {
         await raf.setPosition(start);
         final bytes = await raf.read(end - start + 1);
+        if (bytes.isEmpty) {
+          oxTelegramLocalStreamLog('http.$seq', '500 empty read at start=$start end=$end (TDLib prefix not ready?)');
+          await _writeResponse(request.response, HttpStatus.internalServerError, body: 'empty range');
+          return;
+        }
         _lastServedEnd = start + bytes.length - 1;
-        request.response.statusCode = HttpStatus.partialContent;
-        request.response.headers
-          ..set(HttpHeaders.acceptRangesHeader, 'bytes')
-          ..set(HttpHeaders.contentTypeHeader, _activeMime)
-          ..set(HttpHeaders.contentLengthHeader, '${bytes.length}')
-          ..set(HttpHeaders.contentRangeHeader, 'bytes $start-${start + bytes.length - 1}/$totalBytes');
+        final fullRepresentation = start == 0 && bytes.length == totalBytes;
+        if (fullRepresentation) {
+          request.response.statusCode = HttpStatus.ok;
+          request.response.headers
+            ..set(HttpHeaders.acceptRangesHeader, 'bytes')
+            ..set(HttpHeaders.contentTypeHeader, _activeMime)
+            ..set(HttpHeaders.contentLengthHeader, '$totalBytes');
+        } else {
+          request.response.statusCode = HttpStatus.partialContent;
+          request.response.headers
+            ..set(HttpHeaders.acceptRangesHeader, 'bytes')
+            ..set(HttpHeaders.contentTypeHeader, _activeMime)
+            ..set(HttpHeaders.contentLengthHeader, '${bytes.length}')
+            ..set(HttpHeaders.contentRangeHeader, 'bytes $start-${start + bytes.length - 1}/$totalBytes');
+        }
         request.response.add(bytes);
         await request.response.close();
         if (verbose) {
+          final st = fullRepresentation ? '200' : '206';
           oxTelegramLocalStreamLog(
             'http.$seq',
-            '206 served ${bytes.length}b $start-${start + bytes.length - 1}/$totalBytes seek=$isSeek',
+            '$st served ${bytes.length}b $start-${start + bytes.length - 1}/$totalBytes seek=$isSeek',
           );
         }
       } finally {
@@ -610,6 +633,39 @@ class TelegramRangePlayback {
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
     return false;
+  }
+
+  /// Refine loopback `Content-Type` from file header when TDLib message mime was missing (`video/*`).
+  Future<void> _sniffAndRefineMimeFromLocalFile() async {
+    final path = _activeLocalPath;
+    if (path == null || path.isEmpty) return;
+    try {
+      final f = File(path);
+      if (!await f.exists()) return;
+      final raf = await f.open(mode: FileMode.read);
+      try {
+        final head = await raf.read(4096);
+        if (head.length >= 4 &&
+            head[0] == 0x1a &&
+            head[1] == 0x45 &&
+            head[2] == 0xdf &&
+            head[3] == 0xa3) {
+          _activeMime = 'video/x-matroska';
+          return;
+        }
+        for (var o = 0; o + 8 <= head.length; o++) {
+          if (head[o + 4] == 0x66 &&
+              head[o + 5] == 0x74 &&
+              head[o + 6] == 0x79 &&
+              head[o + 7] == 0x70) {
+            _activeMime = 'video/mp4';
+            return;
+          }
+        }
+      } finally {
+        await raf.close();
+      }
+    } catch (_) {}
   }
 
   Future<void> _cancelAndDelete({required TdlibFacade tdlib, required int fileId}) async {

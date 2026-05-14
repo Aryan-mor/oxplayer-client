@@ -4,12 +4,14 @@ import PlayableData
 import SubtitleSettings
 import TVGuideModel
 import VideoPlayerApi
+import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import androidx.core.net.toUri
 import androidx.core.os.postDelayed
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.flow.Flow
@@ -27,12 +29,17 @@ import de.aryanmo.oxplayer.utility.setInternalAudioTrack
 import de.aryanmo.oxplayer.utility.setInternalSubtitleTrack
 import kotlin.time.Duration.Companion.seconds
 
+private const val OX_NATIVE_PLY_TAG = "OX_NATIVE_PLY"
+
 class VideoPlayerImplementation(
 ) : VideoPlayerApi {
     var player: ExoPlayer? = null
     val playbackData: MutableStateFlow<PlayableData?> = MutableStateFlow(null)
 
     var subsInitialized = false
+
+    /** One-shot listener: Ox loopback + resume must load from t=0 first, then seek (see [open]). */
+    private var loopbackResumeListener: Player.Listener? = null
 
     val isTVMode: Flow<Boolean> = playbackData.asStateFlow().map {
         it?.mediaInfo?.playbackType == PlaybackType.TV
@@ -43,12 +50,18 @@ class VideoPlayerImplementation(
         callback: (Result<Boolean>) -> Unit
     ) {
         try {
-            println("Send playable data")
+            Log.d(
+                OX_NATIVE_PLY_TAG,
+                "sendPlayableModel title=${playableData.currentItem?.title} id=${playableData.currentItem?.id} " +
+                    "playbackType=${playableData.mediaInfo.playbackType} startMs=${playableData.startPosition} " +
+                    "urlLen=${playableData.url.length} audioTracks=${playableData.audioTracks.size} " +
+                    "subtitleTracks=${playableData.subtitleTracks.size}",
+            )
             playbackData.value = playableData
             callback(Result.success(true))
             return
         } catch (e: Exception) {
-            println("Error loading data $e")
+            Log.e(OX_NATIVE_PLY_TAG, "sendPlayableModel failed", e)
             callback(Result.success(false))
             return
         }
@@ -95,7 +108,22 @@ class VideoPlayerImplementation(
     override fun open(url: String, play: Boolean, callback: (Result<Boolean>) -> Unit) {
         Handler(Looper.getMainLooper()).postDelayed(delayInMillis = 1.seconds.inWholeMilliseconds) {
             try {
-                playbackData.value?.let {
+                val exo = player
+                if (exo == null) {
+                    Log.w(
+                        OX_NATIVE_PLY_TAG,
+                        "open skip: ExoPlayer not ready yet (init will open again when host is bound)",
+                    )
+                    callback(Result.success(false))
+                    return@postDelayed
+                }
+                val pd = playbackData.value
+                Log.d(
+                    OX_NATIVE_PLY_TAG,
+                    "open enter play=$play urlLen=${url.length} hasPlaybackData=${pd != null} " +
+                        "exoPlayerNull=false",
+                )
+                pd?.let {
                     VideoPlayerObject.setAudioTrackIndex(it.defaultAudioTrack.toInt(), true)
                     VideoPlayerObject.setSubtitleTrackIndex(it.defaultSubtrack.toInt(), true)
                 }
@@ -104,7 +132,15 @@ class VideoPlayerImplementation(
                     ".m3u8",
                     ignoreCase = true
                 )
+                val isOxLoopback =
+                    url.contains("127.0.0.1", ignoreCase = true) && url.contains("/stream", ignoreCase = true)
                 val subTitles = playbackData.value?.subtitleTracks ?: listOf()
+                val externalSubs = subTitles.filter { it.external && !it.url.isNullOrEmpty() }
+                Log.d(
+                    OX_NATIVE_PLY_TAG,
+                    "open building MediaItem isHls=$isHls externalSubtitleCount=${externalSubs.size} " +
+                        "startPositionMs=${playbackData.value?.startPosition ?: 0L}",
+                )
                 val mediaItemBuilder = MediaItem.Builder()
                     .setUri(url)
                     .setTag(playbackData.value?.currentItem?.title)
@@ -122,24 +158,72 @@ class VideoPlayerImplementation(
                 if (isHls) {
                     mediaItemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
                 }
+                // Do not force VIDEO_MP4 for Ox loopback: TDLib files may be Matroska or non-standard MP4;
+                // wrong MIME pins Mp4Extractor and yields EOF. Rely on loopback `Content-Type` + Exo sniffing.
 
                 val mediaItem = mediaItemBuilder.build()
 
-                player?.stop()
-                player?.clearMediaItems()
-                player?.setMediaItem(mediaItem)
-                player?.prepare()
+                val startPosition = (playbackData.value?.startPosition ?: 0L).coerceAtLeast(0L)
 
-                val startPosition = playbackData.value?.startPosition ?: 0L
-                if (startPosition > 0L) {
-                    player?.seekTo(startPosition)
+                exo.stop()
+                exo.clearMediaItems()
+
+                loopbackResumeListener?.let { old ->
+                    try {
+                        exo.removeListener(old)
+                    } catch (_: Exception) {
+                    }
                 }
-                player?.playWhenReady = play
+                loopbackResumeListener = null
+
+                // Telegram TDLib loopback: starting at a large resume time makes ProgressiveMediaPeriod + Mp4Extractor
+                // issue range reads before the container is sniffed from the start → EOFException. Load from 0, then seek.
+                val deferSeekForLoopbackResume = isOxLoopback && !isHls && startPosition > 0L
+
+                if (deferSeekForLoopbackResume) {
+                    Log.d(
+                        OX_NATIVE_PLY_TAG,
+                        "open Ox loopback: resumeMs=$startPosition → prepare at 0 then seek on STATE_READY",
+                    )
+                    val resumeMs = startPosition
+                    val shouldPlay = play
+                    val listener = object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState != Player.STATE_READY) return
+                            if (loopbackResumeListener !== this) return
+                            exo.removeListener(this)
+                            loopbackResumeListener = null
+                            try {
+                                exo.seekTo(resumeMs)
+                            } catch (t: Throwable) {
+                                Log.e(OX_NATIVE_PLY_TAG, "Ox loopback deferred seek failed", t)
+                            }
+                            exo.playWhenReady = shouldPlay
+                            Log.d(OX_NATIVE_PLY_TAG, "open deferred seek done resumeMs=$resumeMs play=$shouldPlay")
+                        }
+
+                        override fun onPlayerError(error: PlaybackException) {
+                            if (loopbackResumeListener !== this) return
+                            exo.removeListener(this)
+                            loopbackResumeListener = null
+                        }
+                    }
+                    loopbackResumeListener = listener
+                    exo.addListener(listener)
+                    exo.setMediaItem(mediaItem, 0L)
+                    exo.prepare()
+                    exo.playWhenReady = false
+                } else {
+                    exo.setMediaItem(mediaItem, startPosition)
+                    exo.prepare()
+                    exo.playWhenReady = play
+                }
+                Log.d(OX_NATIVE_PLY_TAG, "open prepared playWhenReady=$play startPositionMs=$startPosition deferSeek=$deferSeekForLoopbackResume")
                 callback(Result.success(true))
                 subsInitialized = false
                 return@postDelayed
             } catch (e: Exception) {
-                println("Error playing video $e")
+                Log.e(OX_NATIVE_PLY_TAG, "open exception", e)
                 callback(Result.success(false))
                 return@postDelayed
             }

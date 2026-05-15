@@ -86,6 +86,36 @@ Future<({td.Message? msg, td.TdError? err})> _providerGetMessageOnce(
   }
 }
 
+Future<void> _oxLogGeneralVideoProviderBotReachable(TdlibFacade tdlib) async {
+  final u = OxplayerEnv.providerBotUsername?.trim();
+  if (u == null || u.isEmpty) {
+    oxTelegramLocalStreamLog(
+      'general_video',
+      'PROVIDER_BOT_USERNAME unset — cannot preflight provider-bot chat',
+    );
+    return;
+  }
+  try {
+    final obj = await tdlib.send(td.SearchPublicChat(username: u));
+    if (obj is td.Chat) {
+      oxTelegramLocalStreamLog(
+        'general_video',
+        'provider bot OK chatId=${obj.id}',
+      );
+    } else {
+      oxTelegramLocalStreamLog(
+        'general_video',
+        'SearchPublicChat(@$u) → ${obj.runtimeType}',
+      );
+    }
+  } on td.TdError catch (e) {
+    oxTelegramLocalStreamLog(
+      'general_video',
+      'SearchPublicChat(@$u) code=${e.code} — open the provider bot in Telegram and tap Start, then retry playback',
+    );
+  }
+}
+
 class _OxLibraryFileDto {
   _OxLibraryFileDto({
     required this.id,
@@ -132,12 +162,19 @@ int? _parseInt(Object? v) {
 }
 
 class _OxLibraryDetailDto {
-  _OxLibraryDetailDto({required this.files, this.providerBackupPostUrl});
+  _OxLibraryDetailDto({
+    required this.files,
+    this.providerBackupPostUrl,
+    this.isGeneralVideo = false,
+  });
 
   final List<_OxLibraryFileDto> files;
 
   /// From API `media.providerBackupPostUrl` — public `t.me/...` backup post link.
   final String? providerBackupPostUrl;
+
+  /// API `media.type === "GENERAL_VIDEO"` — public provider-channel backup must not be used; play from TDLib locator / user↔provider DM + [locator-heal].
+  final bool isGeneralVideo;
 
   static _OxLibraryDetailDto? tryParseBody(String body) {
     final dec = jsonDecode(body);
@@ -152,13 +189,19 @@ class _OxLibraryDetailDto {
             .trim()
         : null;
     if (trimmedBackup != null && trimmedBackup.isEmpty) trimmedBackup = null;
+    final mediaType =
+        mediaRaw is Map ? mediaRaw['type']?.toString().trim() : null;
+    final isGeneralVideo = mediaType == 'GENERAL_VIDEO';
     final files = <_OxLibraryFileDto>[];
     for (final f in filesRaw) {
       final p = _OxLibraryFileDto.tryParse(f);
       if (p != null) files.add(p);
     }
     return _OxLibraryDetailDto(
-        files: files, providerBackupPostUrl: trimmedBackup);
+      files: files,
+      providerBackupPostUrl: trimmedBackup,
+      isGeneralVideo: isGeneralVideo,
+    );
   }
 }
 
@@ -655,14 +698,22 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   oxTelegramLocalStreamLog('tdlib.session', 'OK');
 
   final tdlib = OxplayerTelegramTdRuntime.facade;
+  final isGeneralVideo = detail.isGeneralVideo;
 
   /// Prefer API backup unless dev override is set.
   final useApiBackup = overrideUrl.trim().isEmpty;
   var backup =
       useApiBackup ? (detail.providerBackupPostUrl?.trim() ?? '') : overrideUrl.trim();
+  if (isGeneralVideo) {
+    backup = '';
+    oxTelegramLocalStreamLog(
+      'prep',
+      'GENERAL_VIDEO: ignoring provider t.me backup; TDLib locator / user provider DM + locator-heal only',
+    );
+  }
 
   // 1) No link yet → ask server/provider-bot to provision one, then refetch.
-  if (backup.isEmpty && useApiBackup) {
+  if (!isGeneralVideo && backup.isEmpty && useApiBackup) {
     oxTelegramLocalStreamLog(
       'prep',
       'no providerBackupPostUrl → POST me/recover-from-backup (provision)',
@@ -713,7 +764,7 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
       'prep',
       'provider path exhausted after fresh rotate → full locator chain',
     );
-  } else if (providerOnly) {
+  } else if (providerOnly && !isGeneralVideo) {
     oxTelegramLocalStreamLog(
       'prep',
       'OX_FALLBACK_PROVIDER_ONLY: still no providerBackupPostUrl → recover-from-backup (fresh)',
@@ -735,6 +786,10 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   final envSearchChats =
       await oxplayerLocatorTagTelegramSearchChatIds(tdlib, onDiag);
 
+  if (isGeneralVideo) {
+    await _oxLogGeneralVideoProviderBotReachable(tdlib);
+  }
+
   final resolvedMedia = await resolveTelegramMediaFile(
     tdlib: tdlib,
     mediaFileId: file.mediaId,
@@ -748,6 +803,14 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   );
 
   if (resolvedMedia == null) {
+    if (isGeneralVideo) {
+      oxTelegramLocalStreamLog(
+        'tdlib.file',
+        'FAIL GENERAL_VIDEO — send the same video in your private chat with the provider bot, '
+        'then POST /me/library/media/locator-heal with the resolved chat+message (or retry play)',
+      );
+      return null;
+    }
     oxTelegramLocalStreamLog(
         'tdlib.file', 'FAIL (no message/file) → API recover-from-backup');
     return _resolveRecoveredProviderBackupUrl(

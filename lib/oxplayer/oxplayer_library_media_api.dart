@@ -120,6 +120,50 @@ Future<OxplayerLibraryReportResult> oxplayerPostLibraryMediaReport(WidgetRef ref
   }
 }
 
+/// POST `/me/library/media/locator-heal` — after the user sends the media in **provider-bot DM** (or TDLib finds a better chat/message), persist the playable locator for later playback.
+Future<bool> oxplayerPostLibraryMediaLocatorHeal(
+  WidgetRef ref, {
+  required String mediaId,
+  required int locatorChatId,
+  required int locatorMessageId,
+  String? resolutionReason,
+}) async {
+  if (!OxplayerConfig.isEnabled) return false;
+  final origin = _apiOrigin(ref);
+  final creds = _credentials(ref);
+  if (origin == null || creds == null || creds.token.isEmpty) return false;
+
+  final uri = Uri.parse('$origin/me/library/media/locator-heal');
+  final headers = {
+    ...creds.header(ref),
+    'Accept': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
+  };
+  final body = jsonEncode(<String, dynamic>{
+    'mediaFileId': mediaId,
+    'locatorChatId': locatorChatId,
+    'locatorMessageId': locatorMessageId,
+    if (resolutionReason != null && resolutionReason.trim().isNotEmpty)
+      'resolutionReason': resolutionReason.trim(),
+  });
+  try {
+    final res = await http.post(uri, headers: headers, body: body);
+    if (res.statusCode != 200) {
+      if (kDebugMode) {
+        _reportDebug('locator-heal HTTP ${res.statusCode} ${res.body}');
+      }
+      return false;
+    }
+    final j = jsonDecode(res.body);
+    return j is Map && j['ok'] == true;
+  } catch (e, st) {
+    if (kDebugMode) {
+      _reportDebug('locator-heal exception: $e\n$st');
+    }
+    return false;
+  }
+}
+
 /// DELETE `/me/library/media/:id` — removes this user's attachment to that media on the server.
 Future<bool> oxplayerDeleteLibraryMedia(WidgetRef ref, String mediaId) async {
   if (!OxplayerConfig.isEnabled) return false;

@@ -25,6 +25,13 @@ bool _carouselTreatsAsTv(ItemBaseModel it) {
   return it.type == FladderItemType.series || it.type == FladderItemType.episode;
 }
 
+/// OX Jellyfin `ProviderIds.OX=general_video` — never show in the home hero carousel (latest, resume, curated, etc.).
+bool _isOxGeneralVideoCarouselItem(ItemBaseModel it) {
+  if (it is! MovieModel) return false;
+  final p = it.providerIds;
+  return p != null && p['OX']?.toString() == 'general_video';
+}
+
 String _tvSeriesDedupeKey(ItemBaseModel it) {
   if (it.type == FladderItemType.series) return 's:${it.id}';
   if (it.type == FladderItemType.episode) {
@@ -43,12 +50,14 @@ String _tvSeriesDedupeKey(ItemBaseModel it) {
 List<ItemBaseModel> _userOwnedMoviesLatest(Iterable<ViewModel> dashboardViews, int max) {
   final candidates = <ItemBaseModel>[];
   for (final v in dashboardViews) {
-    if (v.collectionType != CollectionType.movies && v.collectionType != CollectionType.homevideos) {
+    // General videos live under `homevideos`; the hero carousel must not include them (only real movies).
+    if (v.collectionType != CollectionType.movies) {
       continue;
     }
     for (final it in v.recentlyAdded) {
       // `Users/.../Items/Latest` is scoped to this account's libraries. Prefer [jellyType] and fall back
       // to [ItemBaseModel.type] when the API omits or maps `Type` differently.
+      if (_isOxGeneralVideoCarouselItem(it)) continue;
       if (_carouselTreatsAsMovie(it)) {
         candidates.add(it);
       }
@@ -88,8 +97,10 @@ List<ItemBaseModel> _userOwnedTvLatestBySeries(Iterable<ViewModel> dashboardView
 }
 
 ItemBaseModel? _mostRecentlyPlayedVideo(List<ItemBaseModel> resumeVideo) {
-  if (resumeVideo.isEmpty) return null;
-  return resumeVideo
+  final eligible =
+      resumeVideo.where((e) => !_isOxGeneralVideoCarouselItem(e)).toList();
+  if (eligible.isEmpty) return null;
+  return eligible
       .sortedByCompare(
         (e) => e.userData.lastPlayed ?? DateTime.fromMillisecondsSinceEpoch(0),
         (a, b) => b.compareTo(a),
@@ -108,6 +119,7 @@ void _suggestedMoviesAndTv(
   final movieKeys = <String>{};
   final tvKeys = <String>{};
   for (final item in [...curated, ...globalLatest]) {
+    if (_isOxGeneralVideoCarouselItem(item)) continue;
     final t = item.jellyType;
     final isMovie = t == BaseItemKind.movie || item.type == FladderItemType.movie;
     final isSeries = t == BaseItemKind.series || item.type == FladderItemType.series;
@@ -154,6 +166,7 @@ String _oxHomeBannerDedupeKey(ItemBaseModel item) {
 }
 
 void _appendCarouselDeduped(List<ItemBaseModel> out, Set<String> seenKeys, ItemBaseModel item) {
+  if (_isOxGeneralVideoCarouselItem(item)) return;
   final k = _oxHomeBannerDedupeKey(item);
   if (seenKeys.add(k)) {
     out.add(item);
@@ -215,6 +228,7 @@ String _oxDebugRecentKindStats(Iterable<ViewModel> dashboardViews) {
 
 /// OX home hero: **combined** = last played → your library latest (2+2 or 1+1) → server-pinned custom slides →
 /// curated/global → **TrendingTop10**. Dedupes by TMDB (and series key) so the same title is not shown twice.
+/// **General video** (`ProviderIds.OX=general_video`) is never included (not even from resume / next up / curated lists).
 List<ItemBaseModel> buildOxplayerHomeCarouselItems({
   required HomeCarouselSettings mode,
   required List<ItemBaseModel> allResume,

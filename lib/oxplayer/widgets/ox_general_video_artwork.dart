@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/oxplayer/ox_general_video_thumb_ref.dart';
 import 'package:fladder/oxplayer/telegram/telegram_message_thumbnail.dart';
 import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Shown when Jellyfin has no [primaryImagePath] for OX `general_video` catalog items: try Telegram (TDLib), then
 /// the same local placeholder as the rest of OxPlayer.

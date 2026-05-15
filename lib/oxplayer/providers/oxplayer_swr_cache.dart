@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-final oxplayerSwrActiveRequestCountProvider = StateProvider<int>((ref) => 0);
-
 final oxplayerSwrCacheProvider = Provider<OxplayerSwrCache>((ref) {
   return const OxplayerSwrCache();
 });
@@ -78,11 +76,5 @@ Future<T> oxplayerTrackSwrRequest<T>(
   Ref ref,
   Future<T> Function() run,
 ) async {
-  final count = ref.read(oxplayerSwrActiveRequestCountProvider.notifier);
-  count.update((value) => value + 1);
-  try {
-    return await run();
-  } finally {
-    count.update((value) => value <= 0 ? 0 : value - 1);
-  }
+  return run();
 }

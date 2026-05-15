@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
@@ -20,7 +19,6 @@ enum OxplayerBackgroundAuthStatus {
 enum OxplayerAppStatusKind {
   offline,
   connecting,
-  updating,
   online,
   error,
 }
@@ -116,7 +114,6 @@ final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
   }
 
   final authStatus = ref.watch(oxplayerBackgroundAuthStatusProvider);
-  final activeRequests = ref.watch(oxplayerSwrActiveRequestCountProvider);
   if (authStatus == OxplayerBackgroundAuthStatus.error) {
     return OxplayerAppStatus(
       kind: OxplayerAppStatusKind.error,
@@ -134,12 +131,6 @@ final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
     return const OxplayerAppStatus(
       kind: OxplayerAppStatusKind.connecting,
       label: 'Refreshing session',
-    );
-  }
-  if (activeRequests > 0) {
-    return const OxplayerAppStatus(
-      kind: OxplayerAppStatusKind.updating,
-      label: 'Updating',
     );
   }
 

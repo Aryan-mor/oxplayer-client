@@ -2,24 +2,17 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-
 import 'package:audio_service/audio_service.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:smtc_windows/smtc_windows.dart' if (dart.library.html) 'package:fladder/stubs/web/smtc_web.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
-
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/channel_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
-import 'package:fladder/oxplayer/native_playback_trace_log.dart';
-import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
-import 'package:fladder/oxplayer/telegram/oxplayer_telegram_playback_release.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
+import 'package:fladder/oxplayer/native_playback_trace_log.dart';
+import 'package:fladder/oxplayer/telegram/oxplayer_telegram_playback_release.dart';
+import 'package:fladder/oxplayer/telegram_local_stream_log.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/live_tv_provider.dart';
@@ -36,6 +29,11 @@ import 'package:fladder/wrappers/players/lib_mdk.dart'
 import 'package:fladder/wrappers/players/lib_mpv.dart';
 import 'package:fladder/wrappers/players/native_player.dart';
 import 'package:fladder/wrappers/players/player_states.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smtc_windows/smtc_windows.dart' if (dart.library.html) 'package:fladder/stubs/web/smtc_web.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerControlsCallback {
   MediaControlsWrapper({required this.ref});
@@ -53,11 +51,9 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
   Stream<PlayerState>? get stateStream => _player?.stateStream;
   PlayerState? get lastState => _player?.lastState;
 
-  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream =>
-      _player?.muxedSubtitleDiscoveryStream;
+  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream => _player?.muxedSubtitleDiscoveryStream;
 
-  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream =>
-      _player?.muxedAudioDiscoveryStream;
+  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream => _player?.muxedAudioDiscoveryStream;
 
   Widget? subtitleWidget(bool showOverlay, {GlobalKey? controlsKey}) =>
       _player?.subtitles(showOverlay, controlsKey: controlsKey);
@@ -134,10 +130,7 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
       'MediaControlsWrapper.loadVideo enter player=${_player.runtimeType} play=$play '
       'startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(playUrl)}',
     );
-    if (kDebugMode &&
-        !kIsWeb &&
-        (Platform.isAndroid || Platform.isIOS) &&
-        playUrl.contains('127.0.0.1')) {
+    if (kDebugMode && !kIsWeb && (Platform.isAndroid || Platform.isIOS) && playUrl.contains('127.0.0.1')) {
       oxTelegramLocalStreamLog(
         'player.wrapper',
         '${_player.runtimeType} loadVideo $playUrl',

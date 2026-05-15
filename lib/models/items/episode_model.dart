@@ -1,11 +1,7 @@
 import 'dart:collection';
 
-import 'package:flutter/material.dart';
-
 import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/jellyfin/enum_models.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/l10n/generated/app_localizations.dart';
@@ -18,6 +14,8 @@ import 'package:fladder/models/items/overview_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/util/humanize_duration.dart';
 import 'package:fladder/util/string_extensions.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'episode_model.mapper.dart';
 

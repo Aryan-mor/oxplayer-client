@@ -1,12 +1,11 @@
 import 'package:collection/collection.dart';
-import 'package:fvp/mdk.dart' show SubtitleStreamInfo;
-import 'package:media_kit/media_kit.dart' as mpv;
-
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/playback/direct_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/playback/transcode_playback_model.dart';
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
+import 'package:fvp/mdk.dart' show SubtitleStreamInfo;
+import 'package:media_kit/media_kit.dart' as mpv;
 
 /// True when [muxed] differs from current non-external subtitle rows on the active media version.
 bool muxedSubtitleListChanged(MediaStreamsModel? mediaStreams, List<SubStreamModel> muxed) {
@@ -107,15 +106,13 @@ extension MediaStreamsModelMuxedMerge on MediaStreamsModel {
     final merged = [...muxedFromDemuxer, ...external].sortByExternal();
 
     final prevIdx = defaultSubStreamIndex;
-    final prevStill =
-        prevIdx != null && prevIdx != -1 && merged.any((s) => s.index == prevIdx);
+    final prevStill = prevIdx != null && prevIdx != -1 && merged.any((s) => s.index == prevIdx);
     int? newDef;
     if (prevStill) {
       newDef = prevIdx;
     } else {
       // Jellyfin/Ox video-only stub often uses -1 / null = "no row"; demuxer still has muxed subs.
-      final preferred =
-          muxedFromDemuxer.firstWhereOrNull((s) => s.isDefault) ?? muxedFromDemuxer.firstOrNull;
+      final preferred = muxedFromDemuxer.firstWhereOrNull((s) => s.isDefault) ?? muxedFromDemuxer.firstOrNull;
       newDef = preferred?.index ?? -1;
     }
     oxMuxedStreamsLog(

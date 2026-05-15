@@ -1,9 +1,8 @@
 import 'package:collection/collection.dart';
-import 'package:fvp/mdk.dart' show AudioStreamInfo;
-import 'package:media_kit/media_kit.dart' as mpv;
-
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
+import 'package:fvp/mdk.dart' show AudioStreamInfo;
+import 'package:media_kit/media_kit.dart' as mpv;
 
 /// Demuxers often report `unknown`, `und`, or `unknown2` (language+channels junk) — omit from UI.
 String _muxedAudioLangForModel(String? raw) {
@@ -18,8 +17,7 @@ String _muxedAudioLangForModel(String? raw) {
 String _muxedAudioChannelLayoutFromMpv(mpv.AudioTrack t) {
   final ch = (t.channels ?? '').trim();
   final compact = ch.replaceAll(RegExp(r'\s+'), '');
-  final looksLikeUnknownNoise =
-      ch.isEmpty || RegExp(r'^unknown\d*$', caseSensitive: false).hasMatch(compact);
+  final looksLikeUnknownNoise = ch.isEmpty || RegExp(r'^unknown\d*$', caseSensitive: false).hasMatch(compact);
   if (!looksLikeUnknownNoise) return ch;
   if (t.channelscount != null && t.channelscount! > 0) {
     return '${t.channelscount}ch';
@@ -140,14 +138,12 @@ extension MediaStreamsModelMuxedAudioMerge on MediaStreamsModel {
     final merged = [...muxedFromDemuxer, ...external].sortByExternal();
 
     final prevIdx = defaultAudioStreamIndex;
-    final prevStill =
-        prevIdx != null && prevIdx != -1 && merged.any((s) => s.index == prevIdx);
+    final prevStill = prevIdx != null && prevIdx != -1 && merged.any((s) => s.index == prevIdx);
     int? newDef;
     if (prevStill) {
       newDef = prevIdx;
     } else {
-      final preferred =
-          muxedFromDemuxer.firstWhereOrNull((s) => s.isDefault) ?? muxedFromDemuxer.firstOrNull;
+      final preferred = muxedFromDemuxer.firstWhereOrNull((s) => s.isDefault) ?? muxedFromDemuxer.firstOrNull;
       final firstEmbedded = merged.firstWhereOrNull((s) => !s.isExternal);
       newDef = preferred?.index ?? firstEmbedded?.index ?? -1;
     }

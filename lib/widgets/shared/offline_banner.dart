@@ -24,7 +24,6 @@ class OfflineBanner extends ConsumerWidget {
               switch (status.kind) {
                 OxplayerAppStatusKind.offline => IconsaxPlusLinear.cloud_cross,
                 OxplayerAppStatusKind.connecting => IconsaxPlusLinear.global_refresh,
-                OxplayerAppStatusKind.updating => IconsaxPlusLinear.refresh,
                 OxplayerAppStatusKind.error => IconsaxPlusLinear.info_circle,
                 OxplayerAppStatusKind.online => IconsaxPlusLinear.cloud,
               },

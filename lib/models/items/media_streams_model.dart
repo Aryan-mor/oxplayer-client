@@ -1,10 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-
 import 'package:collection/collection.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/oxplayer/oxplayer_media_source_caption.dart';
@@ -12,6 +8,8 @@ import 'package:fladder/oxplayer/oxplayer_media_versions_log.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/video_properties.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Hides `unknown` / `und` / `unknown2`-style tokens from audio track labels.
 String _audioLangForJoinedTitle(String language) {
@@ -127,46 +125,41 @@ class MediaStreamsModel {
     List<dto.MediaSourceInfo>? mediaSource,
     Ref ref,
   ) {
-    final versionStreams = mediaSource
-            ?.mapIndexed(
-              (index, element) {
-                final streams = element.mediaStreams ?? [];
-                final nameParts = parseOxMediaSourceNameParts(element.name);
-                final qualityLabel =
-                    nameParts.qualityLabel.isNotEmpty ? nameParts.qualityLabel : (element.name ?? "");
-                return VersionStreamModel(
-                    name: qualityLabel,
-                    oxTelegramCaption: nameParts.telegramCaption,
-                    oxLocatorPath: element.path,
-                    index: index,
-                    id: element.id,
-                    defaultAudioStreamIndex: element.defaultAudioStreamIndex,
-                    defaultSubStreamIndex: element.defaultSubtitleStreamIndex,
-                    videoStreams: streams
-                        .where((element) => element.type == dto.MediaStreamType.video)
-                        .map(
-                          (e) => VideoStreamModel.fromMediaStream(e),
-                        )
-                        .sortByExternal(),
-                    audioStreams: streams
-                        .where((element) => element.type == dto.MediaStreamType.audio)
-                        .map(
-                          (e) => AudioStreamModel.fromMediaStream(e),
-                        )
-                        .sortByExternal(),
-                    subStreams: streams
-                        .where((element) => element.type == dto.MediaStreamType.subtitle)
-                        .map(
-                          (sub) => SubStreamModel.fromMediaStream(sub, ref),
-                        )
-                        .sortByExternal());
-              },
-            )
-            .toList() ??
+    final versionStreams = mediaSource?.mapIndexed(
+          (index, element) {
+            final streams = element.mediaStreams ?? [];
+            final nameParts = parseOxMediaSourceNameParts(element.name);
+            final qualityLabel = nameParts.qualityLabel.isNotEmpty ? nameParts.qualityLabel : (element.name ?? "");
+            return VersionStreamModel(
+                name: qualityLabel,
+                oxTelegramCaption: nameParts.telegramCaption,
+                oxLocatorPath: element.path,
+                index: index,
+                id: element.id,
+                defaultAudioStreamIndex: element.defaultAudioStreamIndex,
+                defaultSubStreamIndex: element.defaultSubtitleStreamIndex,
+                videoStreams: streams
+                    .where((element) => element.type == dto.MediaStreamType.video)
+                    .map(
+                      (e) => VideoStreamModel.fromMediaStream(e),
+                    )
+                    .sortByExternal(),
+                audioStreams: streams
+                    .where((element) => element.type == dto.MediaStreamType.audio)
+                    .map(
+                      (e) => AudioStreamModel.fromMediaStream(e),
+                    )
+                    .sortByExternal(),
+                subStreams: streams
+                    .where((element) => element.type == dto.MediaStreamType.subtitle)
+                    .map(
+                      (sub) => SubStreamModel.fromMediaStream(sub, ref),
+                    )
+                    .sortByExternal());
+          },
+        ).toList() ??
         [];
-    final summary = versionStreams
-        .map((v) => '${v.id ?? "?"}:${(v.name).isEmpty ? "(no name)" : v.name}')
-        .join(' | ');
+    final summary = versionStreams.map((v) => '${v.id ?? "?"}:${(v.name).isEmpty ? "(no name)" : v.name}').join(' | ');
     final paths = mediaSource?.map((e) => e.path ?? "").join(' | ') ?? '';
     oxMediaVersionsLog(
       'fromMediaStreamsList count=${versionStreams.length} paths=[$paths] streams=[$summary]',
@@ -312,8 +305,10 @@ class AudioAndSubStreamModel extends StreamModel {
 
 class VersionStreamModel {
   final String name;
+
   /// Telegram message caption for this upload (from API `MediaSourceInfo.Name` suffix).
   final String? oxTelegramCaption;
+
   /// Jellyfin `MediaSourceInfo.path` when present (e.g. `oxplayer://telegram/<mediaId>`).
   final String? oxLocatorPath;
   final int index;

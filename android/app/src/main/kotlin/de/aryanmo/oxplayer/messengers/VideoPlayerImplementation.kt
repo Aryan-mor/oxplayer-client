@@ -283,18 +283,46 @@ fun ExoPlayer.properlySetSubAndAudioTracks(playableData: PlayableData) {
         // In TV mode, do not set tracks here as they are handled differently
         return
     }
+    val exo = this
     try {
         val currentSubIndex = playableData.defaultSubtrack
-        val indexOfSubtitleTrack =
-            playableData.subtitleTracks.indexOfFirst { it.index == currentSubIndex }
         val internalSubTracks = this.getSubtitleTracks()
+        val listPos = playableData.subtitleTracks.indexOfFirst { it.index == currentSubIndex }
+        val wantedSubIndex: Int = when {
+            listPos >= 0 -> listPos - 1
+            currentSubIndex > 0 &&
+                internalSubTracks.isNotEmpty() &&
+                listPos < 0 -> {
+                // defaultSubtrack is a Jellyfin/global stream index that no longer matches any
+                // pigeon row (e.g. mux-only rebuild uses 1..n). Old logic used listPos-1 == -2
+                // and cleared subtitles — user saw "selected" in UI but nothing on screen.
+                0
+            }
+            else -> listPos - 1
+        }
 
-        val wantedSubIndex = indexOfSubtitleTrack - 1
         if (wantedSubIndex < 0) {
             clearSubtitleTrack()
+        } else if (wantedSubIndex >= internalSubTracks.size) {
+            // Exo text tracks not mapped yet; a later onTracksChanged will schedule again.
         } else {
-            enableSubtitles()
-            setInternalSubtitleTrack(internalSubTracks[wantedSubIndex])
+            val subTrack = internalSubTracks[wantedSubIndex]
+            // Media3/ASS: first override often does not paint on SubtitleView until the user
+            // turns subtitles off and back on. Clear text renderer, then apply on the next
+            // frame(s) — same effect without requiring manual toggle.
+            clearSubtitleTrack()
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    exo.setInternalSubtitleTrack(subTrack)
+                    Handler(Looper.getMainLooper()).post {
+                        try {
+                            exo.setInternalSubtitleTrack(subTrack)
+                        } catch (_: Exception) {
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }
         }
 
         val currentAudioIndex = playableData.defaultAudioTrack

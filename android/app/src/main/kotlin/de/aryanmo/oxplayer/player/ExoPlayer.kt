@@ -209,9 +209,11 @@ internal fun ExoPlayer(
                 VideoPlayerObject.exoAudioTracks.value = audioTracks
 
                 val impl = VideoPlayerObject.implementation
+                // Short deferral: track groups must be mapped before overrides stick; a 1s
+                // wait was unnecessarily slow and kept subtitles off until user interaction.
                 val scheduleApplyDefaults: () -> Unit = {
                     val playbackData = impl.playbackData.value
-                    Handler(Looper.getMainLooper()).postDelayed(delayInMillis = 1.seconds.inWholeMilliseconds) {
+                    Handler(Looper.getMainLooper()).postDelayed(delayInMillis = 150) {
                         playbackData?.let { exoPlayer.properlySetSubAndAudioTracks(it) }
                     }
                 }

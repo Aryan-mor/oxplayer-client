@@ -165,9 +165,12 @@ fun ExoPlayer.setInternalSubtitleTrack(subtitleTrack: InternalTrack) {
                 .build()
         )
 
-        // Apply override (replaces other text overrides)
+        // Clear text overrides first so the first selection after prepare always
+        // triggers a fresh TextRenderer → SubtitleView bind (avoids "selected in UI
+        // but invisible until user toggles track" on some Media3 builds).
         this.trackSelectionParameters = this.trackSelectionParameters
             .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
             .setOverrideForType(override)
             .build()
     } catch (e: Exception) {

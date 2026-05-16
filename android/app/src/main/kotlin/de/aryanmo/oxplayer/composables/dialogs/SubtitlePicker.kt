@@ -1,5 +1,6 @@
 package de.aryanmo.oxplayer.composables.dialogs
 
+import SubtitleTrack
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,11 +19,42 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import android.os.Handler
+import android.os.Looper
+import de.aryanmo.oxplayer.messengers.properlySetSubAndAudioTracks
 import de.aryanmo.oxplayer.objects.Localized
 import de.aryanmo.oxplayer.objects.Translate
 import de.aryanmo.oxplayer.objects.VideoPlayerObject
+import de.aryanmo.oxplayer.utility.InternalTrack
 import de.aryanmo.oxplayer.utility.clearSubtitleTrack
 import de.aryanmo.oxplayer.utility.setInternalSubtitleTrack
+
+/** Server sent a real subtitle list (more than a lone Off row). */
+private fun hasUsableServerSubtitleList(server: List<SubtitleTrack>): Boolean =
+    server.isNotEmpty() && (server.size > 1 || server.any { it.index != -1L })
+
+/** Off + one row per muxed Exo text track; indices -1, 1..n match [properlySetSubAndAudioTracks] list layout. */
+private fun muxedFallbackSubtitleRows(internal: List<InternalTrack>): List<SubtitleTrack> {
+    if (internal.isEmpty()) return emptyList()
+    val off = SubtitleTrack(
+        name = "Off",
+        languageCode = "",
+        codec = "",
+        index = -1L,
+        external = false,
+        url = null,
+    )
+    return listOf(off) + internal.mapIndexed { i, t ->
+        SubtitleTrack(
+            name = t.label.ifBlank { "Subtitle ${i + 1}" },
+            languageCode = t.language.orEmpty(),
+            codec = t.codec.orEmpty(),
+            index = (i + 1).toLong(),
+            external = false,
+            url = null,
+        )
+    }
+}
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -34,20 +66,53 @@ fun SubtitlePicker(
     val subTitles by VideoPlayerObject.subtitleTracks.collectAsState(emptyList())
     val internalSubTracks by VideoPlayerObject.exoSubTracks.collectAsState(emptyList())
 
-    if (subTitles.isEmpty()) return
+    val effectiveSubTitles = remember(subTitles, internalSubTracks) {
+        if (hasUsableServerSubtitleList(subTitles)) {
+            subTitles
+        } else {
+            muxedFallbackSubtitleRows(internalSubTracks).ifEmpty { subTitles }
+        }
+    }
 
-    val focusRequesters = remember(subTitles) {
-        subTitles.associateWith { FocusRequester() }
+    LaunchedEffect(subTitles, internalSubTracks) {
+        if (internalSubTracks.isEmpty()) return@LaunchedEffect
+        if (hasUsableServerSubtitleList(subTitles)) return@LaunchedEffect
+        val impl = VideoPlayerObject.implementation
+        val cur = impl.playbackData.value ?: return@LaunchedEffect
+        val built = muxedFallbackSubtitleRows(internalSubTracks)
+        if (built.isEmpty() || cur.subtitleTracks == built) return@LaunchedEffect
+        val prevDef = cur.defaultSubtrack
+        // If Jellyfin default stream index does not exist on rebuilt mux rows (-1,1,2,…), keep
+        // "subtitles on" by defaulting to the first real track (index 1), not Off.
+        val newDef = when {
+            built.any { it.index == prevDef } -> prevDef
+            prevDef > 0 && built.size > 1 -> 1L
+            else -> -1L
+        }
+        impl.playbackData.value = cur.copy(subtitleTracks = built, defaultSubtrack = newDef)
+        VideoPlayerObject.setSubtitleTrackIndex(newDef.toInt(), init = true)
+        val patched = impl.playbackData.value
+        if (patched != null) {
+            Handler(Looper.getMainLooper()).post {
+                player.properlySetSubAndAudioTracks(patched)
+            }
+        }
+    }
+
+    if (effectiveSubTitles.isEmpty()) return
+
+    val focusRequesters = remember(effectiveSubTitles) {
+        effectiveSubTitles.associateWith { FocusRequester() }
     }
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(selectedIndex, subTitles) {
-        val selectedSubIndex = subTitles.indexOfFirst { it.index == selectedIndex.toLong() }
+    LaunchedEffect(selectedIndex, effectiveSubTitles) {
+        val selectedSubIndex = effectiveSubTitles.indexOfFirst { it.index == selectedIndex.toLong() }
 
-        if (selectedSubIndex in subTitles.indices) {
+        if (selectedSubIndex in effectiveSubTitles.indices) {
             listState.scrollToItem(selectedSubIndex)
-            focusRequesters[subTitles[selectedSubIndex]]?.requestFocus()
+            focusRequesters[effectiveSubTitles[selectedSubIndex]]?.requestFocus()
         }
     }
 
@@ -61,7 +126,7 @@ fun SubtitlePicker(
                 .wrapContentWidth()
                 .padding(horizontal = 8.dp, vertical = 16.dp),
         ) {
-            subTitles.forEachIndexed { index, serverSub ->
+            effectiveSubTitles.forEachIndexed { index, serverSub ->
                 val isOffTrack = index == 0
                 val selected = serverSub.index == selectedIndex.toLong()
 
@@ -71,8 +136,12 @@ fun SubtitlePicker(
                             .fillMaxWidth()
                             .focusRequester(focusRequesters[serverSub]!!),
                         onClick = {
+                            val serverList =
+                                VideoPlayerObject.implementation.playbackData.value?.subtitleTracks.orEmpty()
+                            val shouldSyncFlutter = serverList.isNotEmpty() &&
+                                !(serverList.size == 1 && serverList[0].index == -1L)
                             if (isOffTrack) {
-                                VideoPlayerObject.setSubtitleTrackIndex(-1)
+                                VideoPlayerObject.setSubtitleTrackIndex(-1, init = !shouldSyncFlutter)
                                 player.clearSubtitleTrack()
                             } else {
                                 val internalTrackIndex = index - 1
@@ -81,8 +150,17 @@ fun SubtitlePicker(
                                     internalSubTracks.elementAtOrNull(internalTrackIndex)
 
                                 if (internalSubTrack != null) {
-                                    VideoPlayerObject.setSubtitleTrackIndex(serverSub.index.toInt())
-                                    player.setInternalSubtitleTrack(internalSubTrack)
+                                    VideoPlayerObject.setSubtitleTrackIndex(
+                                        serverSub.index.toInt(),
+                                        init = !shouldSyncFlutter,
+                                    )
+                                    player.clearSubtitleTrack()
+                                    Handler(Looper.getMainLooper()).post {
+                                        player.setInternalSubtitleTrack(internalSubTrack)
+                                        Handler(Looper.getMainLooper()).post {
+                                            player.setInternalSubtitleTrack(internalSubTrack)
+                                        }
+                                    }
                                 }
                             }
                         },

@@ -45,7 +45,10 @@ class ViewsNotifier extends StateNotifier<ViewsModel> {
   /// explicit refresh (pull-to-refresh, tab return) is not swallowed by deduplication.
   Future<ViewsModel?> fetchViews({bool force = false}) async {
     // User pull-to-refresh passes [force]: still attempt a fetch so coming back online works.
-    if (ref.read(effectiveOfflineModeProvider) && !force) return state;
+    if (ref.read(effectiveOfflineModeProvider) && !force) {
+      state = state.copyWith(loading: false);
+      return state;
+    }
     if (!force && _fetchViewsInFlight != null) {
       return _fetchViewsInFlight!;
     }

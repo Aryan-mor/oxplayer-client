@@ -6,7 +6,7 @@ class ViewsModel {
   final List<ViewModel> views;
   final List<ViewModel> dashboardViews;
   ViewsModel({
-    this.loading = false,
+    this.loading = true,
     this.views = const [],
     this.dashboardViews = const [],
   });

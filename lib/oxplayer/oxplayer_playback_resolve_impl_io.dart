@@ -790,7 +790,7 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
     await _oxLogGeneralVideoProviderBotReachable(tdlib);
   }
 
-  final resolvedMedia = await resolveTelegramMediaFile(
+  var resolvedMedia = await resolveTelegramMediaFile(
     tdlib: tdlib,
     mediaFileId: file.mediaId,
     fileUniqueId: file.fileUniqueId,
@@ -802,12 +802,44 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
     onDiagnostic: onDiag,
   );
 
+  if (resolvedMedia == null && isGeneralVideo) {
+    oxTelegramLocalStreamLog(
+      'tdlib.file',
+      'GENERAL_VIDEO locator failed → POST /me/recover-from-backup (provider-bot copies clone/backup to user DM + locator)',
+    );
+    final recovered = await _postRecoverFromBackup(ref, file.mediaId, fresh: false);
+    if (recovered == true) {
+      final detailAfter = await _fetchLibraryMediaDetail(ref, mediaId);
+      final fileAfter =
+          detailAfter != null ? _pickFile(detailAfter, mediaId) : null;
+      if (fileAfter != null) {
+        resolvedMedia = await resolveTelegramMediaFile(
+          tdlib: tdlib,
+          mediaFileId: fileAfter.mediaId,
+          fileUniqueId: fileAfter.fileUniqueId,
+          locatorType: fileAfter.locatorType,
+          locatorChatId: fileAfter.locatorChatId,
+          locatorMessageId: fileAfter.locatorMessageId,
+          locatorRemoteFileId: fileAfter.locatorRemoteFileId,
+          locatorTagTelegramSearchChatIds: envSearchChats,
+          onDiagnostic: onDiag,
+        );
+      }
+    } else {
+      oxTelegramLocalStreamLog(
+        'recover',
+        'recover-from-backup did not succeed (recovered=$recovered) — check provider-bot + clone access',
+      );
+    }
+  }
+
   if (resolvedMedia == null) {
     if (isGeneralVideo) {
       oxTelegramLocalStreamLog(
         'tdlib.file',
-        'FAIL GENERAL_VIDEO — send the same video in your private chat with the provider bot, '
-        'then POST /me/library/media/locator-heal with the resolved chat+message (or retry play)',
+        'FAIL GENERAL_VIDEO — still no playable locator after recovery; '
+            'ensure provider-bot runs, TELEGRAM_PROVIDER_BOT_USERNAME matches the bot that DMed you, '
+            'or POST /me/library/media/locator-heal manually',
       );
       return null;
     }

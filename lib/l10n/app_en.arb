@@ -2710,5 +2710,24 @@
   "oxplayerRemoveGeneralVideoSuccess": "Video removed from library.",
   "@oxplayerRemoveGeneralVideoSuccess": {},
   "oxplayerRemoveGeneralVideoFailed": "Could not remove video.",
-  "@oxplayerRemoveGeneralVideoFailed": {}
+  "@oxplayerRemoveGeneralVideoFailed": {},
+  "oxplayerHelpTitle": "Get started",
+  "@oxplayerHelpTitle": {},
+  "oxplayerHelpBody": "OXPlayer is your Telegram media library in one place. Send or forward media to the bot to add it here then browse and play from Home.",
+  "@oxplayerHelpBody": {},
+  "oxplayerHelpQrCaption": "Scan with your phone to open the bot in Telegram.",
+  "@oxplayerHelpQrCaption": {},
+  "oxplayerHelpOpenBot": "Open @{username} in Telegram",
+  "@oxplayerHelpOpenBot": {
+    "placeholders": {
+      "username": {
+        "type": "String",
+        "example": "OXPlayerBot"
+      }
+    }
+  },
+  "oxplayerHelpBotNotConfigured": "This build has no bot username configured.",
+  "@oxplayerHelpBotNotConfigured": {},
+  "oxplayerHelpNavLabel": "Help",
+  "@oxplayerHelpNavLabel": {}
 }

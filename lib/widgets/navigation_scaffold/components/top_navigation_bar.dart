@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/settings/client_settings_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/routes/auto_router.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
@@ -204,6 +205,16 @@ class TopNavigationBar extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (OxplayerConfig.isEnabled)
+                          NavigationButton(
+                            label: context.localized.oxplayerHelpNavLabel,
+                            selected: currentLocation.contains(OxplayerHelpRoute.name),
+                            selectedIcon: const Icon(IconsaxPlusBold.message_question),
+                            horizontal: true,
+                            expanded: false,
+                            icon: const Icon(IconsaxPlusLinear.message_question),
+                            onPressed: () => context.router.push(const OxplayerHelpRoute()),
+                          ),
                         NavigationButton(
                           label: context.localized.settings,
                           selected: currentLocation.contains(const SettingsRoute().routeName),

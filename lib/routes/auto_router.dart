@@ -100,6 +100,7 @@ final List<AutoRoute> detailsRoutes = [
   AutoRoute(page: MyTelegramChatMediaRoute.page, path: 'my-telegram/chat'),
   AutoRoute(page: MyTelegramVideoDetailRoute.page, path: 'my-telegram/video'),
   AutoRoute(page: MyTelegramForumTopicsRoute.page, path: 'my-telegram/forum'),
+  AutoRoute(page: OxplayerHelpRoute.page, path: 'help'),
 ];
 
 final List<AutoRoute> _defaultRoutes = [

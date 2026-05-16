@@ -4,6 +4,8 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_help_header_icon_button.dart';
 import 'package:fladder/widgets/navigation_scaffold/components/settings_user_icon.dart';
 
 class NestedSliverAppBar extends ConsumerWidget {
@@ -56,6 +58,7 @@ class NestedSliverAppBar extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
+                  if (OxplayerConfig.isEnabled) const OxplayerHelpHeaderIconButton(),
                   const SettingsUserIcon()
                 ],
               ),

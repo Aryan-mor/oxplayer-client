@@ -16,7 +16,9 @@ import 'package:fladder/providers/settings/home_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_help_content.dart';
 import 'package:fladder/oxplayer/oxplayer_home_banner_carousel.dart';
+import 'package:fladder/oxplayer/oxplayer_home_dashboard_has_content.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/dashboard/home_banner_widget.dart';
 import 'package:fladder/screens/home_screen.dart';
@@ -130,6 +132,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final useTVExpandedLayout = ref.watch(clientSettingsProvider.select((value) => value.useTVExpandedLayout));
 
+    final showOxEmbeddedHelp = OxplayerConfig.isEnabled &&
+        !dashboardData.loading &&
+        !views.loading &&
+        !oxplayerHomeDashboardHasVisibleContent(
+          homeBanner: homeBanner,
+          homeCarouselItems: homeCarouselItems,
+          tvChannels: tvChannels,
+          resumeVideo: resumeVideo,
+          resumeAudio: resumeAudio,
+          resumeBooks: resumeBooks,
+          nextUp: dashboardData.nextUp,
+          nextUpSetting: homeSettings.nextUp,
+          dashboardViews: views.dashboardViews,
+        );
+
     return NestedScaffold(
       background: ValueListenableBuilder<ItemBaseModel?>(
         valueListenable: selectedPoster,
@@ -188,6 +205,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       PosterSizeWidget(),
                     ],
                   ),
+                ),
+              if (showOxEmbeddedHelp)
+                const SliverToBoxAdapter(
+                  child: OxplayerHelpContent(embedded: true),
                 ),
               ...[
                 if (tvChannels.isNotEmpty)

@@ -153,6 +153,13 @@ abstract final class OxplayerEnv {
     return t.isEmpty ? null : t;
   }
 
+  /// `https://t.me/<bot>` when [botUsername] is set.
+  static String? get telegramBotOpenLink {
+    final b = botUsername;
+    if (b == null || b.isEmpty) return null;
+    return 'https://t.me/$b';
+  }
+
   /// Mini App short name for `https://t.me/<bot>/<shortName>`, optional.
   static String? get telegramWebAppShortName {
     if (!OxplayerConfig.isEnabled) return null;

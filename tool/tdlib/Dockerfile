@@ -20,9 +20,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gperf \
     ninja-build \
+    php-cli \
     python3 \
     unzip \
     wget \
+    zip \
     zlib1g-dev \
     libssl-dev \
     pkg-config \

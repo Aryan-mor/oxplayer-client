@@ -11,33 +11,10 @@ import 'package:fladder/td_api_generated/td_api.dart' as td;
 import 'oxplayer_tdlib_debug.dart';
 import 'td_json_official_client.dart';
 import 'tdlib_facade.dart';
+import 'utils/tdlib_wire_json_compat.dart';
 
 void _tdlog(String message) {
   debugPrint(message);
-}
-
-/// Debug aid: root `@type` after sanitize, plus a hint for `updateChatLastMessage` / reply markup.
-String _tdlibReceivePeekForLog(String raw) {
-  try {
-    final s = raw;
-    final d = jsonDecode(s);
-    if (d is! Map) {
-      return 'shape=${d.runtimeType}';
-    }
-    final t = d['@type']?.toString() ?? 'null-@type';
-    if (t == 'updateChatLastMessage') {
-      final last = d['last_message'];
-      if (last is Map) {
-        final rm = last['reply_markup'];
-        if (rm is Map) {
-          return '$t reply_markup=${rm['@type']}';
-        }
-      }
-    }
-    return t;
-  } catch (e) {
-    return 'peek error: $e';
-  }
 }
 
 const _kDownloadConnectionsCount = 16;
@@ -244,7 +221,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
     if (_clientId == null) {
       throw StateError('Call init() before submitting password.');
     }
-    tdJsonClientSend(_clientId!, td.CheckAuthenticationPassword(password: password));
+    await send(td.CheckAuthenticationPassword(password: password));
   }
 
   @override
@@ -409,7 +386,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
       if (message is! String) return;
       try {
         final sanitized = message;
-        final obj = td.convertToObject(sanitized);
+        final obj = td.convertToObject(tdJsonPrepareForConvertToObject(sanitized));
         if (obj == null) return;
 
         _tdReceiveSuccessCount += 1;
@@ -442,7 +419,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
           _handleSessionUser(obj);
         }
       } catch (error, stackTrace) {
-        final peek = _tdlibReceivePeekForLog(message);
+        final peek = tdlibJsonPeekForLog(message);
         final len = message.length;
         final head = len > 600 ? '${message.substring(0, 600)}…' : message;
         _tdlog(
@@ -451,8 +428,8 @@ class TelegramTdlibFacade implements TdTelegramClient {
         _tdlog('TDLib receive dispatch error: $error\n$stackTrace');
         _tdlog('[TDLib rx] raw head (max 600ch): $head');
         try {
-          final decoded = jsonDecode(message);
-          if (decoded is Map<String, dynamic>) {
+          final decoded = parseTdJsonObjectMap(message);
+          if (decoded != null) {
             final extraStr = decoded['@extra']?.toString();
             if (extraStr != null) {
               _tdlog(

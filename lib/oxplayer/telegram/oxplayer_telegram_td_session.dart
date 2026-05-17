@@ -5,12 +5,32 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fladder/td_api_generated/td_api.dart' as td_api;
 
+import 'package:fladder/oxplayer/oxplayer_debug.dart';
+import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 
 import 'oxplayer_telegram_td_runtime.dart';
 import 'tdlib_controller.dart' if (dart.library.html) 'tdlib_controller_web.dart';
 import 'tdlib_facade.dart';
+
+String _describeTdSendFailure(Object e) {
+  if (e is td_api.TdError) {
+    return '${e.message} (code ${e.code})';
+  }
+  try {
+    final dyn = e as dynamic;
+    final m = dyn.message;
+    if (m is String && m.isNotEmpty) {
+      return m;
+    }
+  } catch (_) {}
+  final s = e.toString();
+  if (s.contains('[object Object]') || s.contains('LegacyJavaScriptObject')) {
+    return 'JS/TDLib request failed (open browser console → Network / TDLib for the rejected promise).';
+  }
+  return s;
+}
 
 const _kOxDeviceIdPrefsKey = 'oxplayer_td_device_id';
 
@@ -20,6 +40,10 @@ final class OxplayerTelegramTdSession {
 
   final TelegramTdlibFacade _td;
   bool _clientInited = false;
+
+  /// Dedupes concurrent [fetchSignedInitData] (e.g. duplicate [authenticatedUserId] events)
+  /// so Telegram one-shot WebApp auth tokens are not consumed twice in parallel.
+  Future<String>? _signedInitDataInFlight;
 
   TdlibFacade get td => _td;
 
@@ -133,9 +157,79 @@ final class OxplayerTelegramTdSession {
 
   Future<void> startQrLogin() async {
     debugPrint('[OX TDLib] startQrLogin: begin');
+    await initClient();
+    await _ensureFreshPhoneNumberGateForQrStart();
     await _waitForPhoneNumberState();
     debugPrint('[OX TDLib] startQrLogin: posting RequestQrCodeAuthentication to TDLib');
-    return _td.startQrLogin();
+    try {
+      await _td.startQrLogin();
+    } catch (e) {
+      if (!_isStaleTelegramAuthTokenError(e)) rethrow;
+      debugPrint(
+        '[OX TDLib] startQrLogin: stale auth token (${e is td_api.TdError ? e.message : e}) — resetting once.',
+      );
+      await resetLocalSessionForQrLogin();
+      await initClient();
+      await _waitForPhoneNumberState();
+      await _td.startQrLogin();
+    }
+  }
+
+  /// After a refresh, TDLib can resume mid-login (2FA, QR confirm). [RequestQrCodeAuthentication]
+  /// is only valid from [td_api.AuthorizationStateWaitPhoneNumber]; clear local storage first.
+  Future<void> abandonStaleInteractiveAuthIfNeeded() async {
+    await initClient();
+    final td_api.TdObject r;
+    try {
+      r = await _td
+          .send(const td_api.GetAuthorizationState())
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      return;
+    }
+    if (r is! td_api.AuthorizationState) return;
+    final dirty = r is td_api.AuthorizationStateWaitPassword ||
+        r is td_api.AuthorizationStateWaitCode ||
+        r is td_api.AuthorizationStateWaitOtherDeviceConfirmation ||
+        r is td_api.AuthorizationStateWaitEmailAddress ||
+        r is td_api.AuthorizationStateWaitEmailCode ||
+        r is td_api.AuthorizationStateWaitRegistration;
+    if (!dirty) return;
+    debugPrint(
+      '[OX TDLib] abandonStaleInteractiveAuthIfNeeded: clearing partial login (${r.runtimeType})',
+    );
+    await resetLocalSessionForQrLogin();
+    await initClient();
+  }
+
+  Future<void> _ensureFreshPhoneNumberGateForQrStart() async {
+    td_api.TdObject r;
+    try {
+      r = await _td
+          .send(const td_api.GetAuthorizationState())
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      return;
+    }
+    if (r is td_api.AuthorizationStateWaitPhoneNumber) return;
+    if (r is td_api.AuthorizationStateWaitTdlibParameters) {
+      await _waitForPhoneNumberState();
+      return;
+    }
+    debugPrint(
+      '[OX TDLib] QR requires WaitPhoneNumber; saw ${r.runtimeType} — resetting local Telegram session.',
+    );
+    await resetLocalSessionForQrLogin();
+    await initClient();
+    await _waitForPhoneNumberState();
+  }
+
+  static bool _isStaleTelegramAuthTokenError(Object e) {
+    final raw = e is td_api.TdError ? e.message : e.toString();
+    final compact = raw.toUpperCase().replaceAll(RegExp(r'\s+'), '');
+    return compact.contains('AUTH_TOKEN_ALREADY_ACCEPTED') ||
+        compact.contains('AUTHTOKENALREADYACCEPTED') ||
+        raw.toUpperCase().contains('ALREADY ACCEPTED');
   }
 
   Future<void> submitAuthenticationPhoneNumber(String phone) async {
@@ -256,10 +350,30 @@ final class OxplayerTelegramTdSession {
 
   /// Same pipeline as oxplayer-android [DataRepository._fetchSignedInitData]: TDLib obtains signed WebApp initData.
   Future<String> fetchSignedInitData() async {
+    final existing = _signedInitDataInFlight;
+    if (existing != null) return existing;
+    final created = _fetchSignedInitDataImpl();
+    _signedInitDataInFlight = created;
+    try {
+      return await created;
+    } finally {
+      _signedInitDataInFlight = null;
+    }
+  }
+
+  Future<String> _fetchSignedInitDataImpl() async {
     await _td.ensureAuthorized();
     final botUser = OxplayerEnv.botUsername;
     if (botUser == null || botUser.isEmpty) {
       throw StateError('BOT_USERNAME (or OXPLAYER_BOT_USERNAME) is not configured.');
+    }
+
+    final initDbg = OxplayerEnv.telegramWebAppInitDataDebugOverride;
+    if (initDbg != null && initDbg.isNotEmpty) {
+      oxEnvLog(
+        'fetchSignedInitData: OXPLAYER_DEBUG_TELEGRAM_INIT_DATA set (web debug bypass; skips GetWebApp*)',
+      );
+      return initDbg;
     }
 
     final resolved =
@@ -278,57 +392,175 @@ final class OxplayerTelegramTdSession {
 
     String? webAppUrl;
     td_api.TdError? shortNameError;
+    td_api.TdError? fallbackUrlError;
+    String? otherFailure;
 
     final shortName = OxplayerEnv.telegramWebAppShortName?.trim() ?? '';
-    if (shortName.isNotEmpty) {
-      try {
-        final result = await _td.send(
-          td_api.GetWebAppLinkUrl(
+
+    var fallbackUrl = OxplayerEnv.telegramWebAppUrl ?? '';
+    if (fallbackUrl.isEmpty) {
+      fallbackUrl = OxplayerEnv.telegramMiniAppOpenLink ?? '';
+    }
+    fallbackUrl = OxplayerEnv.compactTelegramWireUrl(fallbackUrl);
+
+    if (kIsWeb) {
+      // tdweb pin may omit [getWebAppLinkUrl] and [getWebAppUrl]; [getMainWebApp] is older.
+      const params = td_api.WebAppOpenParameters(theme: null, applicationName: 'oxplayer');
+      final webErrs = <String>[];
+      Future<String?> sendWeb(td_api.TdFunction fn) async {
+        try {
+          final r = await _td.send(fn).timeout(const Duration(seconds: 25));
+          if (r is td_api.HttpUrl) {
+            return r.url;
+          }
+          if (r is td_api.MainWebApp) {
+            final u = r.url.trim();
+            if (u.isNotEmpty) {
+              return u;
+            }
+          }
+        } on td_api.TdError catch (e) {
+          webErrs.add('${fn.runtimeType}: ${e.message} (${e.code})');
+        } catch (e) {
+          webErrs.add('${fn.runtimeType}: ${_describeTdSendFailure(e)}');
+        }
+        return null;
+      }
+
+      if (shortName.isNotEmpty) {
+        webAppUrl = await sendWeb(
+          td_api.GetMainWebApp(
             chatId: privateChat.id,
             botUserId: botUserId,
-            webAppShortName: shortName,
-            startParameter: '',
-            allowWriteAccess: true,
-            parameters: const td_api.WebAppOpenParameters(
-              theme: null,
-              applicationName: 'oxplayer',
-            ),
+            startParameter: shortName,
+            parameters: params,
           ),
         );
-        if (result is td_api.HttpUrl) {
-          webAppUrl = result.url;
-        }
-      } catch (e) {
-        if (e is td_api.TdError) shortNameError = e;
       }
-    }
-
-    final fallbackUrl = OxplayerEnv.telegramWebAppUrl?.trim() ?? '';
-    if (webAppUrl == null && fallbackUrl.isNotEmpty) {
-      final fallbackResult = await _td.send(
-        td_api.GetWebAppUrl(
+      webAppUrl ??= await sendWeb(
+        td_api.GetMainWebApp(
+          chatId: privateChat.id,
           botUserId: botUserId,
-          url: fallbackUrl,
-          parameters: const td_api.WebAppOpenParameters(
-            theme: null,
-            applicationName: 'oxplayer',
-          ),
+          startParameter: '',
+          parameters: params,
         ),
       );
-      if (fallbackResult is td_api.HttpUrl) {
-        webAppUrl = fallbackResult.url;
+      if (webAppUrl == null && fallbackUrl.isNotEmpty) {
+        webAppUrl = await sendWeb(
+          td_api.GetWebAppUrl(
+            botUserId: botUserId,
+            url: fallbackUrl,
+            parameters: params,
+          ),
+        );
+      }
+      if (webAppUrl == null && webErrs.isNotEmpty) {
+        otherFailure = webErrs.join(' | ');
+      }
+    } else {
+      // Native tdlib-json: [getWebAppLinkUrl] then [getWebAppUrl].
+      if (shortName.isNotEmpty) {
+        for (var attempt = 0; attempt < 2 && webAppUrl == null; attempt++) {
+          try {
+            final result = await _td.send(
+              td_api.GetWebAppLinkUrl(
+                chatId: privateChat.id,
+                botUserId: botUserId,
+                webAppShortName: shortName,
+                startParameter: '',
+                allowWriteAccess: true,
+                parameters: const td_api.WebAppOpenParameters(
+                  theme: null,
+                  applicationName: 'oxplayer',
+                ),
+              ),
+            );
+            if (result is td_api.HttpUrl) {
+              webAppUrl = result.url;
+            }
+          } catch (e) {
+            if (attempt == 0 && _isStaleTelegramAuthTokenError(e)) {
+              await Future<void>.delayed(const Duration(milliseconds: 450));
+              continue;
+            }
+            if (e is td_api.TdError) {
+              shortNameError = e;
+            } else {
+              otherFailure ??= _describeTdSendFailure(e);
+            }
+          }
+        }
+      }
+
+      if (webAppUrl == null && fallbackUrl.isNotEmpty) {
+        for (var attempt = 0; attempt < 2 && webAppUrl == null; attempt++) {
+          try {
+            final fallbackResult = await _td.send(
+              td_api.GetWebAppUrl(
+                botUserId: botUserId,
+                url: fallbackUrl,
+                parameters: const td_api.WebAppOpenParameters(
+                  theme: null,
+                  applicationName: 'oxplayer',
+                ),
+              ),
+            );
+            if (fallbackResult is td_api.HttpUrl) {
+              webAppUrl = fallbackResult.url;
+            }
+          } catch (e) {
+            if (attempt == 0 && _isStaleTelegramAuthTokenError(e)) {
+              await Future<void>.delayed(const Duration(milliseconds: 450));
+              continue;
+            }
+            if (e is td_api.TdError) {
+              fallbackUrlError = e;
+            } else {
+              otherFailure ??= _describeTdSendFailure(e);
+            }
+          }
+        }
       }
     }
 
     if (webAppUrl == null) {
-      if (shortNameError != null) {
-        throw StateError(
-          'WebApp initData failed (${shortNameError.message}). '
-          'Configure OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME or OXPLAYER_TELEGRAM_WEBAPP_URL.',
+      const tdwebSyncHint =
+          'On web, sync tdweb to tool/tdlib/TD_VERSION.json (see web/tdweb/README). '
+          'Debug-only: OXPLAYER_DEBUG_TELEGRAM_INIT_DATA when kDebugMode.';
+      final short = OxplayerEnv.telegramWebAppShortName?.trim() ?? '';
+      final directUrl = OxplayerEnv.telegramWebAppUrl ?? '';
+      final mini = OxplayerEnv.compactTelegramWireUrl(
+        OxplayerEnv.telegramMiniAppOpenLink ?? '',
+      );
+      if (shortNameError != null || fallbackUrlError != null || otherFailure != null) {
+        final b = StringBuffer('Cannot get WebApp URL from Telegram.');
+        if (shortNameError != null) {
+          b.write(
+            ' GetWebAppLinkUrl: ${shortNameError.message} (code ${shortNameError.code}).',
+          );
+        }
+        if (fallbackUrlError != null) {
+          b.write(
+            ' GetWebAppUrl: ${fallbackUrlError.message} (code ${fallbackUrlError.code}).',
+          );
+        }
+        if (otherFailure != null) {
+          b.write(' $otherFailure');
+        }
+        b.write(
+          ' short_name="$short" mini="$mini" dotenv=${OxplayerDotenv.isLoaded}.',
         );
+        if (kIsWeb) {
+          b.write(' $tdwebSyncHint');
+        }
+        throw StateError(b.toString());
       }
       throw StateError(
-        'Cannot get WebApp URL. Set OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME or OXPLAYER_TELEGRAM_WEBAPP_URL.',
+        'Cannot get WebApp URL from Telegram (TDLib returned no URL and no error). '
+        'short_name="$short" direct_url_set=${directUrl.isNotEmpty} mini="$mini" '
+        'dotenv=${OxplayerDotenv.isLoaded}. Use pnpm flutter:web or '
+        '--dart-define-from-file=dart_defines.dev.json.'
+        '${kIsWeb ? ' $tdwebSyncHint' : ''}',
       );
     }
 

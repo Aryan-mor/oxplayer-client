@@ -180,37 +180,78 @@ Future<String?> _httpGetString(Uri url, Map<String, String> headers) async {
   }
 }
 
+/// GitHub Releases (and similar CDNs) occasionally return 502/503/504.
+bool _isTransientHttpFailure(int statusCode) =>
+    statusCode == 429 ||
+    statusCode == 502 ||
+    statusCode == 503 ||
+    statusCode == 504;
+
+/// GET [url] and return body bytes. Retries transient HTTP + socket errors.
+Future<Uint8List> _httpGetBytesWithRetry(
+  Uri url,
+  Map<String, String> headers, {
+  int maxAttempts = 5,
+}) async {
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    final client = HttpClient();
+    try {
+      final req = await client.getUrl(url);
+      headers.forEach(req.headers.set);
+      final res = await req.close();
+      final code = res.statusCode;
+      if (code == HttpStatus.ok) {
+        final chunks = <int>[];
+        await for (final chunk in res) {
+          chunks.addAll(chunk);
+        }
+        return Uint8List.fromList(chunks);
+      }
+      await res.drain<void>();
+      if (_isTransientHttpFailure(code) && attempt < maxAttempts) {
+        final ms = 500 * (1 << (attempt - 1));
+        stderr.writeln(
+          '[fetch_artifacts] GET $url → $code (attempt $attempt/$maxAttempts), '
+          'retrying in ${ms}ms…',
+        );
+        await Future<void>.delayed(Duration(milliseconds: ms));
+        continue;
+      }
+      throw HttpException('GET $url → $code');
+    } on SocketException catch (e) {
+      if (attempt < maxAttempts) {
+        final ms = 500 * (1 << (attempt - 1));
+        stderr.writeln(
+          '[fetch_artifacts] GET $url failed: $e (attempt $attempt/$maxAttempts), '
+          'retrying in ${ms}ms…',
+        );
+        await Future<void>.delayed(Duration(milliseconds: ms));
+        continue;
+      }
+      rethrow;
+    } finally {
+      client.close(force: true);
+    }
+  }
+  throw HttpException('GET $url → exceeded retry budget');
+}
+
 Future<void> _downloadAndVerify({
   required Uri url,
   required File dest,
   required Map<String, String> headers,
   String? expectedSha256,
 }) async {
-  final client = HttpClient();
-  try {
-    final req = await client.getUrl(url);
-    headers.forEach(req.headers.set);
-    final res = await req.close();
-    if (res.statusCode != HttpStatus.ok) {
-      throw HttpException('GET $url → ${res.statusCode}');
-    }
-    final chunks = <int>[];
-    await for (final chunk in res) {
-      chunks.addAll(chunk);
-    }
-    final bytes = Uint8List.fromList(chunks);
-    final digest = sha256.convert(bytes).toString();
-    if (expectedSha256 != null &&
-        expectedSha256.toLowerCase() != digest.toLowerCase()) {
-      throw StateError(
-          'SHA256 mismatch for $url (expected $expectedSha256 got $digest)');
-    }
-    dest.parent.createSync(recursive: true);
-    await dest.writeAsBytes(bytes, flush: true);
-    stdout.writeln('[fetch_artifacts] wrote ${dest.path} ($digest)');
-  } finally {
-    client.close(force: true);
+  final bytes = await _httpGetBytesWithRetry(url, headers);
+  final digest = sha256.convert(bytes).toString();
+  if (expectedSha256 != null &&
+      expectedSha256.toLowerCase() != digest.toLowerCase()) {
+    throw StateError(
+        'SHA256 mismatch for $url (expected $expectedSha256 got $digest)');
   }
+  dest.parent.createSync(recursive: true);
+  await dest.writeAsBytes(bytes, flush: true);
+  stdout.writeln('[fetch_artifacts] wrote ${dest.path} ($digest)');
 }
 
 Future<void> _downloadWebArchive({
@@ -219,21 +260,8 @@ Future<void> _downloadWebArchive({
   required Map<String, String> headers,
   String? expectedSha256,
 }) async {
-  final client = HttpClient();
+  final bytes = await _httpGetBytesWithRetry(url, headers);
   try {
-    final req = await client.getUrl(url);
-    headers.forEach(req.headers.set);
-    final res = await req.close();
-    if (res.statusCode != HttpStatus.ok) {
-      throw HttpException(
-        'GET $url → ${res.statusCode} (web dist.tar.gz is required; no silent skip)',
-      );
-    }
-    final chunks = <int>[];
-    await for (final chunk in res) {
-      chunks.addAll(chunk);
-    }
-    final bytes = Uint8List.fromList(chunks);
     final digest = sha256.convert(bytes).toString();
     if (expectedSha256 != null &&
         expectedSha256.toLowerCase() != digest.toLowerCase()) {
@@ -262,7 +290,9 @@ Future<void> _downloadWebArchive({
     await tmp.delete();
     stdout.writeln(
         '[fetch_artifacts] extracted web bundle to $destDir ($digest)');
-  } finally {
-    client.close(force: true);
+  } catch (e) {
+    throw HttpException(
+      'web dist fetch/extract failed: $e (GET $url must succeed; no silent skip)',
+    );
   }
 }

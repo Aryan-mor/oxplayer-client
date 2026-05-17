@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_debug.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
@@ -51,6 +53,10 @@ abstract final class OxplayerEnv {
     'OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME',
     defaultValue: '',
   );
+  static const String _cDebugTelegramInitData = String.fromEnvironment(
+    'OXPLAYER_DEBUG_TELEGRAM_INIT_DATA',
+    defaultValue: '',
+  );
   static const String _cTelegramApiId = String.fromEnvironment(
     'TELEGRAM_API_ID',
     defaultValue: '',
@@ -94,6 +100,16 @@ abstract final class OxplayerEnv {
     return t.endsWith('/') ? t.substring(0, t.length - 1) : t;
   }
 
+  /// Removes whitespace and Unicode line/paragraph separators from pasted `.env` / dart-define values.
+  static String compactTelegramWireUrl(String raw) {
+    if (raw.isEmpty) return raw;
+    var t = raw;
+    for (final sep in ['\u0000', '\u000b', '\u0085', '\u2028', '\u2029']) {
+      t = t.replaceAll(sep, '');
+    }
+    return t.replaceAll(RegExp(r'\s+'), '');
+  }
+
   /// Normalized API origin (no trailing slash), or null when unset / blank.
   static String? get apiBaseUrl {
     if (!OxplayerConfig.isEnabled) return null;
@@ -112,10 +128,63 @@ abstract final class OxplayerEnv {
     oxEnvLog(
       'OxplayerEnv.resolve: isEnabled=${OxplayerConfig.isEnabled} '
       'dotenvInit=${OxplayerDotenv.isLoaded} '
+      'dotenvAsset=${OxplayerDotenv.loadedAssetPath ?? "none"} '
+      'dotenvKeys=${OxplayerDotenv.keyCount} '
       'defineLen apiBase=${_cApiBase.length} apiBaseUrl=${_cApiBaseUrl.length} '
       'dotenvLen apiBase=${dotBase.length} apiBaseUrl=${dotUrl.length} '
       'apiBaseUrl=${apiBaseUrl ?? 'null'} '
       'effectiveMediaServerUrl=${effectiveMediaServerUrl ?? 'null'}',
+    );
+  }
+
+  /// Logcat / DevTools: **`OX_ENV`**. Call after [OxplayerDotenv.ensureLoaded]. Does not log secrets
+  /// (only whether API id/hash exist and string lengths). Use from [main] in debug to verify env
+  /// before Telegram login / WebApp init.
+  static void debugLogTelegramReadiness() {
+    if (!OxplayerConfig.isEnabled) {
+      return;
+    }
+    final id = telegramApiId;
+    final hash = telegramApiHash;
+    final bot = botUsername;
+    final short = telegramWebAppShortName;
+    final direct = telegramWebAppUrl;
+    final mini = telegramMiniAppOpenLink;
+    final idDef = _cTelegramApiId.trim().isNotEmpty;
+    final idDot = OxplayerDotenv.get('TELEGRAM_API_ID').trim().isNotEmpty;
+    final hashDef = _cTelegramApiHash.trim().isNotEmpty;
+    final hashDot = OxplayerDotenv.get('TELEGRAM_API_HASH').trim().isNotEmpty;
+    final shortDef = _cWebAppShortName.trim().isNotEmpty;
+    final shortDot =
+        OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME').trim().isNotEmpty;
+    final botDef =
+        _cBotUsername.trim().isNotEmpty || _cBotUsernameLegacy.trim().isNotEmpty;
+    final botDot = OxplayerDotenv.get('BOT_USERNAME').trim().isNotEmpty ||
+        OxplayerDotenv.get('OXPLAYER_BOT_USERNAME').trim().isNotEmpty;
+    final urlDef =
+        _cTelegramWebAppUrl.trim().isNotEmpty || _cTelegramWebAppUrlAlt.trim().isNotEmpty;
+    final urlDot = OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEBAPP_URL').trim().isNotEmpty ||
+        OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEB_APP_URL').trim().isNotEmpty;
+
+    String pickSrc(bool def, bool dot) {
+      if (def) return 'dart-define';
+      if (dot) return 'dotenv';
+      return 'none';
+    }
+
+    oxEnvLog(
+      'OxplayerEnv.telegram: web=$kIsWeb '
+      'dotenvAsset=${OxplayerDotenv.loadedAssetPath ?? "none"} '
+      'dotenvKeys=${OxplayerDotenv.keyCount} '
+      'apiId=${id == null ? "missing" : "ok(len=${id.length})"} '
+      'src=${pickSrc(idDef, idDot)} '
+      'apiHash=${hash == null ? "missing" : "ok(len=${hash.length})"} '
+      'src=${pickSrc(hashDef, hashDot)} '
+      'bot=${bot ?? "missing"} src=${pickSrc(botDef, botDot)} '
+      'webappShort=${short ?? "missing"} src=${pickSrc(shortDef, shortDot)} '
+      'webappDirect=${direct == null ? "missing" : "ok(len=${direct.length})"} '
+      'src=${pickSrc(urlDef, urlDot)} '
+      'miniOpenLink=${mini ?? "missing"}',
     );
   }
 
@@ -129,12 +198,14 @@ abstract final class OxplayerEnv {
   /// Optional Mini App / Web App URL (HTTPS or `t.me/...`).
   static String? get telegramWebAppUrl {
     if (!OxplayerConfig.isEnabled) return null;
-    final t = _pick(
+    var t = _pick(
       ['OXPLAYER_TELEGRAM_WEB_APP_URL', 'OXPLAYER_TELEGRAM_WEBAPP_URL'],
       _cTelegramWebAppUrl,
       _cTelegramWebAppUrlAlt,
     );
-    return t.isEmpty ? null : t;
+    if (t.isEmpty) return null;
+    final c = compactTelegramWireUrl(t);
+    return c.isEmpty ? null : c;
   }
 
   /// Optional alternate media server URL (`OXPLAYER_JELLYFIN_URL`), or null when unset.
@@ -152,6 +223,7 @@ abstract final class OxplayerEnv {
       _cBotUsername,
       _cBotUsernameLegacy,
     ).replaceFirst(RegExp(r'^@'), '');
+    t = compactTelegramWireUrl(t);
     return t.isEmpty ? null : t;
   }
 
@@ -159,13 +231,15 @@ abstract final class OxplayerEnv {
   static String? get telegramBotOpenLink {
     final b = botUsername;
     if (b == null || b.isEmpty) return null;
-    return 'https://t.me/$b';
+    return compactTelegramWireUrl('https://t.me/$b');
   }
 
   /// Mini App short name for `https://t.me/<bot>/<shortName>`, optional.
   static String? get telegramWebAppShortName {
     if (!OxplayerConfig.isEnabled) return null;
-    final t = _pick(['OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME'], _cWebAppShortName);
+    var t = _pick(['OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME'], _cWebAppShortName).trim();
+    if (t.isEmpty) return null;
+    t = compactTelegramWireUrl(t);
     return t.isEmpty ? null : t;
   }
 
@@ -176,9 +250,20 @@ abstract final class OxplayerEnv {
     final bot = botUsername;
     final short = telegramWebAppShortName;
     if (bot != null && short != null) {
-      return 'https://t.me/$bot/$short';
+      return compactTelegramWireUrl('https://t.me/$bot/$short');
     }
     return null;
+  }
+
+  /// **Debug / web only:** raw `tgWebAppData` query value for `/auth/telegram` when tdweb lacks
+  /// `getWebAppUrl` / `getMainWebApp` (WASM out of sync with `tool/tdlib/TD_VERSION.json`).
+  ///
+  /// Ignored unless [kIsWeb] and [kDebugMode]. Set `OXPLAYER_DEBUG_TELEGRAM_INIT_DATA` via
+  /// `--dart-define` / `--dart-define-from-file` or [OxplayerDotenv].
+  static String? get telegramWebAppInitDataDebugOverride {
+    if (!OxplayerConfig.isEnabled || !kIsWeb || !kDebugMode) return null;
+    final t = _pick(['OXPLAYER_DEBUG_TELEGRAM_INIT_DATA'], _cDebugTelegramInitData).trim();
+    return t.isEmpty ? null : t;
   }
 
   static String? get telegramApiId {

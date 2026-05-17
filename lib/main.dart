@@ -35,6 +35,7 @@ void main(List<String> args) async {
   await OxplayerDotenv.ensureLoaded();
   OxplayerEnv.debugLogApiResolution();
   if (kDebugMode) {
+    OxplayerEnv.debugLogTelegramReadiness();
     debugPrint(
       '[OX main] dotenv loaded=${OxplayerDotenv.isLoaded} '
       'OxplayerConfig.isEnabled=${OxplayerConfig.isEnabled}',

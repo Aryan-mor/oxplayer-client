@@ -99,10 +99,28 @@ jobs:
           done
           cp build/artifacts/web/dist.tar.gz release-assets/dist.tar.gz
 
+      # Rotating tdlib-artifacts-<sha> reuses the same tag name; GitHub keeps the old Release
+      # record unless deleted. softprops would then fail with: tag_name already_exists.
+      - name: Delete existing GitHub Release for this tag (keep git tag)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/tdlib-artifacts-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "[producer] Removing prior GitHub Release for ${TAG} (git tag unchanged)."
+            gh release delete "$TAG" --yes
+          else
+            echo "[producer] No existing GitHub Release for ${TAG}."
+          fi
+
       - name: Publish GitHub pre-release + assets
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/tdlib-artifacts-')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           prerelease: true
           draft: false
           files: |

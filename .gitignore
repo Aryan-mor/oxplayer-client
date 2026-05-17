@@ -87,11 +87,15 @@ dart_defines.dev.json
 # Cursor — local-only agent rules
 .cursor/rules/*.local.mdc
 
-# TDLib wasm (npm tdweb dist — run scripts/sync-tdweb.mjs)
+# TDLib wasm (npm tdweb dist — run scripts/sync-tdweb.mjs; fetch_artifacts may extract dist/)
+web/tdweb/dist/
 web/tdweb/tdweb.js
 web/tdweb/*.wasm
 web/tdweb/*.mem
 web/tdweb/*worker*.js
+
+# TDLib Android JSON client — hydrated via fetch_artifacts.dart (do not commit binaries)
+android/app/src/main/jniLibs/**/*.so
 
 # npm (pinned tdweb — see package.json)
 node_modules/

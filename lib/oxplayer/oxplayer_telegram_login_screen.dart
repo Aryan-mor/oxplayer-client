@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show SystemChannels;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -21,8 +21,69 @@ import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/util/application_info.dart';
 import 'package:fladder/util/fladder_config.dart';
 import 'package:fladder/models/settings/arguments_model.dart';
+import 'package:fladder/td_api_generated/td_api.dart' as td_api;
 
 enum _OxLoginPane { hub, qr, phone }
+
+/// Suffix for Telegram flood / rate limit ([code] 420 / 429).
+String _floodWaitUserHint(String message, int? code) {
+  if (code != 429 && code != 420) {
+    return '';
+  }
+  var sec = 0;
+  final retry = RegExp(r'retry after\s+(\d+)', caseSensitive: false).firstMatch(message);
+  if (retry != null) {
+    sec = int.tryParse(retry.group(1) ?? '') ?? 0;
+  }
+  if (sec <= 0) {
+    final fw = RegExp(r'FLOOD_WAIT_(\d+)', caseSensitive: false).firstMatch(message);
+    if (fw != null) {
+      sec = int.tryParse(fw.group(1) ?? '') ?? 0;
+    }
+  }
+  if (sec <= 0) {
+    return ' — Telegram rate limit: stop retrying for a while (often 15–60+ minutes).';
+  }
+  if (sec <= 120) {
+    return ' — wait ${sec}s, then retry.';
+  }
+  final min = (sec / 60).ceil();
+  final h = sec ~/ 3600;
+  if (h >= 1) {
+    final remMin = ((sec % 3600) / 60).ceil();
+    final parts = <String>['~${h}h'];
+    if (remMin > 0) {
+      parts.add('${remMin}m');
+    }
+    return ' — wait ${parts.join(' ')} (${sec}s), then retry.';
+  }
+  return ' — wait ~$min min (${sec}s), then retry.';
+}
+
+/// TDLib web can reject with JS objects whose [Object.toString] is `[object Object]`.
+String _formatTelegramLoginError(Object e) {
+  if (e is td_api.TdError) {
+    final hint = _floodWaitUserHint(e.message, e.code);
+    return '${e.message} (code ${e.code})$hint';
+  }
+  try {
+    final dyn = e as dynamic;
+    final m = dyn.message;
+    final c = dyn.code;
+    if (m is String && m.isNotEmpty) {
+      final hint = _floodWaitUserHint(m, c is int ? c : null);
+      if (c is int) {
+        return '$m (code $c)$hint';
+      }
+      return '$m$hint';
+    }
+  } catch (_) {}
+  final s = e.toString();
+  if (s == '[object Object]') {
+    return 'Request failed (see browser console for TDLib / network details).';
+  }
+  return s;
+}
 
 @RoutePage()
 class OxplayerTelegramLoginScreen extends ConsumerStatefulWidget {
@@ -70,6 +131,11 @@ class _OxplayerTelegramLoginScreenState
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
 
+  final FocusNode _passwordFocusNode =
+      FocusNode(debugLabel: 'oxTelegram2faPassword');
+  final FocusNode _codeFocusNode = FocusNode(debugLabel: 'oxTelegramSmsCode');
+  final FocusNode _phoneFocusNode = FocusNode(debugLabel: 'oxTelegramPhone');
+
   bool _passwordSubmitting = false;
   bool _phoneSubmitting = false;
   bool _codeSubmitting = false;
@@ -95,6 +161,9 @@ class _OxplayerTelegramLoginScreenState
     // Do not dispose [OxplayerTelegramTdSession]: it uses the process-wide TDLib
     // ([OxplayerTelegramTdRuntime.facade]). Disposing here ran after navigate to
     // [DashboardRoute] and closed TDLib, breaking Telegram media playback.
+    _passwordFocusNode.dispose();
+    _codeFocusNode.dispose();
+    _phoneFocusNode.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
     _codeController.dispose();
@@ -105,14 +174,41 @@ class _OxplayerTelegramLoginScreenState
   void _dismissKeyboard() {
     if (!mounted) return;
     FocusManager.instance.primaryFocus?.unfocus();
-    // Android sometimes keeps the numeric phone keyboard up until the platform is told to hide.
+    _hideSoftKeyboardWithoutUnfocus();
+  }
+
+  void _hideSoftKeyboardWithoutUnfocus() {
+    if (!mounted) return;
     try {
       SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
     } catch (_) {}
   }
 
+  /// D-pad / TV remote–first targets ([NavigationMode.directional]): never steal focus
+  /// with a blanket [unfocus] when moving into the 2FA password field — that breaks
+  /// remote focus and IME attachment on many Android TV / embedded TV stacks.
+  bool _prefersDirectionalRemoteNavigation(BuildContext context) {
+    return MediaQuery.maybeNavigationModeOf(context) ==
+        NavigationMode.directional;
+  }
+
+  void _prepareImeBeforePasswordStep() {
+    if (!mounted) return;
+    if (_prefersDirectionalRemoteNavigation(context)) {
+      _hideSoftKeyboardWithoutUnfocus();
+    } else {
+      _dismissKeyboard();
+    }
+  }
+
+  void _requestFocusOnNextFrame(FocusNode node) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      node.requestFocus();
+    });
+  }
+
   void _startTdListenersOnce() {
-    if (_tdListenersStarted || _tdSession == null) return;
     _tdListenersStarted = true;
     final s = _tdSession!;
     _qrSub = s.qrLoginPayload.listen((payload) {
@@ -134,8 +230,7 @@ class _OxplayerTelegramLoginScreenState
     _cloudPasswordSub = s.cloudPasswordChallenge.listen((c) {
       if (!mounted) return;
       if (c != null) {
-        // Two-step: leave numeric code keyboard before the password field (next frame) requests focus.
-        _dismissKeyboard();
+        _prepareImeBeforePasswordStep();
       }
       setState(() {
         _cloudPasswordChallenge = c;
@@ -144,10 +239,7 @@ class _OxplayerTelegramLoginScreenState
         if (c != null) _busy = false;
       });
       if (c != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _dismissKeyboard();
-        });
+        _requestFocusOnNextFrame(_passwordFocusNode);
       }
     });
     _smsCodeSub = s.smsCodeChallenge.listen((c) {
@@ -157,6 +249,9 @@ class _OxplayerTelegramLoginScreenState
         // SMS code entry is interactive — unblock the UI.
         if (c != null) _busy = false;
       });
+      if (c != null) {
+        _requestFocusOnNextFrame(_codeFocusNode);
+      }
     });
     _waitPhoneSub = s.authorizationWaitPhoneNumber.listen((waiting) {
       if (!mounted) return;
@@ -166,7 +261,9 @@ class _OxplayerTelegramLoginScreenState
       });
     });
     _authenticatedUserSub = s.authenticatedUserId.listen((id) {
-      if (!mounted || id == 0 || _backendBridgeDone) return;
+      if (!mounted || id == 0 || _backendBridgeDone || _tdToBackendInFlight) {
+        return;
+      }
       unawaited(_bridgeTdToBackend());
     });
     _functionErrorSub = s.functionErrors.listen((message) {
@@ -251,10 +348,11 @@ class _OxplayerTelegramLoginScreenState
     }
 
     if (_tdSession != null) {
-      _startTdListenersOnce();
       try {
         await OxplayerTelegramTdSession.initPlugin();
         await _tdSession!.initClient();
+        await _tdSession!.abandonStaleInteractiveAuthIfNeeded();
+        _startTdListenersOnce();
         if (await _tdSession!.trySilentRestore()) {
           if (!mounted) return;
           setState(() => _bootstrapping = false);
@@ -405,7 +503,10 @@ class _OxplayerTelegramLoginScreenState
     }
     // Clear busy so AbsorbPointer doesn't block the phone input field.
     // TDLib authorization continues in the background.
-    if (mounted) setState(() => _busy = false);
+    if (mounted) {
+      setState(() => _busy = false);
+      _requestFocusOnNextFrame(_phoneFocusNode);
+    }
   }
 
   Future<void> _submitPhoneNumber() async {
@@ -418,11 +519,15 @@ class _OxplayerTelegramLoginScreenState
       await session.submitAuthenticationPhoneNumber(phoneNumber);
     } catch (e) {
       if (mounted) {
-        FladderSnack.show('Telegram: $e', context: context);
+        FladderSnack.show('Telegram: ${_formatTelegramLoginError(e)}', context: context);
       }
     } finally {
       if (mounted) {
-        _dismissKeyboard();
+        if (_prefersDirectionalRemoteNavigation(context)) {
+          _hideSoftKeyboardWithoutUnfocus();
+        } else {
+          _dismissKeyboard();
+        }
         setState(() => _phoneSubmitting = false);
       }
     }
@@ -438,11 +543,15 @@ class _OxplayerTelegramLoginScreenState
       await session.submitAuthenticationCode(code);
     } catch (e) {
       if (mounted) {
-        FladderSnack.show('Telegram: $e', context: context);
+        FladderSnack.show('Telegram: ${_formatTelegramLoginError(e)}', context: context);
       }
     } finally {
       if (mounted) {
-        _dismissKeyboard();
+        if (_prefersDirectionalRemoteNavigation(context)) {
+          _hideSoftKeyboardWithoutUnfocus();
+        } else {
+          _dismissKeyboard();
+        }
         setState(() => _codeSubmitting = false);
       }
     }
@@ -458,7 +567,7 @@ class _OxplayerTelegramLoginScreenState
       await session.submitCloudPassword(password);
     } catch (e) {
       if (mounted) {
-        FladderSnack.show('Telegram: $e', context: context);
+        FladderSnack.show('Telegram: ${_formatTelegramLoginError(e)}', context: context);
       }
     } finally {
       if (mounted) setState(() => _passwordSubmitting = false);
@@ -676,140 +785,189 @@ class _OxplayerTelegramLoginScreenState
     );
   }
 
-  Widget _buildPhoneStep() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Enter your mobile number in international format.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey),
+  Widget _buildPhoneStep(BuildContext context) {
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Enter your mobile number in international format.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(1),
+              child: TextField(
+                focusNode: _phoneFocusNode,
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
+                autofocus: false,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Phone number',
+                ),
+                onSubmitted: (_) => unawaited(_submitPhoneNumber()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(2),
+              child: FilledButton(
+                onPressed: _phoneSubmitting ? null : () => unawaited(_submitPhoneNumber()),
+                child: _phoneSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Send code'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(3),
+              child: OutlinedButton(
+                onPressed: () => unawaited(_resetTelegramFlow()),
+                child: const Text('Back'),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          autofocus: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'Phone number',
-          ),
-          onSubmitted: (_) => unawaited(_submitPhoneNumber()),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _phoneSubmitting ? null : () => unawaited(_submitPhoneNumber()),
-          child: _phoneSubmitting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Send code'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: () => unawaited(_resetTelegramFlow()),
-          child: const Text('Back'),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildCodeStep() {
+  Widget _buildCodeStep(BuildContext context) {
     final challenge = _smsCodeChallenge;
     final instruction = challenge == null || challenge.phoneNumber.isEmpty
         ? 'Enter the login code Telegram sent to your phone.'
         : 'Enter the login code Telegram sent to ${challenge.phoneNumber}.';
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          instruction,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.grey),
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              instruction,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(1),
+              child: TextField(
+                focusNode: _codeFocusNode,
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                autofocus: false,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Login code',
+                ),
+                onSubmitted: (_) => unawaited(_submitCode()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(2),
+              child: FilledButton(
+                onPressed: _codeSubmitting ? null : () => unawaited(_submitCode()),
+                child: _codeSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Confirm code'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(3),
+              child: OutlinedButton(
+                onPressed: () => unawaited(_resetTelegramFlow()),
+                child: const Text('Back'),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        TextField(
-          controller: _codeController,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'Login code',
-          ),
-          onSubmitted: (_) => unawaited(_submitCode()),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _codeSubmitting ? null : () => unawaited(_submitCode()),
-          child: _codeSubmitting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Confirm code'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: () => unawaited(_resetTelegramFlow()),
-          child: const Text('Back'),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildPasswordStep() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'This account uses two-step verification. Enter your Telegram password.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey),
+  Widget _buildPasswordStep(BuildContext context) {
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'This account uses two-step verification. Enter your Telegram password.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            if (_cloudPasswordChallenge != null &&
+                _cloudPasswordChallenge!.hint.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Hint: ${_cloudPasswordChallenge!.hint}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ],
+            const SizedBox(height: 20),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(1),
+              child: TextField(
+                focusNode: _passwordFocusNode,
+                controller: _passwordController,
+                obscureText: true,
+                autofocus: false,
+                keyboardType: TextInputType.visiblePassword,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Password',
+                ),
+                onSubmitted: (_) => unawaited(_submitPassword()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(2),
+              child: FilledButton(
+                onPressed: _passwordSubmitting ? null : () => unawaited(_submitPassword()),
+                child: _passwordSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Continue'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FocusTraversalOrder(
+              order: const NumericFocusOrder(3),
+              child: OutlinedButton(
+                onPressed: () => unawaited(_resetTelegramFlow()),
+                child: const Text('Back'),
+              ),
+            ),
+          ],
         ),
-        if (_cloudPasswordChallenge != null &&
-            _cloudPasswordChallenge!.hint.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Hint: ${_cloudPasswordChallenge!.hint}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ],
-        const SizedBox(height: 20),
-        TextField(
-          controller: _passwordController,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'Password',
-          ),
-          onSubmitted: (_) => unawaited(_submitPassword()),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _passwordSubmitting ? null : () => unawaited(_submitPassword()),
-          child: _passwordSubmitting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Continue'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: () => unawaited(_resetTelegramFlow()),
-          child: const Text('Back'),
-        ),
-      ],
+      ),
     );
   }
 
@@ -849,16 +1007,16 @@ class _OxplayerTelegramLoginScreenState
         _cloudPasswordChallenge == null;
 
     if (_cloudPasswordChallenge != null) {
-      return _buildPasswordStep();
+      return _buildPasswordStep(context);
     }
     if (showQr) {
       return _buildQrPane(context);
     }
     if (showCode) {
-      return _buildCodeStep();
+      return _buildCodeStep(context);
     }
     if (showPhone) {
-      return _buildPhoneStep();
+      return _buildPhoneStep(context);
     }
     if (_pane == _OxLoginPane.qr) {
       return _buildQrPane(context);

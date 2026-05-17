@@ -9,6 +9,7 @@ import 'package:web/web.dart';
 
 import 'oxplayer_tdlib_debug.dart';
 import 'tdlib_facade.dart';
+import 'utils/tdlib_wire_json_compat.dart';
 
 void _tdlog(String message) => debugPrint(message);
 
@@ -155,15 +156,6 @@ class TelegramTdlibFacade implements TdTelegramClient {
     _windowObj['oxplayerTdwebDartPush'] = _oxplayerTdwebDartPush.toJS;
   }
 
-  Map<String, dynamic>? _tryParseJsonObjectMap(String sanitized) {
-    try {
-      final d = jsonDecode(sanitized);
-      if (d is Map<String, dynamic>) return d;
-      if (d is Map) return Map<String, dynamic>.from(d);
-    } catch (_) {}
-    return null;
-  }
-
   String _stringifyTdwebFatalFragment(Object? value) {
     if (value == null) return '';
     if (value is String) return value.trim();
@@ -218,20 +210,20 @@ class TelegramTdlibFacade implements TdTelegramClient {
 
   Future<void> _dispatchIncomingJson(String raw) async {
     try {
-      final quickRaw = _tryParseJsonObjectMap(raw);
+      final quickRaw = parseTdJsonObjectMap(raw);
       if (quickRaw != null &&
           quickRaw['@type']?.toString() == 'updateFatalError') {
         _handleTdwebUpdateFatalError(quickRaw);
         return;
       }
       final sanitized = raw;
-      final quick = _tryParseJsonObjectMap(sanitized);
+      final quick = parseTdJsonObjectMap(sanitized);
       if (quick != null && quick['@type']?.toString() == 'updateFatalError') {
         _handleTdwebUpdateFatalError(quick);
         return;
       }
 
-      final obj = td.convertToObject(sanitized);
+      final obj = td.convertToObject(tdJsonPrepareForConvertToObject(sanitized));
       if (obj == null) {
         try {
           final t = quick?['@type'];
@@ -263,7 +255,23 @@ class TelegramTdlibFacade implements TdTelegramClient {
         _handleSessionUser(obj);
       }
     } catch (error, stackTrace) {
+      final len = raw.length;
+      final head = len > 600 ? '${raw.substring(0, 600)}…' : raw;
+      final peek = tdlibJsonPeekForLog(raw);
+      var preppedPeek = 'prep_unavailable';
+      try {
+        final s = tdJsonPrepareForConvertToObject(raw);
+        final m = parseTdJsonObjectMap(s);
+        preppedPeek = m?['@type']?.toString() ?? 'prep_null_map';
+      } catch (e) {
+        preppedPeek = 'prep_error: $e';
+      }
+      _tdlog(
+        '[TDLib web rx] DISPATCH_FAIL step=convertToObject peek=$peek '
+        'preppedPeek=$preppedPeek rawLen=$len',
+      );
       _tdlog('TDLib web dispatch error: $error\n$stackTrace');
+      _tdlog('[TDLib web rx] raw head (max 600ch): $head');
     }
   }
 
@@ -363,7 +371,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
         }),
       );
       final sanitized = raw;
-      final obj = td.convertToObject(sanitized);
+      final obj = td.convertToObject(tdJsonPrepareForConvertToObject(sanitized));
       if (obj is td.TdError) {
         _databaseEncryptionKeyProbeSent = false;
         final m =
@@ -415,11 +423,12 @@ class TelegramTdlibFacade implements TdTelegramClient {
     final payload = jsonEncode(request.toJson(extra));
     final raw = await _jsSendJson(payload);
     final sanitized = raw;
-    td.TdObject? resolved = td.convertToObject(sanitized);
+    final prepped = tdJsonPrepareForConvertToObject(sanitized);
+    td.TdObject? resolved = td.convertToObject(prepped);
     if (resolved != null) {
       _pendingAuthStateWireType = null;
     } else {
-      final map = _tryParseJsonObjectMap(sanitized);
+      final map = parseTdJsonObjectMap(prepped);
       final t = map?['@type']?.toString();
       if (map != null &&
           t != null &&
@@ -434,7 +443,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
       }
       if (resolved == null) {
         final head =
-            sanitized.length > 280 ? '${sanitized.substring(0, 280)}…' : sanitized;
+            prepped.length > 280 ? '${prepped.substring(0, 280)}…' : prepped;
         return Future.error(
           StateError(
             'TDLib returned null object (@type=${t ?? "missing"}). Raw: $head',
@@ -1041,7 +1050,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
     if (!_webJsAlive) {
       throw StateError('Call init() before submitting password.');
     }
-    _enginePost(td.CheckAuthenticationPassword(password: password));
+    await send(td.CheckAuthenticationPassword(password: password));
   }
 
   @override
@@ -1067,6 +1076,25 @@ class TelegramTdlibFacade implements TdTelegramClient {
   @override
   Future<void> resetLocalSessionForQrLogin() async {
     _webSessionEpoch += 1;
+    // Drop interactive auth hints immediately so the login UI does not snap back
+    // to 2FA / code while [destroy] runs.
+    if (!_cloudPassword.isClosed) {
+      _cloudPassword.add(null);
+    }
+    if (!_smsCodeChallenge.isClosed) {
+      _smsCodeChallenge.add(null);
+    }
+    if (!_qrPayload.isClosed) {
+      _qrPayload.add(null);
+    }
+    if (_webJsAlive) {
+      try {
+        _tdlog('TDLib web resetLocalSessionForQrLogin → destroy (wipe partial login DB)');
+        await send(const td.Destroy()).timeout(const Duration(seconds: 15));
+      } catch (e) {
+        _tdlog('TDLib web Destroy (continuing with close): $e');
+      }
+    }
     await forceDestroyAfterLogOut();
   }
 

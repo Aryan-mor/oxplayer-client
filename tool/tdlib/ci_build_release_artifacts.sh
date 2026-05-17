@@ -2,11 +2,13 @@
 # Build Android libtdjson.so (4 ABIs) + pack example/web dist for GitHub Releases.
 # Intended to run *inside* tool/tdlib/Dockerfile image with this repo mounted at /workspace.
 #
-# Android: uses upstream example/android/build-openssl.sh + build-tdlib.sh (JSON) so
-# OpenSSL is built per-ABI before CMake (raw cmake without OPENSSL_ROOT_DIR fails).
+# Android: uses upstream example/android/build-openssl.sh + build-tdlib.sh (JSON).
+# OpenSSL must exist per ABI before CMake; we verify layout after build-openssl and
+# use the same third-party/openssl path layout as upstream TD docs.
 set -euo pipefail
 
-WORKSPACE="${1:-/workspace}"
+WORKSPACE_INPUT="${1:-/workspace}"
+WORKSPACE="$(cd "$WORKSPACE_INPUT" && pwd -P)"
 cd "$WORKSPACE"
 
 TD_VER="$(python3 -c "import json; print(json.load(open('tool/tdlib/TD_VERSION.json'))['commit_sha'])")"
@@ -33,15 +35,39 @@ FAKE_SDK="/opt/android-sdk"
 mkdir -p "$FAKE_SDK/ndk"
 ln -sfn "$ANDROID_NDK_HOME" "$FAKE_SDK/ndk/${ANDROID_NDK_REV}"
 
-OPENSSL_OUT="$WORKSPACE/build/openssl-android"
-rm -rf "$OPENSSL_OUT"
-
 ANDROID_EXAMPLE="$TD_SRC/example/android"
 chmod +x "$ANDROID_EXAMPLE"/*.sh 2>/dev/null || true
 
 cd "$ANDROID_EXAMPLE"
-./build-openssl.sh "$FAKE_SDK" "$ANDROID_NDK_REV" "$OPENSSL_OUT"
-./build-tdlib.sh "$FAKE_SDK" "$ANDROID_NDK_REV" "$OPENSSL_OUT" c++_static JSON
+# Match upstream default layout (example/android/third-party/openssl/<abi>/...).
+# Absolute path avoids edge cases when normalizing OPENSSL_INSTALL_DIR inside TD scripts.
+OPENSSL_REL="$(pwd -P)/third-party/openssl"
+rm -rf "$OPENSSL_REL"
+
+echo "[ci] Building OpenSSL for Android (NDK ${ANDROID_NDK_REV}) into ${OPENSSL_REL} ..."
+./build-openssl.sh "$FAKE_SDK" "$ANDROID_NDK_REV" "$OPENSSL_REL"
+
+echo "[ci] Verifying per-ABI OpenSSL trees (fail-fast before TDLib CMake) ..."
+for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+  export OPENSSL_ROOT_DIR="${OPENSSL_REL}/${abi}"
+  if [[ ! -d "${OPENSSL_ROOT_DIR}/include/openssl" ]]; then
+    echo "::error::Missing OpenSSL headers: ${OPENSSL_ROOT_DIR}/include/openssl"
+    exit 1
+  fi
+  if [[ -f "${OPENSSL_ROOT_DIR}/lib/libcrypto.a" && -f "${OPENSSL_ROOT_DIR}/lib/libssl.a" ]]; then
+    echo "[ci] ${abi}: static OpenSSL OK (${OPENSSL_ROOT_DIR})"
+  elif [[ -f "${OPENSSL_ROOT_DIR}/lib/libcrypto.so" && -f "${OPENSSL_ROOT_DIR}/lib/libssl.so" ]]; then
+    echo "[ci] ${abi}: shared OpenSSL OK (${OPENSSL_ROOT_DIR})"
+  else
+    echo "::error::Missing OpenSSL libs under ${OPENSSL_ROOT_DIR}/lib"
+    ls -la "${OPENSSL_ROOT_DIR}/lib" 2>/dev/null || true
+    exit 1
+  fi
+done
+unset OPENSSL_ROOT_DIR
+
+echo "[ci] Building TDLib (JSON) with OPENSSL_INSTALL_DIR=${OPENSSL_REL} ..."
+./build-tdlib.sh "$FAKE_SDK" "$ANDROID_NDK_REV" "$OPENSSL_REL" c++_static JSON
 
 for abi in arm64-v8a armeabi-v7a x86 x86_64; do
   mkdir -p "$WORKSPACE/build/artifacts/android/$abi"

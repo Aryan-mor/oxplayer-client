@@ -21,3 +21,26 @@ OXPlayer targets **one git pin** of [tdlib/td](https://github.com/tdlib/td) reco
 ## Mitigations
 
 None — keep `tool/tdlib/TD_VERSION.json`, native `.so`, WASM bundle, and `lib/td_api_generated/` in lockstep.
+
+## Refreshing the `tdlib-artifacts-*` GitHub tag (producer workflow)
+
+The workflow [`.github/workflows/tdlib-toolchain-producer.yml`](.github/workflows/tdlib-toolchain-producer.yml) runs on **`workflow_dispatch`** or on **push** of tag `tdlib-artifacts-*`. That tag must point at a commit that contains the **current** producer scripts (Dockerfile, `tool/tdlib/ci_build_release_artifacts.sh`, etc.). GitHub Actions checks out **the tagged commit**, not `main`.
+
+**When to do this:** after merging fixes to `main` that must be used by the next producer run, while keeping the **same** TD pin (`commit_sha` in `TD_VERSION.json` unchanged). The tag name stays **`tdlib-artifacts-<full commit_sha>`** (must match `TD_VERSION.json` exactly — the workflow validates this).
+
+**From repo root `oxplayer-client/`** (replace `<SHA>` with the full `commit_sha` from `TD_VERSION.json`):
+
+```bash
+TAG="tdlib-artifacts-<SHA>"
+git checkout main
+git pull --ff-only origin main
+git tag -d "$TAG" 2>/dev/null || true
+git push origin --delete "$TAG"
+git tag "$TAG"
+git push origin "$TAG"
+```
+
+- **Deleting the remote tag** removes the old GitHub Release attached to it (if any); the next successful run recreates the pre-release and assets.
+- If the **TD pin changes**, update `TD_VERSION.json` first, then use the **new** tag name `tdlib-artifacts-<new_commit_sha>` (do not reuse the old suffix).
+
+**Do not** move this tag to a commit whose `TD_VERSION.json` `commit_sha` does not match the tag suffix — the producer job will fail the tag check.

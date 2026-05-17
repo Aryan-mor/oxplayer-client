@@ -1,6 +1,6 @@
-# Fast TDLib-related CI: Dart codegen + analyze only. Runs on PRs and pushes that
-# touch TD tooling or Telegram glue. Heavy Docker / native / WASM producer work
-# lives in tdlib-toolchain-producer.yml (workflow_dispatch or tag tdlib-artifacts-*).
+# Fast TDLib-related CI: Dart codegen + analyze only. Runs on PRs and pushes to
+# main that touch TD tooling or Telegram glue. Tag pushes (e.g. tdlib-artifacts-*)
+# do not use on.push here (branches: main only) so only tdlib-toolchain-producer.yml runs.
 
 name: TDLib Dart analyze & codegen
 
@@ -14,6 +14,8 @@ on:
       - "docs/tdlib-official-build.md"
       - ".github/workflows/tdlib-artifacts.yml"
   push:
+    branches:
+      - main
     paths:
       - "tool/tdlib/**"
       - "tool/generator/**"

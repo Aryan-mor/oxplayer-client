@@ -25,7 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build TDLib toolchain image (NDK r26b + emsdk 3.1.56)
+      # Repo root is oxplayer-client (paths are not prefixed with oxplayer-client/).
+      # Primary key includes run_id so each run can write a new cache entry; restore-keys
+      # reuse the latest successful artifacts for this TD_VERSION.json hash.
+      - name: Cache TDLib Native Artifacts
+        uses: actions/cache@v4
+        with:
+          path: build/artifacts
+          key: tdlib-native-cache-${{ hashFiles('tool/tdlib/TD_VERSION.json') }}-${{ github.run_id }}
+          restore-keys: |
+            tdlib-native-cache-${{ hashFiles('tool/tdlib/TD_VERSION.json') }}-
+
+      - name: Build TDLib toolchain image (NDK r26b + emsdk 3.1.1)
         run: docker build -f tool/tdlib/Dockerfile -t oxplayer-tdlib-toolchain tool/tdlib
 
       - name: Smoke (emcc + cmake inside image)

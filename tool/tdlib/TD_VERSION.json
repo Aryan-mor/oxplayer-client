@@ -10,7 +10,7 @@
   "toolchain": {
     "android_ndk": "26.1.10909125",
     "android_ndk_release": "r26b",
-    "emscripten_emsdk": "3.1.56"
+    "emscripten_emsdk": "3.1.1"
   },
   "artifact_layout_version": 1
 }

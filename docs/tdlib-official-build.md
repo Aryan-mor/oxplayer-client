@@ -7,7 +7,7 @@ Single source: [tdlib/td](https://github.com/tdlib/td). The pin used by OXPlayer
 | Component | Version |
 |-----------|---------|
 | Android NDK | **r26b** — `26.1.10909125` (`ANDROID_NDK_HOME`) |
-| Emscripten | **3.1.56** (`emsdk install 3.1.56 && emsdk activate 3.1.56`) |
+| Emscripten | **3.1.1** (`emsdk install 3.1.1 && emsdk activate 3.1.1`) — TD `example/web` enforces this line |
 
 When bumping the TD git pin, re-read `example/web/README.md` **at that commit**; if upstream requires different NDK/emsdk, update this table and [`Dockerfile`](Dockerfile) in the same PR.
 

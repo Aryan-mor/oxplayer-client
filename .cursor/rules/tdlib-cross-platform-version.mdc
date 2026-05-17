@@ -15,7 +15,7 @@ OXPlayer targets **one git pin** of [tdlib/td](https://github.com/tdlib/td) reco
 ## Rule
 
 1. Bump **`tool/tdlib/TD_VERSION.json`** only when Android `.so`, web bundle, and (when applicable) Dart schema are updated **together**.
-2. After bump: rebuild artifacts with the pinned **NDK r26b** + **Emscripten 3.1.56** matrix in `docs/tdlib-official-build.md` / `tool/tdlib/Dockerfile`, publish to the registry, then run `dart run tool/tdlib/fetch_artifacts.dart`.
+2. After bump: rebuild artifacts with the pinned **NDK r26b** + **Emscripten 3.1.1** matrix in `docs/tdlib-official-build.md` / `tool/tdlib/Dockerfile`, publish to the registry, then run `dart run tool/tdlib/fetch_artifacts.dart`.
 3. Smoke **Telegram login** on Android + Chrome (QR, 2FA, restore).
 
 ## Mitigations

@@ -5,7 +5,8 @@
 FROM ubuntu:22.04
 
 ARG ANDROID_NDK_VERSION=26.1.10909125
-ARG EMSDK_VERSION=3.1.56
+# TD example/web enforces this Emscripten line (emcc 3.1.1 check).
+ARG EMSDK_VERSION=3.1.1
 
 ENV DEBIAN_FRONTEND=noninteractive \
     ANDROID_NDK_HOME=/opt/android-ndk \
@@ -36,9 +37,9 @@ RUN wget -q "https://dl.google.com/android/repository/android-ndk-r26b-linux.zip
     && mv /opt/android-ndk-r26b "${ANDROID_NDK_HOME}" \
     && rm /tmp/ndk.zip
 
-# Emscripten SDK (pinned for OpenSSL + TDLib WASM compatibility)
+# Emscripten: shallow clone of emsdk repo, then pin with explicit install/activate (not emsdk "latest").
 RUN git clone --depth 1 https://github.com/emscripten-core/emsdk.git "${EMSDK}" \
-    && /bin/bash -c "source ${EMSDK}/emsdk_env.sh && ${EMSDK}/emsdk install ${EMSDK_VERSION} && ${EMSDK}/emsdk activate ${EMSDK_VERSION}"
+    && /bin/bash -c "set -euo pipefail; cd \"${EMSDK}\" && ./emsdk install ${EMSDK_VERSION} && ./emsdk activate ${EMSDK_VERSION}"
 
 # Default shell loads emsdk
 RUN echo "source ${EMSDK}/emsdk_env.sh" >> /root/.bashrc

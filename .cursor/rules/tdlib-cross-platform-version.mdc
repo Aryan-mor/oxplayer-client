@@ -1,5 +1,5 @@
 ---
-description: TDLib official pin — Android/Web artifacts, no Git LFS, Dart types
+description: TDLib official pin — Android/Web artifacts, no Git LFS, Dart types; on exact phrase "build sdk", run ## Build SDK automation (oxplayer-client tag rotation).
 alwaysApply: true
 ---
 
@@ -44,3 +44,24 @@ git push origin "$TAG"
 - If the **TD pin changes**, update `TD_VERSION.json` first, then use the **new** tag name `tdlib-artifacts-<new_commit_sha>` (do not reuse the old suffix).
 
 **Do not** move this tag to a commit whose `TD_VERSION.json` `commit_sha` does not match the tag suffix — the producer job will fail the tag check.
+
+## Build SDK automation (`build sdk`)
+
+When the user explicitly says **build sdk** (treat as a literal trigger phrase), the agent MUST run the following **atomic sequence** on repo **`oxplayer-client`** without asking for confirmation:
+
+1. **Commit** — If the working tree is dirty: stage infrastructure/config changes (`git add -A` or scoped paths), then `git commit` with a concise `infra:` / `ci:` / `docs:` message. If clean, skip commit.
+2. **Sync main** — `git checkout main` and `git pull --ff-only origin main`; if `main` is ahead of `origin/main`, `git push origin main`.
+3. **Read** `commit_sha` from `tool/tdlib/TD_VERSION.json` (full git SHA of the pinned tdlib/td commit).
+4. **Rotate the infrastructure tag** (replace `<SHA>` with that `commit_sha`):
+
+```bash
+TAG="tdlib-artifacts-<SHA>"
+git tag -d "$TAG" 2>/dev/null || true
+git push origin --delete "$TAG"
+git tag "$TAG"
+git push origin "$TAG"
+```
+
+5. **Effect** — Push of `tdlib-artifacts-<SHA>` triggers [`.github/workflows/tdlib-toolchain-producer.yml`](.github/workflows/tdlib-toolchain-producer.yml) on GitHub (Docker-backed producer). Deleting the remote tag first avoids needing `git push --force` for the tag ref.
+
+**Constraints:** Run all `git` commands with `cwd` = `oxplayer-client` repository root. Do not change `commit_sha` in `TD_VERSION.json` during this protocol unless the user is explicitly bumping the TD pin (then use the new SHA in the tag name).

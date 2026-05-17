@@ -771,7 +771,7 @@
     "seerrMediaStatusDeleted": "Dihapus",
     "seerrAuthApiKey": "Kunci API",
     "seerrAuthLocal": "Lokal",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Pustaka media",
     "seerrUserFetchFailed": "Gagal mengambil data pengguna dari Seerr",
     "seerrEnterServerUrlFirst": "Masukkan URL server terlebih dahulu",
     "seerrApiKeySaved": "Kunci API Seerr tersimpan",

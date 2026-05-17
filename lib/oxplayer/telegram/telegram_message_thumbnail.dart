@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
-import 'package:tdlib/td_api.dart' as tda;
+import 'package:fladder/td_api_generated/td_api.dart' as tda;
 
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';

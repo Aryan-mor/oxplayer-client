@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/oxplayer_dev_fallbacks.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
@@ -446,7 +446,7 @@ Future<_ExtractedFromMessage?> _findMessageBySearchTagReply({
           offset: 0,
           limit: 50,
           filter: null,
-          messageThreadId: 0,
+          topicId: null,
         ),
       );
       if (result is! td.Messages || result.messages.isEmpty) {

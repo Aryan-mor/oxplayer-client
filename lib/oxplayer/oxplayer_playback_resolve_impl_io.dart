@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
@@ -412,7 +412,7 @@ Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
 
   final chatId = linkInfo.chatId;
   _providerTmeLog(
-    'GetMessageLinkInfo chatId=$chatId thread=${linkInfo.messageThreadId} '
+    'GetMessageLinkInfo chatId=$chatId topic=${linkInfo.topicId} '
     'embeddedMessage=${linkInfo.message != null}',
   );
 

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 
@@ -157,7 +157,7 @@ Future<List<td.ForumTopic>> tdlibLoadAllForumTopics(TdlibFacade facade, int chat
           query: '',
           offsetDate: offsetDate,
           offsetMessageId: offsetMessageId,
-          offsetMessageThreadId: offsetThreadId,
+          offsetForumTopicId: offsetThreadId,
           limit: 100,
         ),
       );
@@ -175,7 +175,7 @@ Future<List<td.ForumTopic>> tdlibLoadAllForumTopics(TdlibFacade facade, int chat
     if (raw.topics.isEmpty) break;
     offsetDate = raw.nextOffsetDate;
     offsetMessageId = raw.nextOffsetMessageId;
-    offsetThreadId = raw.nextOffsetMessageThreadId;
+    offsetThreadId = raw.nextOffsetForumTopicId;
     if (offsetDate == 0 && offsetMessageId == 0 && offsetThreadId == 0) break;
   }
   out.sort((a, b) {

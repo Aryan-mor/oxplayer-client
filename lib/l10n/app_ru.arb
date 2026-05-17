@@ -1582,7 +1582,7 @@
     "seerrMediaStatusDeleted": "Удалено",
     "seerrAuthApiKey": "API-ключ",
     "seerrAuthLocal": "Локально",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Медиатека",
     "seerrUserFetchFailed": "Не удалось получить пользователя из Seerr",
     "seerrEnterServerUrlFirst": "Сначала введите адрес сервера Seerr",
     "seerrUrlSchemeWarning": "Не удалось автоматически определить схему URL. Используется https://. Добавьте http:// в начале, если ваш сервер не использует HTTPS.",

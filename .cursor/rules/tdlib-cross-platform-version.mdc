@@ -1,0 +1,23 @@
+---
+description: TDLib official pin — Android/Web artifacts, no Git LFS, Dart types
+alwaysApply: true
+---
+
+# TDLib: single version across platforms
+
+OXPlayer targets **one git pin** of [tdlib/td](https://github.com/tdlib/td) recorded in `tool/tdlib/TD_VERSION.json` (`git_ref`, `commit_sha`, `toolchain`).
+
+- **Android**: `libtdjson.so` per ABI — **not** committed at scale; download with `dart run tool/tdlib/fetch_artifacts.dart` from your **versioned object storage / artifact registry** (paths keyed by `commit_sha`). **Git LFS is forbidden** for these binaries. The script **fails the build** (`exit 1`) if config is missing or any artifact cannot be fetched.
+- **Web**: WASM/worker bundle from the **same** `commit_sha` (built via upstream `example/web` at that pin, packaged as `web/dist.tar.gz` in the registry). Legacy `npm tdweb` / `scripts/sync-tdweb.mjs` is optional for local fallback.
+- **Dart `td_api` types**: generated into **`lib/td_api_generated/`** from official `td_api.tl` at the pin in `TD_VERSION.json` (`dart run tool/generator/generate.dart --fetch`). Native JSON must match that same pin.
+- **JSON ↔ Dart**: `lib/oxplayer/telegram/td_json_official_client.dart` binds `td_json_client_*` via `dart:ffi` (decoupled from the Flutter plugin runtime). `TdTelegramClient` in `lib/oxplayer/telegram/tdlib_facade.dart` is the app-facing abstraction (legacy typedef `TdlibFacade`).
+
+## Rule
+
+1. Bump **`tool/tdlib/TD_VERSION.json`** only when Android `.so`, web bundle, and (when applicable) Dart schema are updated **together**.
+2. After bump: rebuild artifacts with the pinned **NDK r26b** + **Emscripten 3.1.56** matrix in `docs/tdlib-official-build.md` / `tool/tdlib/Dockerfile`, publish to the registry, then run `dart run tool/tdlib/fetch_artifacts.dart`.
+3. Smoke **Telegram login** on Android + Chrome (QR, 2FA, restore).
+
+## Mitigations
+
+None — keep `tool/tdlib/TD_VERSION.json`, native `.so`, WASM bundle, and `lib/td_api_generated/` in lockstep.

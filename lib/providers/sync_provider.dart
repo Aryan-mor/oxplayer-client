@@ -143,6 +143,7 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
   }
 
   Future<void> cleanupTemporaryFiles() async {
+    if (kIsWeb) return;
     final activeDownloads = ref.read(activeDownloadTasksProvider);
     if (activeDownloads.isNotEmpty) return;
 
@@ -180,6 +181,7 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
   }
 
   Future<List<String>> getTempFiles() async {
+    if (kIsWeb) return <String>[];
     final tempFiles = <String>[];
 
     // List of directories to check

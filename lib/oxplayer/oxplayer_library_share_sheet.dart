@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/oxplayer_library_share_api.dart';
 import 'package:fladder/oxplayer/oxplayer_library_share_tdlib_chats.dart';
@@ -113,10 +113,16 @@ class _ShareChatPickerPageState extends State<_ShareChatPickerPage> {
     await facade.send(
       td.SendMessage(
         chatId: chatId,
-        messageThreadId: 0,
+        topicId: null,
         inputMessageContent: td.InputMessageText(
           text: formatted,
-          disableWebPagePreview: true,
+          linkPreviewOptions: const td.LinkPreviewOptions(
+            isDisabled: true,
+            url: '',
+            forceSmallMedia: false,
+            forceLargeMedia: false,
+            showAboveText: false,
+          ),
           clearDraft: true,
         ),
       ),

@@ -1,0 +1,19 @@
+# Copy to artifact_config.yaml (gitignored) or pass --config=...
+# fetch_artifacts.dart exits 1 if this file is missing or any fetch fails (fail-fast for monorepo builds).
+#
+# url_layout:
+#   nested_commit - object storage: {baseUrl}{commit_sha}/android/{abi}/libtdjson.so and .../web/dist.tar.gz
+#   github_release - GitHub Releases: base_url must be .../releases/download/<tag>/ with assets
+#     libtdjson-<abi>.so and dist.tar.gz (see .github/workflows/tdlib-toolchain-producer.yml).
+
+url_layout: nested_commit
+
+# Base URL must include trailing slash.
+# nested_commit example: https://bucket.example/tdlib/
+# github_release example: https://github.com/ORG/REPO/releases/download/tdlib-artifacts-<commit_sha>/
+
+base_url: "https://your-artifact-registry.example/tdlib/"
+commit_sha: "89ebded9571b7bb589ec1bd05e585fffa4c580e2"
+
+# Optional HTTP headers (e.g. Authorization: Bearer ...)
+headers: {}

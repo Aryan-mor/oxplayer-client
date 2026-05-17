@@ -1,0 +1,16 @@
+{
+  "tdlib_td_repository": "https://github.com/tdlib/td",
+  "git_ref": "89ebded9571b7bb589ec1bd05e585fffa4c580e2",
+  "commit_sha": "89ebded9571b7bb589ec1bd05e585fffa4c580e2",
+  "tdlib_cmake_project_version": "1.8.64",
+  "td_api_tl_path_in_repo": "td/generate/scheme/td_api.tl",
+  "td_api_tl_raw_url": "https://raw.githubusercontent.com/tdlib/td/89ebded9571b7bb589ec1bd05e585fffa4c580e2/td/generate/scheme/td_api.tl",
+  "td_api_tl_sha256": "c4eb1de8254f864e7c826b365380cfb46ee7cb3f6e72ab055690aca78e1f9ee7",
+  "dart_binding_note": "Dart td_api types are generated into lib/td_api_generated/ from td_api.tl at this pin (CMake 1.8.64). Re-run: dart run tool/generator/generate.dart --fetch",
+  "toolchain": {
+    "android_ndk": "26.1.10909125",
+    "android_ndk_release": "r26b",
+    "emscripten_emsdk": "3.1.56"
+  },
+  "artifact_layout_version": 1
+}

@@ -1519,7 +1519,7 @@
     "seerrMediaStatusDeleted": "刪除",
     "seerrAuthApiKey": "API 密鑰",
     "seerrAuthLocal": "本地",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "媒體庫",
     "seerrUserFetchFailed": "無法從 Seerr 取得使用者資料",
     "seerrEnterServerUrlFirst": "請先輸入 Seerr 伺服器 URL",
     "seerrApiKeySaved": "API 密鑰已存檔",

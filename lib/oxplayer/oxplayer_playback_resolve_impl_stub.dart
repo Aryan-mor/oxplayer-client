@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 Future<String?> resolveTelegramMessageToPlayableUrl({required td.Message message}) async => null;
 

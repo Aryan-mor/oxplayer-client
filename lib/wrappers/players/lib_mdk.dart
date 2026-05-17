@@ -8,8 +8,8 @@ import 'package:fvp/fvp.dart' as fvp;
 import 'package:fvp/mdk.dart';
 
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
-import 'package:fladder/util/muxed_audio_from_player.dart';
-import 'package:fladder/util/muxed_subtitle_from_player.dart';
+import 'package:fladder/util/muxed_audio_mdk.dart';
+import 'package:fladder/util/muxed_subtitle_mdk.dart';
 import 'package:image/image.dart' as img;
 import 'package:video_player/video_player.dart';
 

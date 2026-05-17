@@ -1,0 +1,41 @@
+# Fast TDLib-related CI: Dart codegen + analyze only. Runs on PRs and pushes that
+# touch TD tooling or Telegram glue. Heavy Docker / native / WASM producer work
+# lives in tdlib-toolchain-producer.yml (workflow_dispatch or tag tdlib-artifacts-*).
+
+name: TDLib Dart analyze & codegen
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "tool/tdlib/**"
+      - "tool/generator/**"
+      - "lib/oxplayer/telegram/**"
+      - "docs/tdlib-official-build.md"
+      - ".github/workflows/tdlib-artifacts.yml"
+  push:
+    paths:
+      - "tool/tdlib/**"
+      - "tool/generator/**"
+      - "lib/oxplayer/telegram/**"
+      - "docs/tdlib-official-build.md"
+      - ".github/workflows/tdlib-artifacts.yml"
+
+jobs:
+  analyze-telegram-td:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Generate TDLib Dart API (td_api.tl)
+        run: dart run tool/generator/generate.dart --fetch
+
+      - name: dart analyze (Telegram / TDLib layer)
+        run: dart analyze --fatal-infos --fatal-warnings lib/oxplayer/telegram/

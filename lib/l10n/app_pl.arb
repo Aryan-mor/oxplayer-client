@@ -1566,7 +1566,7 @@
     "seerrMediaStatusDeleted": "Usunięte",
     "seerrAuthApiKey": "Klucz API",
     "seerrAuthLocal": "Lokalne",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Multimedia",
     "seerrUserFetchFailed": "Nie udało się pobrać użytkownika z Seerr",
     "seerrEnterServerUrlFirst": "Najpierw wprowadź URL serwera Seerr",
     "seerrUrlSchemeWarning": "Nie można było automatycznie wykryć schematu URL. Domyślnie https://. Dodaj przedrostek http:// jeśli twój serwer nie używa HTTPS.",

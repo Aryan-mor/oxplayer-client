@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/source_chats_tdlib.dart';
@@ -116,7 +116,7 @@ class _MyTelegramForumTopicsScreenState extends ConsumerState<MyTelegramForumTop
                                   chatTitle: top.info.name.trim().isEmpty ? '…' : top.info.name.trim(),
                                   tdlibChatId: widget.tdlibChatId,
                                   libraryIndexed: widget.chatIsIndexed,
-                                  messageThreadId: top.info.messageThreadId,
+                                  messageThreadId: top.info.forumTopicId,
                                   isForum: true,
                                 ),
                               );

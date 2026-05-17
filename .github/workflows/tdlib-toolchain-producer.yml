@@ -1,0 +1,102 @@
+# Heavy TDLib toolchain: Docker image smoke, full native + web artifact build, and
+# (on tag push only) GitHub pre-release asset upload for monorepo consumption.
+#
+# Triggers:
+#   - workflow_dispatch — builds + verifies artifacts; does not publish a release.
+#   - push tag tdlib-artifacts-* — must match tool/tdlib/TD_VERSION.json commit_sha
+#     exactly as: tdlib-artifacts-<full commit_sha>; uploads 5 assets to that tag.
+#
+# Fast Dart analyze stays in tdlib-artifacts.yml.
+
+name: TDLib toolchain producer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "tdlib-artifacts-*"
+
+jobs:
+  produce-tdlib-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build TDLib toolchain image (NDK r26b + emsdk 3.1.56)
+        run: docker build -f tool/tdlib/Dockerfile -t oxplayer-tdlib-toolchain tool/tdlib
+
+      - name: Smoke (emcc + cmake inside image)
+        run: docker run --rm oxplayer-tdlib-toolchain
+
+      - name: Build native Android + web bundle (in-container)
+        run: |
+          mkdir -p build/artifacts
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            oxplayer-tdlib-toolchain \
+            bash /workspace/tool/tdlib/ci_build_release_artifacts.sh /workspace
+
+      - name: Verify artifact outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            f="build/artifacts/android/$abi/libtdjson.so"
+            test -f "$f"
+            sz=$(stat -c%s "$f" 2>/dev/null || wc -c <"$f")
+            test "$sz" -gt 4096
+          done
+          test -f build/artifacts/web/dist.tar.gz
+
+      - name: Verify release tag matches TD_VERSION.json
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/tdlib-artifacts-')
+        shell: bash
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json, os, sys
+          ref = os.environ["GITHUB_REF_NAME"]
+          exp = json.load(open("tool/tdlib/TD_VERSION.json"))["commit_sha"]
+          pref = "tdlib-artifacts-"
+          assert ref.startswith(pref), ref
+          got = ref[len(pref):]
+          if got != exp:
+              print(
+                  f"::error::Tag must be {pref}{exp} (full commit_sha from TD_VERSION.json); got suffix {got!r}"
+              )
+              sys.exit(1)
+          PY
+
+      - name: Stage GitHub release assets (unique basenames)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/tdlib-artifacts-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            cp "build/artifacts/android/$abi/libtdjson.so" "release-assets/libtdjson-${abi}.so"
+          done
+          cp build/artifacts/web/dist.tar.gz release-assets/dist.tar.gz
+
+      - name: Publish GitHub pre-release + assets
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/tdlib-artifacts-')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          draft: false
+          files: |
+            release-assets/libtdjson-arm64-v8a.so
+            release-assets/libtdjson-armeabi-v7a.so
+            release-assets/libtdjson-x86.so
+            release-assets/libtdjson-x86_64.so
+            release-assets/dist.tar.gz
+          body: |
+            ### TDLib Native Infrastructure Artifacts
+
+            **DO NOT DELETE.** This is an automated build for internal monorepo consumption corresponding to the pinned TDLib commit. Used by `fetch_artifacts.dart`.

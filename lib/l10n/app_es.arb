@@ -1515,7 +1515,7 @@
     "seerrMediaStatusDeleted": "Eliminado",
     "seerrAuthApiKey": "Clave API",
     "seerrAuthLocal": "Local",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Biblioteca multimedia",
     "seerrUserFetchFailed": "No se pudo recuperar el usuario de Seerr",
     "seerrEnterServerUrlFirst": "Introduzca primero la URL del servidor Seerr",
     "seerrApiKeySaved": "Clave API guardada",

@@ -48,7 +48,7 @@ class OxplayerBackgroundSessionRefresh {
   }
 
   Future<void> _run() async {
-    if (!OxplayerConfig.isEnabled || kIsWeb) {
+    if (!OxplayerConfig.isEnabled) {
       ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state = OxplayerBackgroundAuthStatus.online;
       return;
     }
@@ -70,7 +70,7 @@ class OxplayerBackgroundSessionRefresh {
           result == OxplayerSplashGateResult.proceedToDashboard
               ? OxplayerBackgroundAuthStatus.online
               : OxplayerBackgroundAuthStatus.error;
-      if (result != OxplayerSplashGateResult.proceedToDashboard && OxplayerConfig.isEnabled && !kIsWeb) {
+      if (result != OxplayerSplashGateResult.proceedToDashboard && OxplayerConfig.isEnabled) {
         final tg = ref.read(oxplayerTelegramSessionReadyProvider);
         oxplayerScheduleSessionRecoveryNavigation(
           ref,
@@ -80,7 +80,7 @@ class OxplayerBackgroundSessionRefresh {
     } catch (e) {
       ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = e;
       ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state = OxplayerBackgroundAuthStatus.error;
-      if (OxplayerConfig.isEnabled && !kIsWeb) {
+      if (OxplayerConfig.isEnabled) {
         final tg = ref.read(oxplayerTelegramSessionReadyProvider);
         oxplayerScheduleSessionRecoveryNavigation(
           ref,
@@ -94,9 +94,9 @@ class OxplayerBackgroundSessionRefresh {
 /// Validates **Telegram (TDLib)** then obtains a **new API token** (`POST /auth/refresh` when possible,
 /// otherwise WebApp initData + `POST /auth/telegram`) before the first Dashboard load.
 ///
-/// Call only when `OxplayerConfig.isEnabled && !kIsWeb` and the user chose auto-login.
+/// Call only when `OxplayerConfig.isEnabled` and the user chose auto-login.
 Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) async {
-  if (!OxplayerConfig.isEnabled || kIsWeb) {
+  if (!OxplayerConfig.isEnabled) {
     return OxplayerSplashGateResult.proceedToDashboard;
   }
 

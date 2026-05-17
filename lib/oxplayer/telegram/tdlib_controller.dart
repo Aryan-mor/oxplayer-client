@@ -1,5 +1,3 @@
-// ignore_for_file: implementation_imports
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -8,14 +6,11 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tdlib/src/tdapi/tdapi.dart' show convertToObject;
-import 'package:tdlib/src/tdclient/platform_interfaces/td_native_plugin_real.dart' as td_native;
-import 'package:tdlib/td_api.dart' as td;
-import 'package:tdlib/tdlib.dart';
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'oxplayer_tdlib_debug.dart';
+import 'td_json_official_client.dart';
 import 'tdlib_facade.dart';
-import 'tdlib_json_sanitize.dart';
 
 void _tdlog(String message) {
   debugPrint(message);
@@ -24,7 +19,7 @@ void _tdlog(String message) {
 /// Debug aid: root `@type` after sanitize, plus a hint for `updateChatLastMessage` / reply markup.
 String _tdlibReceivePeekForLog(String raw) {
   try {
-    final s = sanitizeTdlibJson(raw);
+    final s = raw;
     final d = jsonDecode(s);
     if (d is! Map) {
       return 'shape=${d.runtimeType}';
@@ -48,7 +43,7 @@ String _tdlibReceivePeekForLog(String raw) {
 const _kDownloadConnectionsCount = 16;
 const _kMaxGetMeRetries = 2;
 
-class TelegramTdlibFacade implements TdlibFacade {
+class TelegramTdlibFacade implements TdTelegramClient {
   static TelegramTdlibFacade? _nativeClientOwner;
   static Future<void> _globalInitSerial = Future.value();
 
@@ -80,6 +75,12 @@ class TelegramTdlibFacade implements TdlibFacade {
 
   @override
   bool get isInitialized => _clientId != null;
+
+  bool _hasReachedAuthorizationWaitPhoneNumber = false;
+
+  @override
+  bool get hasReachedAuthorizationWaitPhoneNumber =>
+      _hasReachedAuthorizationWaitPhoneNumber;
 
   bool _awaitingGetMeAfterReady = false;
   int _getMeRetryCount = 0;
@@ -132,13 +133,7 @@ class TelegramTdlibFacade implements TdlibFacade {
   Stream<String?> get functionErrors => _functionErrors.stream;
 
   static Future<void> initTdlibPlugin() async {
-    if (kIsWeb) return;
-    TdNativePlugin.registerWith();
-    if (Platform.isAndroid || Platform.isLinux || Platform.isWindows) {
-      await TdPlugin.initialize('libtdjson.so');
-      return;
-    }
-    await TdPlugin.initialize();
+    initOxTdJsonPlugin();
   }
 
   @override
@@ -226,6 +221,7 @@ class TelegramTdlibFacade implements TdlibFacade {
     _pendingApiId = apiId;
     _pendingApiHash = apiHash;
     _paramsSent = false;
+    _hasReachedAuthorizationWaitPhoneNumber = false;
     _awaitingGetMeAfterReady = false;
     if (_authCompleter.isCompleted) {
       _authCompleter = Completer<void>();
@@ -412,8 +408,8 @@ class TelegramTdlibFacade implements TdlibFacade {
       }
       if (message is! String) return;
       try {
-        final sanitized = sanitizeTdlibJson(message);
-        final obj = convertToObject(sanitized);
+        final sanitized = message;
+        final obj = td.convertToObject(sanitized);
         if (obj == null) return;
 
         _tdReceiveSuccessCount += 1;
@@ -455,7 +451,7 @@ class TelegramTdlibFacade implements TdlibFacade {
         _tdlog('TDLib receive dispatch error: $error\n$stackTrace');
         _tdlog('[TDLib rx] raw head (max 600ch): $head');
         try {
-          final decoded = jsonDecode(sanitizeTdlibJson(message));
+          final decoded = jsonDecode(message);
           if (decoded is Map<String, dynamic>) {
             final extraStr = decoded['@extra']?.toString();
             if (extraStr != null) {
@@ -592,12 +588,11 @@ class TelegramTdlibFacade implements TdlibFacade {
           deviceModel: 'OXPlayer',
           systemVersion: Platform.operatingSystemVersion,
           applicationVersion: '1.0.0',
-          enableStorageOptimizer: true,
-          ignoreFileNames: false,
         ),
       );
       _applyTransportTuning();
     } else if (state is td.AuthorizationStateWaitPhoneNumber) {
+      _hasReachedAuthorizationWaitPhoneNumber = true;
       authDebugDedup('tdlib_auth_state', AuthDebugLevel.info, 'TDLib auth state: WaitPhoneNumber.');
       _failEnsureAuthorizedIfPending('WaitPhoneNumber');
       unawaited(_invokeRequiresInteractiveLogin());
@@ -680,6 +675,7 @@ class TelegramTdlibFacade implements TdlibFacade {
         _cloudPassword.add(TdlibCloudPasswordChallenge(hint: state.passwordHint));
       }
     } else if (state is td.AuthorizationStateClosed) {
+      _hasReachedAuthorizationWaitPhoneNumber = false;
       authDebugDedup('tdlib_auth_state', AuthDebugLevel.error, 'TDLib auth state: Closed.');
       // Fail any pending ensureAuthorized() so trySilentRestore() returns
       // false instead of hanging forever (e.g. after a LogOut call).
@@ -784,6 +780,7 @@ class TelegramTdlibFacade implements TdlibFacade {
     final id = _clientId;
     if (id == null) {
       _receiveLoopRunning = false;
+      _hasReachedAuthorizationWaitPhoneNumber = false;
       await _receiveSub?.cancel();
       _receiveSub = null;
       await _stopReceiveIsolate(forceKill: true);
@@ -825,6 +822,7 @@ class TelegramTdlibFacade implements TdlibFacade {
     _transportTuningApplied = false;
     _awaitingGetMeAfterReady = false;
     _getMeRetryCount = 0;
+    _hasReachedAuthorizationWaitPhoneNumber = false;
     _pendingApiId = null;
     _pendingApiHash = null;
     _dbDir = null;
@@ -925,11 +923,10 @@ void tdlibReceiveIsolateMain(List<Object?> message) {
   final controlPort = ReceivePort();
   var shouldStop = false;
 
-  td_native.TdNativePlugin.registerWith();
   if (libPath != null) {
-    TdPlugin.instance = td_native.TdNativePlugin(ffi.DynamicLibrary.open(libPath));
+    OxTdJsonFfi.install(ffi.DynamicLibrary.open(libPath));
   } else {
-    TdPlugin.instance = td_native.TdNativePlugin(ffi.DynamicLibrary.process());
+    OxTdJsonFfi.install(ffi.DynamicLibrary.process());
   }
 
   sendPort.send(controlPort.sendPort);
@@ -942,7 +939,7 @@ void tdlibReceiveIsolateMain(List<Object?> message) {
 
   while (!shouldStop) {
     try {
-      final jsonStr = TdPlugin.instance.tdJsonClientReceive(clientId, 1.0);
+      final jsonStr = OxTdJsonFfi.instance.tdJsonClientReceive(clientId, 1.0);
       if (jsonStr != null) {
         sendPort.send(jsonStr);
       }

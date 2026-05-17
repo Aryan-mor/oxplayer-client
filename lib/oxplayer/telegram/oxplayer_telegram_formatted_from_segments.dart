@@ -1,4 +1,4 @@
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 /// Builds TDLib [td.FormattedText] from API `telegramMessageSegments` (UTF-16 offsets match Dart [String.length] for BMP text).
 ///

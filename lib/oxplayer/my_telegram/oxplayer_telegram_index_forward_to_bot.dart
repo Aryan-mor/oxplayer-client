@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:tdlib/td_api.dart' as tda;
+import 'package:fladder/td_api_generated/td_api.dart' as tda;
 
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 
@@ -28,14 +28,13 @@ Future<void> tryForwardIndexedMessageToEnvBot({
     await s.td.send(
       tda.ForwardMessages(
         chatId: botChatId,
-        messageThreadId: 0,
+        topicId: null,
         fromChatId: fromChatId,
         messageIds: [messageId],
         options: null,
         // Copy avoids "cannot forward" on many channel posts while still delivering media to the bot.
         sendCopy: true,
         removeCaption: false,
-        onlyPreview: false,
       ),
     );
   } catch (e, st) {

@@ -1346,7 +1346,7 @@
     "seerrMediaStatusBlacklisted": "Lista negra",
     "seerrMediaStatusDeleted": "Excluído",
     "seerrAuthLocal": "Local",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Biblioteca de mídia",
     "seerrConnectedToServer": "Conectado ao servidor Seerr: {serverUrl}",
     "@seerrConnectedToServer": {
         "placeholders": {

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tdlib/td_api.dart' as td_api;
+import 'package:fladder/td_api_generated/td_api.dart' as td_api;
 
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
@@ -38,14 +38,10 @@ final class OxplayerTelegramTdSession {
   Stream<String?> get functionErrors => _td.functionErrors;
 
   static Future<void> initPlugin() async {
-    if (kIsWeb) return;
     await TelegramTdlibFacade.initTdlibPlugin();
   }
 
   Future<void> initClient() async {
-    if (kIsWeb) {
-      throw UnsupportedError('Telegram TDLib sign-in is not available on web.');
-    }
     await initPlugin();
     final apiId = int.tryParse(OxplayerEnv.telegramApiId ?? '') ?? 0;
     final apiHash = OxplayerEnv.telegramApiHash ?? '';
@@ -75,7 +71,6 @@ final class OxplayerTelegramTdSession {
   static const _kSilentRestoreFirstAttemptWait = Duration(seconds: 8);
 
   Future<bool> trySilentRestore() async {
-    if (kIsWeb) return false;
     await initClient();
     try {
       await _td.ensureAuthorized().timeout(
@@ -93,7 +88,6 @@ final class OxplayerTelegramTdSession {
   }
 
   Future<bool> trySilentRestoreWithRestart() async {
-    if (kIsWeb) return false;
     await initClient();
     try {
       await _td.ensureAuthorized().timeout(
@@ -129,9 +123,6 @@ final class OxplayerTelegramTdSession {
 
   /// Starts the TDLib authorization machine (QR / phone). Completes when the user is signed in to Telegram.
   Future<void> beginTelegramAuthorization() async {
-    if (kIsWeb) {
-      throw UnsupportedError('Telegram TDLib sign-in is not available on web.');
-    }
     await initClient();
     try {
       await _td.ensureAuthorized();
@@ -141,7 +132,9 @@ final class OxplayerTelegramTdSession {
   }
 
   Future<void> startQrLogin() async {
+    debugPrint('[OX TDLib] startQrLogin: begin');
     await _waitForPhoneNumberState();
+    debugPrint('[OX TDLib] startQrLogin: posting RequestQrCodeAuthentication to TDLib');
     return _td.startQrLogin();
   }
 
@@ -150,32 +143,38 @@ final class OxplayerTelegramTdSession {
     return _td.submitAuthenticationPhoneNumber(phone);
   }
 
-  /// Completer that resolves once TDLib reaches [AuthorizationStateWaitPhoneNumber].
-  /// Reused across calls so if TDLib already reached the state we return instantly.
-  Completer<void>? _waitPhoneCompleter;
-
-  /// Waits until TDLib reports [AuthorizationStateWaitPhoneNumber].
-  /// Must be called before [startQrLogin] or [submitAuthenticationPhoneNumber]
-  /// to avoid the "unexpected" TDLib error when commands arrive too early.
+  /// Waits until TDLib has observed [AuthorizationStateWaitPhoneNumber] for this client
+  /// (see [TdlibFacade.hasReachedAuthorizationWaitPhoneNumber]), or until a timeout.
+  ///
+  /// On web, [authorizationWaitPhoneNumber] stream events can be missed while tdweb warms up;
+  /// the controller also advances auth via `getAuthorizationState` polling.
   Future<void> _waitForPhoneNumberState() async {
-    if (_waitPhoneCompleter == null) {
-      _waitPhoneCompleter = Completer<void>();
-      _td.authorizationWaitPhoneNumber
-          .where((v) => v)
-          .first
-          .timeout(const Duration(seconds: 15))
-          .then((_) {
-            if (!_waitPhoneCompleter!.isCompleted) {
-              _waitPhoneCompleter!.complete();
-            }
-          })
-          .catchError((Object _) {
-            if (!_waitPhoneCompleter!.isCompleted) {
-              _waitPhoneCompleter!.complete(); // unblock on timeout
-            }
-          });
+    const step = Duration(milliseconds: 100);
+    const maxWait = Duration(seconds: 16);
+    final sw = Stopwatch()..start();
+    if (_td.hasReachedAuthorizationWaitPhoneNumber) {
+      debugPrint(
+        '[OX TDLib] _waitForPhoneNumberState: gate already open (${sw.elapsedMilliseconds}ms)',
+      );
+      return;
     }
-    await _waitPhoneCompleter!.future;
+    debugPrint(
+      '[OX TDLib] _waitForPhoneNumberState: polling hasReached (max ${maxWait.inSeconds}s)…',
+    );
+    final deadline = DateTime.now().add(maxWait);
+    while (DateTime.now().isBefore(deadline)) {
+      if (_td.hasReachedAuthorizationWaitPhoneNumber) {
+        debugPrint(
+          '[OX TDLib] _waitForPhoneNumberState: gate open after ${sw.elapsedMilliseconds}ms',
+        );
+        return;
+      }
+      await Future<void>.delayed(step);
+    }
+    debugPrint(
+      '[OX TDLib] _waitForPhoneNumberState: timeout after ${sw.elapsedMilliseconds}ms '
+      '(hasReached=${_td.hasReachedAuthorizationWaitPhoneNumber}) — proceeding anyway',
+    );
   }
 
   Future<void> submitAuthenticationCode(String code) =>
@@ -186,7 +185,6 @@ final class OxplayerTelegramTdSession {
 
   Future<void> resetLocalSessionForQrLogin() async {
     _clientInited = false;
-    _waitPhoneCompleter = null;
     // Use forceDestroyAfterLogOut (kill isolate first, then destroy) to avoid
     // the native crash where tdJsonClientDestroy races with a 1-second
     // tdJsonClientReceive poll that is still in flight in the receive isolate.
@@ -199,8 +197,6 @@ final class OxplayerTelegramTdSession {
   /// on Telegram's servers. Then safely destroys the TDLib client by killing
   /// the receive isolate first (prevents the native tdJsonClientDestroy crash).
   Future<void> signOut() async {
-    if (kIsWeb) return;
-
     if (_td.isInitialized) {
       try {
         // Revoke server-side device session.
@@ -214,14 +210,12 @@ final class OxplayerTelegramTdSession {
       await _td.forceDestroyAfterLogOut();
     }
     _clientInited = false;
-    _waitPhoneCompleter = null;
   }
 
   Future<void> dispose() => _td.dispose();
 
   /// Ensures TDLib is initialized and authorized (for library Telegram playback).
   static Future<bool> ensureReadyForPlayback() async {
-    if (kIsWeb) return false;
     try {
       final s = OxplayerTelegramTdSession();
       await s.initClient();
@@ -237,7 +231,6 @@ final class OxplayerTelegramTdSession {
   /// TDLib [chatId] of the private chat with [OxplayerEnv.botUsername], or `null` if unconfigured
   /// or the bot could not be resolved (same resolution path as [fetchSignedInitData]).
   Future<int?> resolveMainBotPrivateChatId() async {
-    if (kIsWeb) return null;
     try {
       await _td.ensureAuthorized();
     } catch (_) {
@@ -295,9 +288,11 @@ final class OxplayerTelegramTdSession {
             botUserId: botUserId,
             webAppShortName: shortName,
             startParameter: '',
-            theme: null,
-            applicationName: 'oxplayer',
             allowWriteAccess: true,
+            parameters: const td_api.WebAppOpenParameters(
+              theme: null,
+              applicationName: 'oxplayer',
+            ),
           ),
         );
         if (result is td_api.HttpUrl) {
@@ -314,8 +309,10 @@ final class OxplayerTelegramTdSession {
         td_api.GetWebAppUrl(
           botUserId: botUserId,
           url: fallbackUrl,
-          theme: null,
-          applicationName: 'oxplayer',
+          parameters: const td_api.WebAppOpenParameters(
+            theme: null,
+            applicationName: 'oxplayer',
+          ),
         ),
       );
       if (fallbackResult is td_api.HttpUrl) {

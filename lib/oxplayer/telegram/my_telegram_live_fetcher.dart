@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 import 'package:flutter/foundation.dart';
 
 import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
@@ -39,6 +39,7 @@ class _SearchChatMessagesFilteredRequest extends td.TdFunction {
     this.offsetInt = 0,
     this.messageThreadId = 0,
     this.omitMessageThreadId = false,
+    this.isForum = false,
   });
 
   final int chatId;
@@ -48,6 +49,7 @@ class _SearchChatMessagesFilteredRequest extends td.TdFunction {
   final td.SearchMessagesFilter filter;
   final int messageThreadId;
   final bool omitMessageThreadId;
+  final bool isForum;
 
   @override
   String getConstructor() => 'searchChatMessages';
@@ -64,8 +66,11 @@ class _SearchChatMessagesFilteredRequest extends td.TdFunction {
       'offset': offsetInt,
       'only_local': false,
     };
-    if (!omitMessageThreadId) {
-      m['message_thread_id'] = messageThreadId;
+    if (!omitMessageThreadId && messageThreadId != 0) {
+      final topic = isForum
+          ? td.MessageTopicForum(forumTopicId: messageThreadId)
+          : td.MessageTopicThread(messageThreadId: messageThreadId);
+      m['topic_id'] = topic.toJson();
     }
     if (extra != null) m['@extra'] = extra;
     return m;
@@ -255,13 +260,21 @@ int? _nextSearchAnchorFromVideoDocBatches(List<td.Message> videoMsgs, List<td.Me
   return ids.reduce((a, b) => a < b ? a : b);
 }
 
+int? _forumTopicIdFromMessage(td.Message m) {
+  final t = m.topicId;
+  if (t is td.MessageTopicForum) return t.forumTopicId;
+  return null;
+}
+
 List<td.Message> _filterTdMessagesForForumTopic(
   List<td.Message> messages, {
   required int topicId,
   required bool isForum,
 }) {
   if (!isForum || topicId == 0) return messages;
-  return messages.where((m) => m.messageThreadId == topicId).toList(growable: false);
+  return messages
+      .where((m) => _forumTopicIdFromMessage(m) == topicId)
+      .toList(growable: false);
 }
 
 Future<void> _viewMessagesForSearchActivation(
@@ -379,6 +392,7 @@ final class MyTelegramLiveMediaFetcher {
     required td.SearchMessagesFilter filter,
     required int effectiveThreadId,
     required bool omitMessageThreadId,
+    required bool isForum,
     int? continueFromMessageId,
   }) async {
     final fromId =
@@ -392,6 +406,7 @@ final class MyTelegramLiveMediaFetcher {
         offsetInt: 0,
         messageThreadId: effectiveThreadId,
         omitMessageThreadId: omitMessageThreadId,
+        isForum: isForum,
       ),
     );
   }
@@ -534,6 +549,7 @@ final class MyTelegramLiveMediaFetcher {
           filter: const td.SearchMessagesFilterVideo(),
           effectiveThreadId: effectiveThreadId,
           omitMessageThreadId: omit,
+          isForum: isForum,
           continueFromMessageId: fromForSearch,
         ),
         label: 'searchChatMessages(Video)',
@@ -561,6 +577,7 @@ final class MyTelegramLiveMediaFetcher {
             filter: const td.SearchMessagesFilterDocument(),
             effectiveThreadId: effectiveThreadId,
             omitMessageThreadId: omit,
+            isForum: isForum,
             continueFromMessageId: fromForSearch,
           ),
           label: 'searchChatMessages(Document)',

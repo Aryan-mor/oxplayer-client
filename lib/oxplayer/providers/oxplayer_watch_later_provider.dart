@@ -91,9 +91,9 @@ class OxplayerWatchLaterNotifier extends StateNotifier<WatchLaterState> {
       final Map<String, String> newMap = {};
 
       for (final item in items) {
-        if (item.id != null && item.playlistId != null) {
-          newMap[item.id!] = item.playlistId!;
-        }
+        final entryId = item.playlistId;
+        if (entryId == null) continue;
+        newMap[item.id] = entryId;
       }
 
       state = state.copyWith(itemsMap: newMap, isLoading: false);

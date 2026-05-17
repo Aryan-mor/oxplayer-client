@@ -11,11 +11,13 @@ import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 ///    `--dart-define-from-file`.
 /// 3. **`assets/env/default.env`** via [OxplayerDotenv] (bundled in the APK — needs rebuild to change)
 ///
-/// Telegram **sign-in** on Android uses TDLib + `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` (see
-/// `lib/oxplayer/telegram/`). Mini App URLs here are still used **after** TDLib login to fetch
-/// signed `initData` for `POST /auth/telegram` (same as oxplayer-android).
+/// Telegram **sign-in** uses TDLib: native builds use `libtdjson`; **Flutter web** uses the
+/// official `tdweb` WASM bundle (see `web/tdweb/README.md`). `TELEGRAM_API_ID` / `TELEGRAM_API_HASH`
+/// are required in all cases. Mini App URLs are still used **after** TDLib login to fetch signed
+/// `initData` for `POST /auth/telegram` (same as oxplayer-android).
 ///
-/// For Web / iOS, optional: `--dart-define-from-file=dart_defines.ngrok.json` after `pnpm dev:ngrok`.
+/// For Web / iOS, optional: `--dart-define-from-file=dart_defines.dev.json` (after `pnpm docker:dev`)
+/// or `dart_defines.ngrok.json` (after `pnpm dev:ngrok`).
 abstract final class OxplayerEnv {
   static const String _cApiBase = String.fromEnvironment(
     'OXPLAYER_API_BASE',
@@ -117,7 +119,7 @@ abstract final class OxplayerEnv {
     );
   }
 
-  /// Jellyfin-compatible base URL for this build: explicit Jellyfin URL, else API origin.
+  /// Media API base URL for this build: optional `OXPLAYER_JELLYFIN_URL` override, else API origin.
   static String? get effectiveMediaServerUrl {
     final j = jellyfinServerUrl;
     if (j != null && j.isNotEmpty) return j;
@@ -135,7 +137,7 @@ abstract final class OxplayerEnv {
     return t.isEmpty ? null : t;
   }
 
-  /// Jellyfin-compatible server URL (trimmed), or null when unset.
+  /// Optional alternate media server URL (`OXPLAYER_JELLYFIN_URL`), or null when unset.
   static String? get jellyfinServerUrl {
     if (!OxplayerConfig.isEnabled) return null;
     final t = _pick(['OXPLAYER_JELLYFIN_URL'], _cJellyfinUrl);

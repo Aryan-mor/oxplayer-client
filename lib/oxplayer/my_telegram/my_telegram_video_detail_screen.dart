@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
-import 'package:tdlib/td_api.dart' as tda;
+import 'package:fladder/td_api_generated/td_api.dart' as tda;
 
 import 'package:fladder/oxplayer/my_telegram/my_telegram_index_refresh.dart';
 import 'package:fladder/oxplayer/my_telegram/my_telegram_formatters.dart';

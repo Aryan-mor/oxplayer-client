@@ -1,11 +1,14 @@
-Place prebuilt TDLib JSON client libraries here (required for the `tdlib` Dart package on Android):
+Place `libtdjson.so` here for Android (not committed at scale — use registry fetch):
 
   arm64-v8a/libtdjson.so
-  armeabi-v7a/libtdjson.so   (required for 32-bit ARM TVs, e.g. many Mi TV builds)
-  x86/libtdjson.so          (32-bit emulator / legacy x86 devices)
-  x86_64/libtdjson.so       (64-bit emulator)
+  armeabi-v7a/libtdjson.so
+  x86/libtdjson.so
+  x86_64/libtdjson.so
 
-Build from source: https://github.com/tdlib/td/blob/master/README.md#building
-Or use a trusted CI build that matches the TDLib API version bundled with package `tdlib` on pub.dev (see that package’s README).
+Build or download artifacts that match [tool/tdlib/TD_VERSION.json](../../tool/tdlib/TD_VERSION.json) (`commit_sha`).
 
-The app calls DynamicLibrary.open('libtdjson.so'); Android loads native libs from this jniLibs folder into the APK.
+Preferred: `dart run tool/tdlib/fetch_artifacts.dart` after configuring `tool/tdlib/artifact_config.yaml` (see `artifact_config.example.yaml`).
+
+See [docs/tdlib-official-build.md](../../docs/tdlib-official-build.md) for NDK / Emscripten matrix and Docker image.
+
+The app loads via `dart:ffi` ([td_json_official_client.dart](../../lib/oxplayer/telegram/td_json_official_client.dart)); `MainActivity` still calls `System.loadLibrary("tdjson")`.

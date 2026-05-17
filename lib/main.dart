@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fladder/bootstrap/app_bootstrap.dart';
 import 'package:fladder/bootstrap/platform/platform_app_wrapper.dart';
 import 'package:fladder/oxplayer/oxplayer_bootstrap.dart';
+import 'package:fladder/oxplayer/oxplayer_brand.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
@@ -50,11 +51,18 @@ void main(List<String> args) async {
     await OxplayerBootstrap.afterAppBootstrap(bootstrap);
   }
 
+  final applicationInfo = ApplicationInfo(
+    name: OxplayerBrand.appName,
+    version: bootstrap.applicationInfo.version,
+    buildNumber: bootstrap.applicationInfo.buildNumber,
+    platform: bootstrap.applicationInfo.platform,
+  );
+
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWith((ref) => bootstrap.sharedPreferences),
-        applicationInfoProvider.overrideWith((ref) => bootstrap.applicationInfo),
+        applicationInfoProvider.overrideWith((ref) => applicationInfo),
         crashLogProvider.overrideWith((ref) => bootstrap.crashProvider),
         argumentsStateProvider.overrideWith((ref) => bootstrap.argumentsModel),
         syncProvider.overrideWith((ref) => SyncNotifier(ref, bootstrap.applicationDirectory)),
@@ -91,6 +99,8 @@ class _FladderApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isLinux = defaultTargetPlatform == TargetPlatform.linux;
+    // chinese_font_library uses dart:io File checks — unsupported on web (crashes before TDLib).
+    final applyChineseFont = !isLinux && !kIsWeb;
     final themeMode = ref.watch(clientSettingsProvider.select((value) => value.themeMode));
     final themeColor = ref.watch(clientSettingsProvider.select((value) => value.themeColor));
     final amoledBlack = ref.watch(clientSettingsProvider.select((value) => value.amoledBlack));
@@ -108,20 +118,22 @@ class _FladderApp extends ConsumerWidget {
             ? FladderTheme.theme(darkDynamic ?? FladderTheme.defaultScheme(Brightness.dark), schemeVariant)
             : FladderTheme.theme(themeColor.schemeDark, schemeVariant));
 
-        // Apply Chinese font for non-Linux platforms (Windows, macOS, Android, iOS)
-        final lightTheme = isLinux
-            ? baseLightTheme
-            : FladderTheme.applyChineseFontToTheme(
+        // Apply Chinese font on desktop/mobile native only (not Linux, not web).
+        final lightTheme = applyChineseFont
+            ? FladderTheme.applyChineseFontToTheme(
                 lightTheme: baseLightTheme,
                 darkTheme: baseDarkTheme,
-              );
-        final darkTheme = isLinux ? baseDarkTheme : FladderTheme.applyChineseFontToDarkTheme(darkTheme: baseDarkTheme);
+              )
+            : baseLightTheme;
+        final darkTheme =
+            applyChineseFont ? FladderTheme.applyChineseFontToDarkTheme(darkTheme: baseDarkTheme) : baseDarkTheme;
 
         final amoledOverwrite = amoledBlack ? Colors.black : null;
         return ThemesData(
           light: lightTheme,
           dark: darkTheme,
           child: MaterialApp.router(
+            title: OxplayerBrand.appName,
             theme: lightTheme,
             scrollBehavior: scrollBehaviour.copyWith(
               dragDevices: {

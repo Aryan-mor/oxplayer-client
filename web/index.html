@@ -17,22 +17,85 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8" />
+  <!-- TDLib WASM + pthreads: isolate + SharedArrayBuffer need a cross-origin isolated context.
+       Prefer sending these as real HTTP response headers in production; meta is a dev fallback.
+       See docs/tdlib-official-build.md -->
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
   <meta content="IE=Edge" http-equiv="X-UA-Compatible" />
-  <meta name="description" content="A simple cross-platform Jellyfin client." />
+  <meta name="description" content="OXPlayer — your Telegram media library." />
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="fladder">
+  <meta name="apple-mobile-web-app-title" content="OXPlayer">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Fladder</title>
+  <title>OXPlayer</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!--
+    TDLib (tdweb): load in order after <base href> applies (new URL(..., document.baseURI)).
+    Then start Flutter. Run: node scripts/sync-tdweb.mjs
+  -->
+  <script>
+    (function () {
+      // tdweb webpack uses empty publicPath by default → Worker/WASM resolve from page root
+      // (404). tdweb bundle reads this before creating the Worker (see sync-tdweb.mjs patch).
+      try {
+        globalThis.__OXPLAYER_TDWEB_PUBLIC_PATH__ = new URL(
+          'tdweb/',
+          document.baseURI,
+        ).href;
+      } catch (_) {
+        globalThis.__OXPLAYER_TDWEB_PUBLIC_PATH__ = 'tdweb/';
+      }
+      function loadScript(src, onload, onerror) {
+        var s = document.createElement('script');
+        s.src = new URL(src, document.baseURI).href;
+        s.onload = onload;
+        s.onerror = onerror;
+        document.body.appendChild(s);
+      }
+      loadScript(
+        'tdweb/tdweb.js',
+        function () {
+          var td = window.tdweb;
+          var ok =
+            typeof td === 'function' || (td && typeof td.default === 'function');
+          if (!ok) {
+            console.error(
+              '[OX tdweb] tdweb/tdweb.js ran but TdClient is missing (expected window.tdweb or window.tdweb.default as a function).',
+            );
+          }
+          loadScript(
+            'oxplayer_tdweb_bridge.js',
+            function () {
+              var b = document.createElement('script');
+              b.src = new URL('flutter_bootstrap.js', document.baseURI).href;
+              b.async = true;
+              document.body.appendChild(b);
+            },
+            function () {
+              console.error('[OX tdweb] failed to load oxplayer_tdweb_bridge.js');
+            },
+          );
+        },
+        function () {
+          console.error(
+            '[OX tdweb] failed to load tdweb/tdweb.js — run: node scripts/sync-tdweb.mjs (from oxplayer-client)',
+          );
+          var b = document.createElement('script');
+          b.src = new URL('flutter_bootstrap.js', document.baseURI).href;
+          b.async = true;
+          document.body.appendChild(b);
+        },
+      );
+    })();
+  </script>
 </body>
 </html>

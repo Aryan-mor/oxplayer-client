@@ -1,4 +1,4 @@
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 class TdlibInteractiveLoginRequired implements Exception {
   const TdlibInteractiveLoginRequired();
@@ -23,8 +23,12 @@ class TdlibSmsCodeChallenge {
   final int resendTimeoutSeconds;
 }
 
-abstract class TdlibFacade {
+abstract class TdTelegramClient {
   bool get isInitialized;
+
+  /// True after TDLib has entered [AuthorizationStateWaitPhoneNumber] at least once
+  /// for the current client (stream listeners may have missed the first `true`).
+  bool get hasReachedAuthorizationWaitPhoneNumber;
 
   Future<void> init({
     required int apiId,
@@ -66,3 +70,6 @@ abstract class TdlibFacade {
 
   Future<void> dispose();
 }
+
+/// Historical name; prefer [TdTelegramClient].
+typedef TdlibFacade = TdTelegramClient;

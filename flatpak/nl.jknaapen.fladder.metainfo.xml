@@ -3,23 +3,22 @@
   <id>nl.jknaapen.fladder</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
-  <name>Fladder</name>
-  <summary>A cross-platform Jellyfin client</summary>
+  <name>OXPlayer</name>
+  <summary>Telegram media library client</summary>
   
   <description>
     <p>
-      Fladder is a modern, cross-platform Jellyfin client that provides a seamless
-      media streaming experience. Built with Flutter, it offers a beautiful and
-      intuitive interface for accessing your Jellyfin media library.
+      OXPlayer is a cross-platform client focused on your Telegram media library.
+      Sign in with Telegram, browse catalogued media, and stream with a Flutter UI.
     </p>
     <p>Features:</p>
     <ul>
-      <li>Stream movies, TV shows, and music from your Jellyfin server</li>
-      <li>Beautiful and responsive user interface</li>
+      <li>Telegram-first sign-in and library access</li>
+      <li>Responsive layout for phone, tablet, and desktop</li>
       <li>Hardware-accelerated video playback</li>
-      <li>Support for multiple profiles</li>
-      <li>Offline media downloads</li>
-      <li>Cross-platform compatibility</li>
+      <li>Multiple profiles where supported</li>
+      <li>Offline features on supported platforms</li>
+      <li>Cross-platform builds</li>
     </ul>
   </description>
   
@@ -78,7 +77,8 @@
   </categories>
   
   <keywords>
-    <keyword>jellyfin</keyword>
+    <keyword>telegram</keyword>
+    <keyword>oxplayer</keyword>
     <keyword>media</keyword>
     <keyword>streaming</keyword>
     <keyword>video</keyword>

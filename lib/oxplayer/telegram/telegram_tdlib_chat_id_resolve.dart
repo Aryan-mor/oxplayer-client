@@ -1,4 +1,4 @@
-import 'package:tdlib/td_api.dart' as td;
+import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 

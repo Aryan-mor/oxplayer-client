@@ -1,11 +1,10 @@
 import 'package:collection/collection.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
-import 'package:fvp/mdk.dart' show AudioStreamInfo;
 import 'package:media_kit/media_kit.dart' as mpv;
 
 /// Demuxers often report `unknown`, `und`, or `unknown2` (language+channels junk) — omit from UI.
-String _muxedAudioLangForModel(String? raw) {
+String muxedAudioLangForDemuxerRaw(String? raw) {
   final s = (raw ?? '').trim();
   if (s.isEmpty) return '';
   final lower = s.toLowerCase().replaceAll(RegExp(r'\s+'), '');
@@ -63,7 +62,7 @@ List<AudioStreamModel> audioStreamsFromMpvMuxedTracks(List<mpv.AudioTrack> all) 
   if (muxed.isEmpty) return [];
   var jellyIndex = 1;
   final out = muxed.map((t) {
-    final lang = _muxedAudioLangForModel(t.language);
+    final lang = muxedAudioLangForDemuxerRaw(t.language);
     final chLayout = _muxedAudioChannelLayoutFromMpv(t);
     final title = _stripTrailingUnknownNoiseFromTitle(t.title ?? '');
     final codec = (t.codec ?? '').trim();
@@ -86,43 +85,6 @@ List<AudioStreamModel> audioStreamsFromMpvMuxedTracks(List<mpv.AudioTrack> all) 
       demuxerTrackId: t.id,
     );
   }).toList();
-  return [out.first.copyWith(isDefault: true), ...out.skip(1)];
-}
-
-/// Maps MDK demuxer audio streams from [getMediaInfo] to [AudioStreamModel].
-List<AudioStreamModel> audioStreamsFromMdkAudioInfos(List<AudioStreamInfo>? audios) {
-  if (audios == null || audios.isEmpty) return [];
-  var jellyIndex = 1;
-  final out = audios.map((a) {
-    final meta = a.metadata;
-    String metaVal(String k) {
-      final v = meta[k] ?? meta[k.toUpperCase()] ?? meta[k.toLowerCase()];
-      return (v ?? '').trim();
-    }
-
-    final lang = _muxedAudioLangForModel(metaVal('language'));
-    final title = metaVal('title');
-    final ch = a.codec.channels > 0 ? '${a.codec.channels}ch' : '';
-    final parts = <String>[
-      if (title.isNotEmpty) title,
-      if (lang.isNotEmpty) lang,
-      if (a.codec.codec.isNotEmpty) a.codec.codec,
-      if (ch.isNotEmpty) ch,
-    ];
-    final display = parts.isEmpty ? 'Audio' : parts.join(' — ');
-    return AudioStreamModel(
-      displayTitle: display,
-      name: title,
-      codec: a.codec.codec,
-      isDefault: false,
-      isExternal: false,
-      index: jellyIndex++,
-      language: lang,
-      channelLayout: ch,
-      demuxerTrackId: 'mdk-audio-${a.index}',
-    );
-  }).toList();
-  if (out.isEmpty) return out;
   return [out.first.copyWith(isDefault: true), ...out.skip(1)];
 }
 

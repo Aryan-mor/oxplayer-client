@@ -1,14 +1,14 @@
 {
 	"name": "DonutWare Repository",
-	"subtitle": "A source for Fladder and co.",
+	"subtitle": "OXPlayer builds and related apps.",
 	"iconURL": "https://avatars.githubusercontent.com/u/42371342",
 	"tintColor": "#3A2101",
 	"apps": [
 	  {
-	    "name": "Fladder",
+	    "name": "OXPlayer",
 	    "bundleIdentifier": "de.aryanmo.oxplayer",
 	    "developerName": "DonutWare",
-	    "localizedDescription": "A Simple Jellyfin Frontend built on top of Flutter.",
+	    "localizedDescription": "Telegram media library client built with Flutter.",
 	    "iconURL": "https://github.com/DonutWare/Fladder/raw/develop/icons/fladder_macos_icon.png?raw=true",
 	    "category": "entertainment",
 	    "screenshots": [

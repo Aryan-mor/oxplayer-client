@@ -82,6 +82,22 @@ l10n_untranslated.json
 android/build/reports/problems/
 assets/env/default.env
 dart_defines.ngrok.json
+dart_defines.dev.json
 
 # Cursor — local-only agent rules
 .cursor/rules/*.local.mdc
+
+# TDLib wasm (npm tdweb dist — run scripts/sync-tdweb.mjs)
+web/tdweb/tdweb.js
+web/tdweb/*.wasm
+web/tdweb/*.mem
+web/tdweb/*worker*.js
+
+# npm (pinned tdweb — see package.json)
+node_modules/
+
+# TDLib artifact registry credentials (see tool/tdlib/artifact_config.example.yaml)
+tool/tdlib/artifact_config.yaml
+
+# TDLib Dart API — generated from td_api.tl (CI/local: dart run tool/generator/generate.dart --fetch)
+lib/td_api_generated/

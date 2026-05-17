@@ -1,11 +1,11 @@
 {
-    "name": "Fladder",
-    "short_name": "Fladder",
+    "name": "OXPlayer",
+    "short_name": "OXPlayer",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#5B364D",
     "theme_color": "#5B364D",
-    "description": "A simple cross-platform Jellyfin client.",
+    "description": "OXPlayer — your Telegram media library.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

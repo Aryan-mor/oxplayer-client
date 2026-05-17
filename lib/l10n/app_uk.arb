@@ -1729,7 +1729,7 @@
     "seerrRequestStatusDeclined": "Декольте",
     "seerrRequestStatusFailed": "В'язниця",
     "seerrAuthLocal": "Головна",
-    "seerrAuthJellyfin": "Желліфін",
+    "seerrAuthJellyfin": "Медіатека",
     "seerrConnectedToServer": "Підключення до сервера Seerr: {serverUrl}",
     "@seerrConnectedToServer": {
         "placeholders": {

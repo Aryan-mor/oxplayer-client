@@ -1090,7 +1090,7 @@
     "seerrMediaStatusDeleted": "Eliminado",
     "seerrAuthApiKey": "Chave API",
     "seerrAuthLocal": "Local",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Biblioteca multimédia",
     "seerrUserFetchFailed": "Não foi possível obter o utilizador do Seerr",
     "seerrEnterServerUrlFirst": "Primeiro, introduza o URL de um servidor Seerr",
     "seerrRequestStatusPending": "Pendente",

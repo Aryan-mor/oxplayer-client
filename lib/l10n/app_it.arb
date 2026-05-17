@@ -1151,7 +1151,7 @@
         }
     },
     "seerrAuthLocal": "Locale",
-    "seerrAuthJellyfin": "Jellyfin",
+    "seerrAuthJellyfin": "Libreria multimediale",
     "seerrMediaStatusAvailable": "Disponibile",
     "seerrUnknownUser": "Utente sconosciuto",
     "loggedInAs": "Connesso come {displayName}",

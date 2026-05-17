@@ -64,7 +64,6 @@ class _OxplayerTelegramLoginScreenState
   String? _qrPayload;
   TdlibCloudPasswordChallenge? _cloudPasswordChallenge;
   TdlibSmsCodeChallenge? _smsCodeChallenge;
-  bool _authorizationWaitPhoneNumber = false;
   String? _flowError;
 
   final TextEditingController _passwordController = TextEditingController();
@@ -75,12 +74,12 @@ class _OxplayerTelegramLoginScreenState
   bool _phoneSubmitting = false;
   bool _codeSubmitting = false;
 
+  Timer? _qrStallTimer;
+
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb) {
-      _tdSession = OxplayerTelegramTdSession();
-    }
+    _tdSession = OxplayerTelegramTdSession();
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
@@ -92,6 +91,7 @@ class _OxplayerTelegramLoginScreenState
     unawaited(_waitPhoneSub?.cancel());
     unawaited(_authenticatedUserSub?.cancel());
     unawaited(_functionErrorSub?.cancel());
+    _qrStallTimer?.cancel();
     // Do not dispose [OxplayerTelegramTdSession]: it uses the process-wide TDLib
     // ([OxplayerTelegramTdRuntime.facade]). Disposing here ran after navigate to
     // [DashboardRoute] and closed TDLib, breaking Telegram media playback.
@@ -112,15 +112,23 @@ class _OxplayerTelegramLoginScreenState
   }
 
   void _startTdListenersOnce() {
-    if (kIsWeb || _tdListenersStarted || _tdSession == null) return;
+    if (_tdListenersStarted || _tdSession == null) return;
     _tdListenersStarted = true;
     final s = _tdSession!;
     _qrSub = s.qrLoginPayload.listen((payload) {
+      debugPrint(
+        '[OX login] qrLoginPayload: '
+        '${payload == null ? "null" : "len=${payload.length}"}',
+      );
       if (!mounted) return;
       setState(() {
         _qrPayload = payload;
         // QR code is ready — unblock the UI so the Back button can be tapped.
-        if (payload != null && payload.isNotEmpty) _busy = false;
+        if (payload != null && payload.isNotEmpty) {
+          _busy = false;
+          _qrStallTimer?.cancel();
+          _qrStallTimer = null;
+        }
       });
     });
     _cloudPasswordSub = s.cloudPasswordChallenge.listen((c) {
@@ -153,7 +161,6 @@ class _OxplayerTelegramLoginScreenState
     _waitPhoneSub = s.authorizationWaitPhoneNumber.listen((waiting) {
       if (!mounted) return;
       setState(() {
-        _authorizationWaitPhoneNumber = waiting;
         // Phone number entry is interactive — unblock the UI.
         if (waiting) _busy = false;
       });
@@ -169,7 +176,7 @@ class _OxplayerTelegramLoginScreenState
   }
 
   Future<void> _bridgeTdToBackend() async {
-    if (_backendBridgeDone || _tdToBackendInFlight || !mounted || kIsWeb || _tdSession == null) {
+    if (_backendBridgeDone || _tdToBackendInFlight || !mounted || _tdSession == null) {
       return;
     }
     _tdToBackendInFlight = true;
@@ -243,7 +250,7 @@ class _OxplayerTelegramLoginScreenState
       return;
     }
 
-    if (!kIsWeb && _tdSession != null) {
+    if (_tdSession != null) {
       _startTdListenersOnce();
       try {
         await OxplayerTelegramTdSession.initPlugin();
@@ -322,7 +329,7 @@ class _OxplayerTelegramLoginScreenState
 
   Future<void> _ensureAuthorizationStarted() async {
     final session = _tdSession;
-    if (session == null || kIsWeb || _authorizationAttempt != null) return;
+    if (session == null || _authorizationAttempt != null) return;
 
     setState(() {
       _busy = true;
@@ -342,21 +349,37 @@ class _OxplayerTelegramLoginScreenState
   }
 
   Future<void> _startQrAuthentication() async {
-    if (kIsWeb || _tdSession == null) {
-      FladderSnack.show(
-        'Telegram client login requires Android (TDLib + jniLibs).',
-        context: context,
-      );
+    if (_tdSession == null) {
+      debugPrint('[OX login] _startQrAuthentication: no TD session');
       return;
     }
+    debugPrint('[OX login] _startQrAuthentication: tap (listenersStarted=$_tdListenersStarted)');
     setState(() {
       _pane = _OxLoginPane.qr;
       _flowError = null;
     });
     try {
       await _ensureAuthorizationStarted();
+      debugPrint('[OX login] _startQrAuthentication: ensureAuthorizationStarted scheduled');
       await _tdSession!.startQrLogin();
+      debugPrint('[OX login] _startQrAuthentication: startQrLogin completed');
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _qrStallTimer?.cancel();
+      _qrStallTimer = Timer(const Duration(seconds: 50), () {
+        if (!mounted) return;
+        if (_pane != _OxLoginPane.qr) return;
+        if (_qrPayload != null && _qrPayload!.isNotEmpty) return;
+        setState(() {
+          _flowError =
+              'No QR link from TDLib. Check the error snack or console for '
+              'requestQrCodeAuthentication / TdError. localhost and #/ox-login are fine; '
+              'ngrok is not required for QR. Verify TELEGRAM_API_ID and TELEGRAM_API_HASH.';
+        });
+      });
     } catch (error) {
+      _qrStallTimer?.cancel();
+      _qrStallTimer = null;
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -367,11 +390,7 @@ class _OxplayerTelegramLoginScreenState
   }
 
   Future<void> _startPhoneAuthentication() async {
-    if (kIsWeb || _tdSession == null) {
-      FladderSnack.show(
-        'Telegram client login requires Android (TDLib + jniLibs).',
-        context: context,
-      );
+    if (_tdSession == null) {
       return;
     }
     setState(() {
@@ -450,6 +469,9 @@ class _OxplayerTelegramLoginScreenState
     final session = _tdSession;
     if (session == null) return;
 
+    _qrStallTimer?.cancel();
+    _qrStallTimer = null;
+
     _passwordController.clear();
     _phoneController.clear();
     _codeController.clear();
@@ -462,7 +484,6 @@ class _OxplayerTelegramLoginScreenState
       _qrPayload = null;
       _cloudPasswordChallenge = null;
       _smsCodeChallenge = null;
-      _authorizationWaitPhoneNumber = false;
       _pane = _OxLoginPane.hub;
     });
 
@@ -472,20 +493,6 @@ class _OxplayerTelegramLoginScreenState
   }
 
   Widget _buildHub(BuildContext context) {
-    if (kIsWeb) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'OXPlayer Telegram sign-in uses TDLib on Android. '
-            'Use the Android build with libtdjson.so in jniLibs.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
     final missingTdKeys = (OxplayerEnv.telegramApiId ?? '').trim().isEmpty ||
         (OxplayerEnv.telegramApiHash ?? '').trim().isEmpty;
     if (missingTdKeys) {
@@ -555,7 +562,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 8),
         const Text(
-          'Uses TDLib (same flow as OXPlayer Android): scan QR or enter your phone number in international format.',
+          'Uses TDLib (tdweb on web, native on mobile): scan QR or enter your phone number in international format.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey, fontSize: 13),
         ),
@@ -632,6 +639,14 @@ class _OxplayerTelegramLoginScreenState
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey),
         ),
+        if (_flowError != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            _flowError!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
         const SizedBox(height: 24),
         if (_qrPayload != null && _qrPayload!.isNotEmpty)
           Center(
@@ -844,6 +859,9 @@ class _OxplayerTelegramLoginScreenState
     }
     if (showPhone) {
       return _buildPhoneStep();
+    }
+    if (_pane == _OxLoginPane.qr) {
+      return _buildQrPane(context);
     }
     if (showProgress) {
       return _buildProgressState();

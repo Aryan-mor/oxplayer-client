@@ -104,6 +104,31 @@ fi
 if [[ "$WEB_CACHE_HIT" == true ]]; then
   echo "[Cache Hit] Skipping Web TDLib build (${WEB_TGZ} present)"
 else
+  # --- Web: refresh TL → JSON converter sources from pinned td_api.tl (host gcc) ---------------
+  # Must run *before* emsdk_env.sh: Emscripten overrides CC/CXX and breaks this native CMake pass.
+  # Upstream target is [tl_generate_json]: builds [generate_json], runs [tl-parser] on scheme/*.tl,
+  # then runs the generator in td/td/generate/auto (not a standalone td_api.json at repo root).
+  echo "[ci] Host-side tl_generate_json from pinned td_api.tl (before Emscripten / example/web) ..."
+  TL_HOST_BUILD="$TD_SRC/build-host-tl-pregenerate"
+  rm -rf "$TL_HOST_BUILD"
+  mkdir -p "$TL_HOST_BUILD"
+  cd "$TL_HOST_BUILD"
+  cmake -DCMAKE_BUILD_TYPE=Release \
+    -DTD_ENABLE_DOTNET=OFF \
+    -DTD_ENABLE_JNI=OFF \
+    "$TD_SRC"
+  cmake --build . --target tl_generate_json -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+  cd "$TD_SRC"
+
+  # If a future TD revision emits td_api.json next to the build tree, ship it into example/web.
+  if [[ -f "$TL_HOST_BUILD/td_api.json" ]]; then
+    cp -f "$TL_HOST_BUILD/td_api.json" "$TD_SRC/example/web/td_api.json"
+    echo "[ci] Copied fresh td_api.json → ${TD_SRC}/example/web/"
+  elif [[ -f "$TL_HOST_BUILD/td/generate/td_api.json" ]]; then
+    cp -f "$TL_HOST_BUILD/td/generate/td_api.json" "$TD_SRC/example/web/td_api.json"
+    echo "[ci] Copied fresh td_api.json (td/generate) → ${TD_SRC}/example/web/"
+  fi
+
   # shellcheck disable=SC1091
   source /opt/emsdk/emsdk_env.sh
   echo "[ci] emcc for Web build:"

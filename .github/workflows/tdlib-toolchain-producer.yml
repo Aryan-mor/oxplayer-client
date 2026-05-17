@@ -2,7 +2,9 @@
 # (on tag push only) GitHub pre-release asset upload for monorepo consumption.
 #
 # Triggers:
-#   - workflow_dispatch — builds + verifies artifacts; does not publish a release.
+#   - workflow_dispatch
+#   - repository_dispatch (event_type: tdlib-toolchain-producer) — e.g. from oxplayer
+#     .github/workflows/tdlib-plan-dispatch-producer.yml when the TDLib plan file changes.
 #   - push tag tdlib-artifacts-* — must match tool/tdlib/TD_VERSION.json commit_sha
 #     exactly as: tdlib-artifacts-<full commit_sha>; uploads 5 assets to that tag.
 #
@@ -12,6 +14,8 @@ name: TDLib toolchain producer
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [tdlib-toolchain-producer]
   push:
     tags:
       - "tdlib-artifacts-*"

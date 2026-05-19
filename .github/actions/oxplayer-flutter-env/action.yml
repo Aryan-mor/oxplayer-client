@@ -15,30 +15,37 @@ runs:
           exit 1
         fi
 
-    - name: Generate dart-defines file
+    - name: Generate dart-defines file and bundled default.env
       shell: bash
       run: |
         python3 - <<'PY'
         import json, os
         from pathlib import Path
 
-        out = Path(os.environ["RUNNER_TEMP"]) / "flutter-build-env.json"
-        out.write_text(
-            json.dumps(
-                {
-                    "TELEGRAM_API_ID": os.environ.get("TELEGRAM_API_ID", ""),
-                    "TELEGRAM_API_HASH": os.environ.get("TELEGRAM_API_HASH", ""),
-                    "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
-                    "OXPLAYER_API_BASE_URL": os.environ.get("OXPLAYER_API_BASE_URL", ""),
-                    "OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME": os.environ.get(
-                        "OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME", ""
-                    ),
-                    "OXPLAYER_TELEGRAM_WEBAPP_URL": os.environ.get(
-                        "OXPLAYER_TELEGRAM_WEBAPP_URL", ""
-                    ),
-                }
+        keys = {
+            "OXPLAYER": "true",
+            "TELEGRAM_API_ID": os.environ.get("TELEGRAM_API_ID", ""),
+            "TELEGRAM_API_HASH": os.environ.get("TELEGRAM_API_HASH", ""),
+            "BOT_USERNAME": os.environ.get("BOT_USERNAME", ""),
+            "OXPLAYER_API_BASE_URL": os.environ.get("OXPLAYER_API_BASE_URL", ""),
+            "OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME": os.environ.get(
+                "OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME", ""
             ),
+            "OXPLAYER_TELEGRAM_WEBAPP_URL": os.environ.get(
+                "OXPLAYER_TELEGRAM_WEBAPP_URL", ""
+            ),
+        }
+
+        out = Path(os.environ["RUNNER_TEMP"]) / "flutter-build-env.json"
+        out.write_text(json.dumps(keys), encoding="utf-8")
+
+        # pubspec.yaml bundles assets/env/default.env (gitignored locally; CI must materialize it).
+        env_path = Path("assets/env/default.env")
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+        env_path.write_text(
+            "\n".join(f"{k}={v}" for k, v in keys.items()) + "\n",
             encoding="utf-8",
         )
+        print(f"Wrote {env_path} ({env_path.stat().st_size} bytes)")
         PY
         echo "FLUTTER_BUILD_ENV_FILE=$RUNNER_TEMP/flutter-build-env.json" >> "$GITHUB_ENV"

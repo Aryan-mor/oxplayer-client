@@ -404,10 +404,18 @@ jobs:
             --arg repository "$REPO" \
             --argjson assets "$ASSETS" \
             '{releaseUrl:$releaseUrl, releaseTag:$releaseTag, releaseTitle:$releaseTitle, buildType:$buildType, repository:$repository, assets:$assets}')
-          curl -fsS -X POST "${BASE}/internal/oxplayer-client/release-admin-notify" \
+          HTTP_CODE=$(curl -sS -o /tmp/ox-release-notify.json -w "%{http_code}" -X POST \
+            "${BASE}/internal/oxplayer-client/release-admin-notify" \
             -H "Authorization: Bearer ${NOTIFY_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "$BODY"
+            -d "$BODY")
+          NOTIFY_OK=$(jq -r '.ok // false' /tmp/ox-release-notify.json 2>/dev/null || echo false)
+          if [ "$HTTP_CODE" != "200" ] || [ "$NOTIFY_OK" != "true" ]; then
+            echo "::warning::Admin Telegram notify failed (HTTP ${HTTP_CODE}): $(cat /tmp/ox-release-notify.json)"
+            echo "Release published; fix TELEGRAM_MAIN_BOT_TOKEN / admin /start with main bot, or set SUPERADMIN_ID on API."
+          else
+            echo "Admin release notify sent."
+          fi
 
   release_play_console:
     name: Upload AAB to Google Play

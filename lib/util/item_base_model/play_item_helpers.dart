@@ -34,6 +34,12 @@ import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/refresh_state.dart';
 import 'package:fladder/widgets/full_screen_helpers/full_screen_wrapper.dart';
 
+void _oxPlaybackWebLog(String message) {
+  if (kDebugMode && kIsWeb) {
+    debugPrint('[OX_PLAYBACK_WEB] $message');
+  }
+}
+
 extension BookBaseModelExtension on BookModel? {
   Future<void> play(
     BuildContext context,
@@ -199,7 +205,13 @@ extension ItemBaseModelExtensions on ItemBaseModel? {
   }) async {
     if (itemModel == null) return;
 
+    _oxPlaybackWebLog(
+      'playHelper.default ENTER itemId=${itemModel.id} name="${itemModel.name}" '
+      'type=${itemModel.runtimeType} showOptions=$showPlaybackOption '
+      'startMs=${startPosition?.inMilliseconds ?? -1}',
+    );
     await ref.read(videoPlayerProvider.notifier).init();
+    _oxPlaybackWebLog('playHelper.default notifier.init returned; creating PlaybackModel');
 
     final op = CancelableOperation.fromFuture(ref.read(playbackModelHelper).createPlaybackModel(
           context,
@@ -211,6 +223,10 @@ extension ItemBaseModelExtensions on ItemBaseModel? {
     _showLoadingIndicator(context, itemModel, op);
 
     final model = await op.valueOrCancellation(null);
+    _oxPlaybackWebLog(
+      'playHelper.default createPlaybackModel returned '
+      'canceled=${op.isCanceled} model=${model.runtimeType} media=${model?.media.runtimeType}',
+    );
     if (op.isCanceled || model == null) {
       try {
         Navigator.of(context, rootNavigator: true).pop();
@@ -224,6 +240,9 @@ extension ItemBaseModelExtensions on ItemBaseModel? {
     }
 
     final actualStartPosition = startPosition ?? await model.startDuration() ?? Duration.zero;
+    _oxPlaybackWebLog(
+      'playHelper.default calling _playVideo startMs=${actualStartPosition.inMilliseconds}',
+    );
 
     await _playVideo(context, startPosition: actualStartPosition, current: model, ref: ref, cancelOperation: op);
   }
@@ -412,6 +431,10 @@ Future<void> _playVideo(
   VoidCallback? onPlayerExit,
   CancelableOperation? cancelOperation,
 }) async {
+  _oxPlaybackWebLog(
+    '_playVideo ENTER current=${current.runtimeType} '
+    'itemId=${current?.item.id ?? "null"} startMs=${startPosition?.inMilliseconds ?? -1}',
+  );
   if (current == null) {
     if (context.mounted) {
       try {
@@ -427,6 +450,7 @@ Future<void> _playVideo(
   if (cancelOperation?.isCanceled ?? false) return;
 
   final actualStartPosition = startPosition ?? await current.startDuration() ?? Duration.zero;
+  _oxPlaybackWebLog('_playVideo before loadPlaybackItem startMs=${actualStartPosition.inMilliseconds}');
 
   oxNativePlaybackTrace(
     '_playVideo before loadPlaybackItem itemId=${current.item.id} name=${current.item.name} '
@@ -436,6 +460,7 @@ Future<void> _playVideo(
         current,
         actualStartPosition,
       );
+  _oxPlaybackWebLog('_playVideo loadPlaybackItem returned success=$loadedCorrectly');
   oxNativePlaybackTrace('_playVideo loadPlaybackItem returned success=$loadedCorrectly');
 
   if (!loadedCorrectly) {
@@ -455,13 +480,16 @@ Future<void> _playVideo(
   try {
     Navigator.of(context, rootNavigator: true).pop();
   } catch (_) {}
+  _oxPlaybackWebLog('_playVideo loading dialog closed; setting fullscreen');
 
   ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(state: VideoPlayerState.fullScreen));
 
   if (cancelOperation?.isCanceled ?? false) return;
 
   oxNativePlaybackTrace('_playVideo calling openPlayer (native activity / window)');
+  _oxPlaybackWebLog('_playVideo calling openPlayer');
   await ref.read(videoPlayerProvider.notifier).openPlayer(context);
+  _oxPlaybackWebLog('_playVideo openPlayer returned');
   oxNativePlaybackTrace('_playVideo openPlayer returned');
   if (AdaptiveLayout.of(context).isDesktop && defaultTargetPlatform != TargetPlatform.macOS) {
     fullScreenHelper.closeFullScreen(ref);

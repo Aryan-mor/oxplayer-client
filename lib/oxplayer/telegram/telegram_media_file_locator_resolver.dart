@@ -11,6 +11,20 @@ import 'package:fladder/oxplayer/telegram/telegram_tdlib_chat_id_resolve.dart';
 const Duration _kResolveSendTimeout = Duration(seconds: 8);
 const Duration _kResolveOverallTimeout = Duration(seconds: 25);
 
+/// MIME hint for HTTP `Content-Type` when streaming tdweb files (must match container bytes).
+String? oxPlaybackMimeHintFromTdMessage(td.Message message) {
+  final content = message.content;
+  if (content is td.MessageVideo) return _trimMime(content.video.mimeType);
+  if (content is td.MessageDocument) return _trimMime(content.document.mimeType);
+  if (content is td.MessageAnimation) return _trimMime(content.animation.mimeType);
+  return null;
+}
+
+String? _trimMime(String? raw) {
+  final t = raw?.trim() ?? '';
+  return t.isEmpty ? null : t;
+}
+
 List<String> _locatorSearchQueriesForMediaId(String mediaFileId) {
   final t = mediaFileId.trim();
   if (t.isEmpty) return const [];
@@ -26,6 +40,7 @@ class ResolvedTelegramMediaFile {
     this.locatorMessageId,
     this.locatorType,
     this.resolutionReason,
+    this.mimeHint,
   });
 
   final td.File file;
@@ -33,6 +48,9 @@ class ResolvedTelegramMediaFile {
   final int? locatorMessageId;
   final String? locatorType;
   final String? resolutionReason;
+
+  /// From TDLib message (e.g. `MessageDocument.mimeType`); used for web SW `Content-Type`.
+  final String? mimeHint;
 }
 
 class _ExtractedFromMessage {
@@ -41,12 +59,14 @@ class _ExtractedFromMessage {
     required this.locatorMessageId,
     required this.resolutionReason,
     required this.resolvedChatId,
+    this.mimeHint,
   });
 
   final td.File file;
   final int locatorMessageId;
   final String resolutionReason;
   final int resolvedChatId;
+  final String? mimeHint;
 }
 
 Future<ResolvedTelegramMediaFile?> resolveTelegramMediaFile({
@@ -141,6 +161,7 @@ Future<ResolvedTelegramMediaFile?> _resolveTelegramMediaFileImpl({
         locatorMessageId: byMessage.locatorMessageId,
         locatorType: 'CHAT_MESSAGE',
         resolutionReason: byMessage.resolutionReason,
+        mimeHint: byMessage.mimeHint,
       );
     }
 
@@ -266,6 +287,7 @@ Future<_ExtractedFromMessage?> _resolveFileByMessage({
             locatorMessageId: messageObject.id,
             resolutionReason: resolutionReason,
             resolvedChatId: chatCandidate,
+            mimeHint: oxPlaybackMimeHintFromTdMessage(messageObject),
           );
         } on td.TdError catch (error) {
           onDiagnostic?.call(
@@ -584,6 +606,7 @@ Future<_ExtractedFromMessage?> _extractFromLocatorTaggedMessageMedia({
         locatorMessageId: tagMessage.id,
         resolutionReason: _mediaLocatorTagDirectReason(logContext),
         resolvedChatId: defaultChatId,
+        mimeHint: oxPlaybackMimeHintFromTdMessage(tagMessage),
       );
     }
   }
@@ -620,6 +643,7 @@ Future<_ExtractedFromMessage?> _extractFromLocatorTaggedMessageMedia({
       locatorMessageId: replied.id,
       resolutionReason: _mediaLocatorTagReplyReason(logContext),
       resolvedChatId: replyTo.chatId,
+      mimeHint: oxPlaybackMimeHintFromTdMessage(replied),
     );
   } on td.TdError catch (error) {
     onDiagnostic?.call(
@@ -709,6 +733,7 @@ Future<_ExtractedFromMessage?> _paginatedHistoryLocatorScanMediaResolver({
                 locatorMessageId: message.id,
                 resolutionReason: 'recent_history_file_unique_id',
                 resolvedChatId: chatId,
+                mimeHint: oxPlaybackMimeHintFromTdMessage(message),
               );
             }
           }

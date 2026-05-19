@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,21 @@ final videoPlayerProvider = StateNotifierProvider<VideoPlayerNotifier, MediaCont
   return videoPlayer;
 });
 
+void _oxPlaybackWebLog(String message) {
+  if (kDebugMode && kIsWeb) {
+    debugPrint('[OX_PLAYBACK_WEB] $message');
+  }
+}
+
+String _oxPlaybackUrlHint(String url) {
+  if (url.isEmpty) return 'empty';
+  final uri = Uri.tryParse(url);
+  if (uri == null) return 'unparseable len=${url.length}';
+  final host = uri.host.isEmpty ? 'none' : uri.host;
+  return 'scheme=${uri.scheme.isEmpty ? "none" : uri.scheme} host=$host '
+      'pathLen=${uri.path.length} queryKeys=${uri.queryParameters.keys.take(8).join(",")}';
+}
+
 class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
   VideoPlayerNotifier(this.ref) : super(MediaControlsWrapper(ref: ref));
 
@@ -51,13 +67,17 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
   MediaPlaybackModel get playbackState => ref.read(mediaPlaybackProvider);
 
   Future<void> init() async {
+    _oxPlaybackWebLog('notifier.init start');
     await state.dispose();
+    _oxPlaybackWebLog('notifier.init wrapper disposed');
     await state.init();
+    _oxPlaybackWebLog('notifier.init wrapper initialized backend=${state.backend}');
     _nativeEndProgressSynced = false;
 
     for (final s in subscriptions) {
       s.cancel();
     }
+    subscriptions.clear();
 
     final subscription = state.stateStream?.listen((value) {
       updateBuffering(value.buffering);
@@ -70,10 +90,14 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
 
     if (subscription != null) {
       subscriptions.add(subscription);
+      _oxPlaybackWebLog('notifier.init stateStream subscription attached');
+    } else {
+      _oxPlaybackWebLog('notifier.init stateStream missing');
     }
 
     _wireMuxedSubtitleDiscovery();
     oxMuxedStreamsLog('VideoPlayerNotifier.init done (mux wiring)');
+    _oxPlaybackWebLog('notifier.init done subscriptions=${subscriptions.length}');
   }
 
   /// When native Exo reaches [PlayerState.completed], push end progress once so Jellyfin
@@ -351,6 +375,10 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
   }
 
   Future<bool> loadPlaybackItem(PlaybackModel model, Duration startPosition) async {
+    _oxPlaybackWebLog(
+      'notifier.loadPlaybackItem ENTER itemId=${model.item.id} '
+      'name="${model.item.name}" startMs=${startPosition.inMilliseconds}',
+    );
     _nativeEndProgressSynced = false;
     _muxedDiscoveryGeneration++;
     _muxedDiscoveryMediaUrl = model.media?.url;
@@ -360,6 +388,12 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
     _verifiedStreamsUploadTimer = null;
     final u = model.media?.url ?? '';
     final wantedPlayer = ref.read(videoPlayerSettingsProvider).wantedPlayer;
+    _oxPlaybackWebLog(
+      'notifier.loadPlaybackItem model media=${model.media.runtimeType} '
+      'wanted=$wantedPlayer backend=${state.backend} ${_oxPlaybackUrlHint(u)} '
+      'streams audio=${model.mediaStreams?.audioStreams.length ?? 0} '
+      'subs=${model.mediaStreams?.subStreams.length ?? 0}',
+    );
     oxNativePlaybackTrace(
       'VideoPlayerNotifier.loadPlaybackItem itemId=${model.item.id} name=${model.item.name} '
       'wantedPlayer=$wantedPlayer startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(u)}',
@@ -373,7 +407,16 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
     ref.read(playBackModel)?.dispose();
     final nextUrl = model.media?.url ?? '';
     final nextUsesOxLoopback = nextUrl.contains('127.0.0.1');
-    await state.stopWithPlaybackOptions(releaseOxTelegramCache: !nextUsesOxLoopback);
+    _oxPlaybackWebLog(
+      'notifier.loadPlaybackItem stopWithPlaybackOptions releaseCache=${!nextUsesOxLoopback}',
+    );
+    try {
+      await state.stopWithPlaybackOptions(releaseOxTelegramCache: !nextUsesOxLoopback);
+      _oxPlaybackWebLog('notifier.loadPlaybackItem stopWithPlaybackOptions ok');
+    } catch (error, stackTrace) {
+      _oxPlaybackWebLog('notifier.loadPlaybackItem stopWithPlaybackOptions ERROR $error\n$stackTrace');
+      rethrow;
+    }
     ref.read(playbackRateProvider.notifier).state = 1.0;
     mediaState.update((state) => state.copyWith(
           state: VideoPlayerState.fullScreen,
@@ -387,21 +430,54 @@ class VideoPlayerNotifier extends StateNotifier<MediaControlsWrapper> {
 
     if (media != null) {
       ref.read(playBackModel.notifier).update((_) => newPlaybackModel);
+      _oxPlaybackWebLog('notifier.loadPlaybackItem playBackModel set; calling wrapper.loadVideo');
       oxNativePlaybackTrace('VideoPlayerNotifier.loadPlaybackItem calling state.loadVideo');
-      await state.loadVideo(model, startPosition, true);
-      await state.setVolume(ref.read(videoPlayerSettingsProvider).volume);
+      try {
+        await state.loadVideo(model, startPosition, true);
+        _oxPlaybackWebLog('notifier.loadPlaybackItem wrapper.loadVideo ok');
+      } catch (error, stackTrace) {
+        _oxPlaybackWebLog('notifier.loadPlaybackItem wrapper.loadVideo ERROR $error\n$stackTrace');
+        rethrow;
+      }
+      try {
+        await state.setVolume(ref.read(videoPlayerSettingsProvider).volume);
+        _oxPlaybackWebLog('notifier.loadPlaybackItem setVolume ok');
+      } catch (error, stackTrace) {
+        _oxPlaybackWebLog('notifier.loadPlaybackItem setVolume ERROR $error\n$stackTrace');
+        rethrow;
+      }
 
-      await state.setAudioTrack(null, model);
-      await state.setSubtitleTrack(null, model);
+      try {
+        await state.setAudioTrack(null, model);
+        _oxPlaybackWebLog('notifier.loadPlaybackItem setAudioTrack ok');
+      } catch (error, stackTrace) {
+        _oxPlaybackWebLog('notifier.loadPlaybackItem setAudioTrack ERROR $error\n$stackTrace');
+        rethrow;
+      }
+      try {
+        await state.setSubtitleTrack(null, model);
+        _oxPlaybackWebLog('notifier.loadPlaybackItem setSubtitleTrack ok');
+      } catch (error, stackTrace) {
+        _oxPlaybackWebLog('notifier.loadPlaybackItem setSubtitleTrack ERROR $error\n$stackTrace');
+        rethrow;
+      }
 
-      await state.play();
+      try {
+        await state.play();
+        _oxPlaybackWebLog('notifier.loadPlaybackItem play ok');
+      } catch (error, stackTrace) {
+        _oxPlaybackWebLog('notifier.loadPlaybackItem play ERROR $error\n$stackTrace');
+        rethrow;
+      }
       _wireMuxedSubtitleDiscovery();
       oxMuxedStreamsLog('loadPlaybackItem finished play(); mux discovery re-wired');
       oxNativePlaybackTrace('VideoPlayerNotifier.loadPlaybackItem success=true');
+      _oxPlaybackWebLog('notifier.loadPlaybackItem SUCCESS');
       return true;
     }
 
     oxNativePlaybackTrace('VideoPlayerNotifier.loadPlaybackItem FAIL media==null');
+    _oxPlaybackWebLog('notifier.loadPlaybackItem FAIL media=null');
     mediaState.update((state) => state.copyWith(errorPlaying: true));
     return false;
   }

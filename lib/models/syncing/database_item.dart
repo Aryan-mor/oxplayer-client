@@ -1,11 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/chapters_model.dart';
@@ -14,6 +10,15 @@ import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/trick_play_model.dart';
+import 'package:fladder/models/syncing/connection/clear_synced_store_stub.dart'
+    if (dart.library.html) 'package:fladder/models/syncing/connection/clear_synced_store_web.dart'
+    if (dart.library.js_interop) 'package:fladder/models/syncing/connection/clear_synced_store_web.dart'
+    if (dart.library.io) 'package:fladder/models/syncing/connection/clear_synced_store_io.dart'
+    as synced_store_clear;
+import 'package:fladder/models/syncing/connection/connection_stub.dart'
+    if (dart.library.html) 'package:fladder/models/syncing/connection/connection_web.dart'
+    if (dart.library.js_interop) 'package:fladder/models/syncing/connection/connection_web.dart'
+    if (dart.library.io) 'package:fladder/models/syncing/connection/connection_native.dart';
 import 'package:fladder/models/syncing/sync_item.dart';
 import 'package:fladder/providers/user_provider.dart';
 
@@ -45,7 +50,7 @@ class DatabaseItems extends Table {
 
 @DriftDatabase(tables: [DatabaseItems])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase(this.ref, [QueryExecutor? executor]) : super(executor ?? _openConnection());
+  AppDatabase(this.ref, [QueryExecutor? executor]) : super(executor ?? openConnection());
 
   final Ref ref;
 
@@ -55,12 +60,7 @@ class AppDatabase extends _$AppDatabase {
   int get schemaVersion => 1;
 
   Future<void> clearDatabase() async {
-    final dbPath = await getApplicationSupportDirectory();
-    final dbFile = File(p.join(dbPath.path, '$_databseName.sqlite'));
-
-    if (await dbFile.exists()) {
-      await dbFile.delete(recursive: true);
-    }
+    await synced_store_clear.clearSyncedStoreRows(this, _databseName);
   }
 
   Selectable<SyncedItem> getItem(String id) =>
@@ -190,19 +190,6 @@ class AppDatabase extends _$AppDatabase {
 
     return syncedItem.copyWith(
       itemModel: syncedItem.createItemModel(ref),
-    );
-  }
-
-  static QueryExecutor _openConnection() {
-    return driftDatabase(
-      name: _databseName,
-      native: const DriftNativeOptions(
-        databaseDirectory: getApplicationSupportDirectory,
-      ),
-      web: DriftWebOptions(
-        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-        driftWorker: Uri.parse('drift_worker.dart.js'),
-      ),
     );
   }
 }

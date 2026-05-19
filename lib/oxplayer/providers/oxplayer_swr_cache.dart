@@ -4,7 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:fladder/oxplayer/providers/oxplayer_swr_cache_paths_stub.dart'
+    if (dart.library.io) 'package:fladder/oxplayer/providers/oxplayer_swr_cache_paths_io.dart' as swr_paths;
 
 final oxplayerSwrCacheProvider = Provider<OxplayerSwrCache>((ref) {
   return const OxplayerSwrCache();
@@ -66,9 +67,9 @@ class OxplayerSwrCache {
   }
 
   Future<File> _fileForKey(String key) async {
-    final base = await getApplicationSupportDirectory();
+    final basePath = await swr_paths.applicationSupportPathForSwr();
     final safeKey = base64Url.encode(utf8.encode(key));
-    return File(p.join(base.path, 'oxplayer_swr_cache', '$safeKey.json'));
+    return File(p.join(basePath, 'oxplayer_swr_cache', '$safeKey.json'));
   }
 }
 

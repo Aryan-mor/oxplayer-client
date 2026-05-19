@@ -35,6 +35,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smtc_windows/smtc_windows.dart' if (dart.library.html) 'package:fladder/stubs/web/smtc_web.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+void _oxPlaybackWebLog(String message) {
+  if (kDebugMode && kIsWeb) {
+    debugPrint('[OX_PLAYBACK_WEB] $message');
+  }
+}
+
+String _oxPlaybackUrlHint(String url) {
+  if (url.isEmpty) return 'empty';
+  final uri = Uri.tryParse(url);
+  if (uri == null) return 'unparseable len=${url.length}';
+  final host = uri.host.isEmpty ? 'none' : uri.host;
+  return 'scheme=${uri.scheme.isEmpty ? "none" : uri.scheme} host=$host '
+      'pathLen=${uri.path.length} queryKeys=${uri.queryParameters.keys.take(8).join(",")}';
+}
+
 class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerControlsCallback {
   MediaControlsWrapper({required this.ref});
 
@@ -69,6 +84,10 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
   bool _isNewPlayback = false;
 
   Future<void> init() async {
+    _oxPlaybackWebLog(
+      'wrapper.init start initialized=$initializedWrapper '
+      'wanted=${ref.read(videoPlayerSettingsProvider).wantedPlayer}',
+    );
     if (!initializedWrapper) {
       initializedWrapper = true;
       if (!kIsWeb && Platform.isAndroid) {
@@ -96,36 +115,58 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
       PlayerOptions.nativePlayer => NativePlayer(),
     };
 
-    setup(player);
+    _oxPlaybackWebLog('wrapper.init selected player=${player.runtimeType}');
+    await setup(player);
+    _oxPlaybackWebLog('wrapper.init done player=${_player.runtimeType}');
   }
 
   Future<void> dispose() async {
+    _oxPlaybackWebLog('wrapper.dispose start player=${_player.runtimeType}');
     _subtitleSettingsSubscription?.close();
     final p = _player;
     _player = null;
     await p?.dispose();
+    _oxPlaybackWebLog('wrapper.dispose done');
   }
 
   Future<void> setup(BasePlayer newPlayer) async {
+    _oxPlaybackWebLog('wrapper.setup start newPlayer=${newPlayer.runtimeType}');
     _player = newPlayer;
-    await newPlayer.init(ref.read(videoPlayerSettingsProvider));
+    try {
+      await newPlayer.init(ref.read(videoPlayerSettingsProvider));
+      _oxPlaybackWebLog('wrapper.setup player.init ok player=${newPlayer.runtimeType}');
+    } catch (error, stackTrace) {
+      _oxPlaybackWebLog('wrapper.setup player.init ERROR $error\n$stackTrace');
+      rethrow;
+    }
     _initPlayer();
+    _oxPlaybackWebLog('wrapper.setup done subscriptions=${subscriptions.length}');
   }
 
   void _initPlayer() {
+    _oxPlaybackWebLog(
+      'wrapper._initPlayer start player=${_player.runtimeType} oldSubscriptions=${subscriptions.length}',
+    );
     _subtitleSettingsSubscription?.close();
     for (var element in subscriptions) {
       element.cancel();
     }
+    subscriptions.clear();
     stop();
     _subscribePlayer();
     _subtitleSettingsSubscription = ref.listen(subtitleSettingsProvider, (_, next) {
       _player?.applySubtitleSettings(next);
     });
+    _oxPlaybackWebLog('wrapper._initPlayer done subscriptions=${subscriptions.length}');
   }
 
   Future<void> loadVideo(PlaybackModel model, Duration startPosition, bool play) async {
     final playUrl = model.media?.url ?? "";
+    _oxPlaybackWebLog(
+      'wrapper.loadVideo start player=${_player.runtimeType} play=$play '
+      'startMs=${startPosition.inMilliseconds} mediaType=${model.media.runtimeType} '
+      '${_oxPlaybackUrlHint(playUrl)}',
+    );
     oxNativePlaybackTrace(
       'MediaControlsWrapper.loadVideo enter player=${_player.runtimeType} play=$play '
       'startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(playUrl)}',
@@ -143,14 +184,22 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     }
     _isNewPlayback = play;
     oxNativePlaybackTrace('MediaControlsWrapper.loadVideo calling player.loadVideo');
-    await _player?.loadVideo(playUrl, play, startPosition: startPosition);
+    try {
+      await _player?.loadVideo(playUrl, play, startPosition: startPosition);
+      _oxPlaybackWebLog('wrapper.loadVideo player.loadVideo ok');
+    } catch (error, stackTrace) {
+      _oxPlaybackWebLog('wrapper.loadVideo player.loadVideo ERROR $error\n$stackTrace');
+      rethrow;
+    }
     _player?.applySubtitleSettings(ref.read(subtitleSettingsProvider));
+    _oxPlaybackWebLog('wrapper.loadVideo subtitle settings applied');
 
     final context = ref.read(localizationContextProvider);
     if (context != null) {
       ref.read(windowTitleProvider.notifier).setPlayTitle(model.item.windowTitle(context.localized));
     }
     oxNativePlaybackTrace('MediaControlsWrapper.loadVideo done');
+    _oxPlaybackWebLog('wrapper.loadVideo done');
   }
 
   /// Pushes merged stream metadata to the Android Exo host and re-applies default track selection (no media reload).
@@ -185,7 +234,8 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
   }
 
   void _subscribePlayer() {
-    if (Platform.isWindows && !kIsWeb) {
+    _oxPlaybackWebLog('wrapper.subscribe start player=${_player.runtimeType}');
+    if (!kIsWeb && Platform.isWindows) {
       smtc = SMTCWindows(
         config: const SMTCConfig(
           fastForwardEnabled: true,
@@ -236,6 +286,11 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     }
 
     subscriptions.add(_player!.stateStream.listen((value) {
+      _oxPlaybackWebLog(
+        'wrapper.state playing=${value.playing} buffering=${value.buffering} '
+        'posMs=${value.position.inMilliseconds} durMs=${value.duration.inMilliseconds} '
+        'bufferMs=${value.buffer.inMilliseconds}',
+      );
       playbackState.add(playbackState.value.copyWith(
         bufferedPosition: value.buffer,
       ));
@@ -250,7 +305,10 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
         playing: value.playing,
       ));
       smtc?.setPlaybackStatus(value.playing ? PlaybackStatus.playing : PlaybackStatus.paused);
+    }, onError: (Object error, StackTrace stackTrace) {
+      _oxPlaybackWebLog('wrapper.state ERROR $error\n$stackTrace');
     }));
+    _oxPlaybackWebLog('wrapper.subscribe done subscriptions=${subscriptions.length}');
   }
 
   @override

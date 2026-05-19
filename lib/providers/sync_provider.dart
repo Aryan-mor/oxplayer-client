@@ -12,7 +12,8 @@ import 'package:drift_db_viewer/drift_db_viewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:fladder/providers/sync/sync_provider_paths_stub.dart'
+    if (dart.library.io) 'package:fladder/providers/sync/sync_provider_paths_io.dart' as sync_paths;
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/api_result.dart';
@@ -147,13 +148,8 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
     final activeDownloads = ref.read(activeDownloadTasksProvider);
     if (activeDownloads.isNotEmpty) return;
 
-    // List of directories to check
-    final directories = [
-      //Desktop directory
-      await getTemporaryDirectory(),
-      //Mobile directory
-      await getApplicationSupportDirectory(),
-    ];
+    final pathStrings = await sync_paths.supportAndTempPathsForCleanup();
+    final directories = pathStrings.map(Directory.new).toList();
 
     for (final dir in directories) {
       final List<FileSystemEntity> files = dir.listSync();
@@ -184,13 +180,8 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
     if (kIsWeb) return <String>[];
     final tempFiles = <String>[];
 
-    // List of directories to check
-    final directories = [
-      //Desktop directory
-      await getTemporaryDirectory(),
-      //Mobile directory
-      await getApplicationSupportDirectory(),
-    ];
+    final pathStrings = await sync_paths.supportAndTempPathsForCleanup();
+    final directories = pathStrings.map(Directory.new).toList();
 
     for (final dir in directories) {
       final List<FileSystemEntity> files = dir.listSync();

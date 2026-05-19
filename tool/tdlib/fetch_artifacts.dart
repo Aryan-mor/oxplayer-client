@@ -4,6 +4,8 @@
 // Usage (from oxplayer-client root):
 //   dart run tool/tdlib/fetch_artifacts.dart
 //   dart run tool/tdlib/fetch_artifacts.dart --config=tool/tdlib/artifact_config.yaml
+//   dart run tool/tdlib/fetch_artifacts.dart --flatten-tdweb-only
+//     (no network: merge web/tdweb/dist/* -> web/tdweb/ for index.html flat layout)
 //
 // Expects tool/tdlib/TD_VERSION.json (committed) for commit_sha default.
 // Requires tool/tdlib/artifact_config.yaml (gitignored) with base_url + headers.
@@ -23,6 +25,15 @@ Never _fail(String message) {
 
 Future<void> main(List<String> args) async {
   final clientRoot = Directory.current.path;
+  if (args.contains('--flatten-tdweb-only')) {
+    final webOut = p.join(clientRoot, 'web', 'tdweb');
+    _flattenTdwebDistIntoRoot(webOut);
+    _verifyTdwebFlatLayout(webOut);
+    _markWebTdwebFromFetchArtifacts(webOut);
+    stdout.writeln('[fetch_artifacts] OK — tdweb flattened to web/tdweb/ (flat layout).');
+    return;
+  }
+
   final tdlibTool = p.join(clientRoot, 'tool', 'tdlib');
   final versionFile = File(p.join(tdlibTool, 'TD_VERSION.json'));
   if (!versionFile.existsSync()) {
@@ -137,6 +148,65 @@ Future<void> main(List<String> args) async {
   stdout.writeln('[fetch_artifacts] OK — Android .so + web bundle present.');
 }
 
+/// Producer [dist.tar.gz] is built with `tar -C tdweb dist`, so extraction yields
+/// only [web/tdweb/dist/...]. [web/index.html] loads [tdweb/tdweb.js] (flat). Merge
+/// nested dist into the flat layout and remove stale root siblings (old *.wasm /
+/// workers) so the runtime cannot load a mismatched webpack + WASM pair.
+void _flattenTdwebDistIntoRoot(String webOut) {
+  final distDir = Directory(p.join(webOut, 'dist'));
+  if (!distDir.existsSync()) {
+    stdout.writeln(
+      '[fetch_artifacts] web/tdweb/dist/ absent — skipping flatten (tarball already flat or sync-tdweb layout).',
+    );
+    return;
+  }
+
+  final nestedFiles = distDir
+      .listSync(recursive: true, followLinks: false)
+      .whereType<File>()
+      .toList();
+  if (nestedFiles.isEmpty) {
+    _fail('web/tdweb/dist exists but contains no files');
+  }
+
+  for (final entity in Directory(webOut).listSync(followLinks: false)) {
+    if (entity is Directory && p.basename(entity.path) == 'dist') {
+      continue;
+    }
+    entity.deleteSync(recursive: true);
+  }
+
+  for (final src in nestedFiles) {
+    final rel = p.relative(src.path, from: distDir.path);
+    final dst = File(p.join(webOut, rel));
+    dst.parent.createSync(recursive: true);
+    src.copySync(dst.path);
+  }
+
+  distDir.deleteSync(recursive: true);
+  stdout.writeln(
+    '[fetch_artifacts] flattened ${nestedFiles.length} file(s) from web/tdweb/dist/ into web/tdweb/',
+  );
+}
+
+/// Prevents [scripts/sync-tdweb.mjs] from copying npm `tdweb` over registry artifacts.
+void _markWebTdwebFromFetchArtifacts(String webOut) {
+  File(p.join(webOut, '.from_fetch_artifacts')).writeAsStringSync(
+    'Managed by dart run tool/tdlib/fetch_artifacts.dart. '
+    'Delete this file to allow scripts/sync-tdweb.mjs to copy npm tdweb.\n',
+  );
+}
+
+void _verifyTdwebFlatLayout(String webOut) {
+  final tdwebJs = File(p.join(webOut, 'tdweb.js'));
+  if (!tdwebJs.existsSync()) {
+    _fail(
+      'Web bundle missing flat web/tdweb/tdweb.js after merge. '
+      'Re-run fetch or sync-tdweb; see web/index.html script order.',
+    );
+  }
+}
+
 void _verifyArtifacts(String androidOut, String webOut) {
   const abis = ['arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'];
   for (final abi in abis) {
@@ -145,14 +215,7 @@ void _verifyArtifacts(String androidOut, String webOut) {
       _fail('Missing or too small: ${f.path}');
     }
   }
-  final tdwebJs = File(p.join(webOut, 'tdweb.js'));
-  final nested = File(p.join(webOut, 'dist', 'tdweb.js'));
-  if (!tdwebJs.existsSync() && !nested.existsSync()) {
-    _fail(
-      'Web bundle missing tdweb.js under $webOut (expected flat dist or dist/ subfolder). '
-      'Ensure dist.tar.gz packs the same layout as npm tdweb dist/.',
-    );
-  }
+  _verifyTdwebFlatLayout(webOut);
 }
 
 String? _shaFromManifest(Map<String, dynamic>? manifest, String relPath) {
@@ -290,6 +353,8 @@ Future<void> _downloadWebArchive({
     await tmp.delete();
     stdout.writeln(
         '[fetch_artifacts] extracted web bundle to $destDir ($digest)');
+    _flattenTdwebDistIntoRoot(destDir);
+    _markWebTdwebFromFetchArtifacts(destDir);
   } catch (e) {
     throw HttpException(
       'web dist fetch/extract failed: $e (GET $url must succeed; no silent skip)',

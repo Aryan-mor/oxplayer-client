@@ -12,3 +12,11 @@ void oxEnvLog(String message) {
     debugPrint('[OX_ENV] $message');
   }
 }
+
+/// High-signal web/local diagnostics. Filter browser console by **`[OX_DEBUG]`**.
+void oxDebugLog(String message) {
+  developer.log(message, name: 'OX_DEBUG');
+  if (kDebugMode && kIsWeb) {
+    debugPrint('[OX_DEBUG] $message');
+  }
+}

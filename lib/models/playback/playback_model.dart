@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart' hide ConnectionState;
 
 import 'package:background_downloader/background_downloader.dart';
@@ -47,6 +48,62 @@ import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_playback_resolver.dart';
 import 'package:fladder/oxplayer/oxplayer_verified_streams_client.dart';
 import 'package:fladder/oxplayer/my_telegram/oxplayer_my_telegram_playback_model.dart';
+
+void _oxPlaybackWebModelLog(String message) {
+  if (kDebugMode && kIsWeb) {
+    debugPrint('[OX_TG_WEB_STREAM] playback_model $message');
+  }
+}
+
+/// Jellyfin `GET /Videos/{id}/stream.{container}` — last segment must include extension for correct MIME routing.
+String _jellyfinVideosStreamSegment(MediaSourceInfo? source) {
+  final raw = source?.container?.trim() ?? '';
+  final ext = raw.isEmpty ? 'mp4' : raw.replaceFirst(RegExp(r'^\.+'), '').toLowerCase();
+  if (!RegExp(r'^[a-z0-9]+$').hasMatch(ext)) {
+    return 'stream.mp4';
+  }
+  return 'stream.$ext';
+}
+
+bool _isOxTelegramLocator(String? url) => url?.startsWith('oxplayer://telegram/') == true;
+
+bool _canTryTelegramDirectOnWeb({
+  required String? videoCodec,
+  required String? audioCodec,
+}) {
+  if (!kIsWeb) return true;
+  final videoOk = switch (videoCodec?.toLowerCase().trim()) {
+    'h264' || 'avc' || 'avc1' => true,
+    _ => false,
+  };
+  final audioOk = switch (audioCodec?.toLowerCase().trim()) {
+    'aac' || 'mp3' || 'mp4a' || 'audio/mp4a-latm' || 'mp4a-latm' => true,
+    _ => false,
+  };
+  return videoOk && audioOk;
+}
+
+/// Web: Telegram files over ~20MB cannot use Bot API [getFile] on the server proxy; prefer tdweb (MTProto) in-browser.
+Future<String> _oxTelegramPlayUrlOnWeb({
+  required Ref ref,
+  required String oxLocatorUri,
+  required String serverPlaybackUrl,
+}) async {
+  final tdweb = await resolveOxplayerTelegramLocatorToPlayableUrl(
+    oxplayerLocatorUri: oxLocatorUri,
+    ref: ref,
+  );
+  if (tdweb != null && tdweb.isNotEmpty) {
+    _oxPlaybackWebModelLog(
+      'web tdweb stream OK scheme=${Uri.tryParse(tdweb)?.scheme ?? "?"} len=${tdweb.length}',
+    );
+    return tdweb;
+  }
+  _oxPlaybackWebModelLog(
+    'web tdweb unavailable; server /Videos/.../stream proxy (Bot API, files typically must be under ~20MB)',
+  );
+  return serverPlaybackUrl;
+}
 
 class Media {
   final String url;
@@ -521,24 +578,52 @@ class PlaybackModelHelper {
 
         final playbackUrl = buildServerUrl(
           ref,
-          pathSegments: ['Videos', mediaSource.id!, 'stream'],
+          pathSegments: ['Videos', mediaSource.id!, _jellyfinVideosStreamSegment(mediaSource)],
           queryParameters: directOptions,
         );
 
         String? libraryMediaFileId;
-        var playUrl = mediaPath ?? playbackUrl;
+        var playUrl = _isOxTelegramLocator(mediaPath) ? playbackUrl : (mediaPath ?? playbackUrl);
+        final videoCodec = newStreamModel?.videoStreams.firstOrNull?.codec;
+        final audioCodec = newStreamModel?.audioStreams.firstOrNull?.codec;
+        final webCanTryTelegramDirect = _canTryTelegramDirectOnWeb(
+          videoCodec: videoCodec,
+          audioCodec: audioCodec,
+        );
         if (OxplayerConfig.isEnabled &&
             mediaPath != null &&
-            mediaPath.startsWith('oxplayer://telegram/')) {
+            _isOxTelegramLocator(mediaPath)) {
           libraryMediaFileId = parseOxplayerTelegramMediaId(mediaPath);
-          final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
-            oxplayerLocatorUri: mediaPath,
-            ref: ref,
-          );
-          if (resolved == null) {
-            return null;
+          if (kIsWeb) {
+            playUrl = await _oxTelegramPlayUrlOnWeb(
+              ref: ref,
+              oxLocatorUri: mediaPath,
+              serverPlaybackUrl: playbackUrl,
+            );
+          } else if (webCanTryTelegramDirect) {
+            _oxPlaybackWebModelLog(
+              'resolving locator mediaPath=$mediaPath libraryMediaFileId=$libraryMediaFileId videoCodec=${videoCodec ?? "null"} audioCodec=${audioCodec ?? "null"}',
+            );
+            final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
+              oxplayerLocatorUri: mediaPath,
+              ref: ref,
+            );
+            if (resolved == null) {
+              _oxPlaybackWebModelLog(
+                'resolver returned null for $mediaPath; using server playback URL on web=${kIsWeb}',
+              );
+              if (!kIsWeb) return null;
+            } else {
+              _oxPlaybackWebModelLog(
+                'resolver returned ${resolved.startsWith('blob:') ? "blob" : Uri.tryParse(resolved)?.scheme ?? "unknown"} len=${resolved.length}',
+              );
+              playUrl = resolved;
+            }
+          } else {
+            _oxPlaybackWebModelLog(
+              'skip Telegram TDLib resolver: videoCodec=${videoCodec ?? "null"} audioCodec=${audioCodec ?? "null"}; using server playback URL',
+            );
           }
-          playUrl = resolved;
         }
 
         return DirectPlaybackModel(
@@ -696,37 +781,67 @@ class PlaybackModelHelper {
 
       final directPlay = buildServerUrl(
         ref,
-        pathSegments: ['Videos', mediaSource.id ?? '', 'stream'],
+        pathSegments: ['Videos', mediaSource.id ?? '', _jellyfinVideosStreamSegment(mediaSource)],
         queryParameters: directOptions,
       );
 
       final mediaPath = isValidVideoUrl(mediaSource.path ?? "");
 
       String? libraryMediaFileId;
-      var playUrl = mediaPath ?? directPlay;
-      if (OxplayerConfig.isEnabled && mediaPath != null && mediaPath.startsWith('oxplayer://telegram/')) {
+      var playUrl = _isOxTelegramLocator(mediaPath) ? directPlay : (mediaPath ?? directPlay);
+      final videoCodec = mediaStreamsWithUrls.videoStreams.firstOrNull?.codec;
+      final audioCodec = mediaStreamsWithUrls.audioStreams.firstOrNull?.codec;
+      final webCanTryTelegramDirect = _canTryTelegramDirectOnWeb(
+        videoCodec: videoCodec,
+        audioCodec: audioCodec,
+      );
+      if (OxplayerConfig.isEnabled &&
+          mediaPath != null &&
+          _isOxTelegramLocator(mediaPath)) {
         libraryMediaFileId = parseOxplayerTelegramMediaId(mediaPath);
-        final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
-          oxplayerLocatorUri: mediaPath,
-          ref: ref,
-        );
-        if (resolved == null) {
-          return;
+        if (kIsWeb) {
+          playUrl = await _oxTelegramPlayUrlOnWeb(
+            ref: ref,
+            oxLocatorUri: mediaPath,
+            serverPlaybackUrl: directPlay,
+          );
+        } else if (webCanTryTelegramDirect) {
+          _oxPlaybackWebModelLog(
+            'resolving locator (setStreams) mediaPath=$mediaPath libraryMediaFileId=$libraryMediaFileId videoCodec=${videoCodec ?? "null"} audioCodec=${audioCodec ?? "null"}',
+          );
+          final resolved = await resolveOxplayerTelegramLocatorToPlayableUrl(
+            oxplayerLocatorUri: mediaPath,
+            ref: ref,
+          );
+          if (resolved == null) {
+            _oxPlaybackWebModelLog(
+              'resolver returned null for setStreams $mediaPath; using server playback URL on web=${kIsWeb}',
+            );
+            if (!kIsWeb) return;
+          } else {
+            _oxPlaybackWebModelLog(
+              'resolver returned (setStreams) ${resolved.startsWith('blob:') ? "blob" : Uri.tryParse(resolved)?.scheme ?? "unknown"} len=${resolved.length}',
+            );
+            playUrl = resolved;
+          }
+        } else {
+          _oxPlaybackWebModelLog(
+            'skip Telegram TDLib resolver (setStreams): videoCodec=${videoCodec ?? "null"} audioCodec=${audioCodec ?? "null"}; using server playback URL',
+          );
         }
-        playUrl = resolved;
       }
 
-      newModel = DirectPlaybackModel(
-        item: playbackModel.item,
-        queue: playbackModel.queue,
-        mediaSegments: playbackModel.mediaSegments,
-        chapters: playbackModel.chapters,
-        playbackInfo: playbackInfo,
-        trickPlay: playbackModel.trickPlay,
-        media: Media(url: playUrl, libraryMediaFileId: libraryMediaFileId),
-        mediaStreams: mediaStreamsWithUrls,
-        bitRateOptions: playbackModel.bitRateOptions,
-      );
+      newModel ??= DirectPlaybackModel(
+          item: playbackModel.item,
+          queue: playbackModel.queue,
+          mediaSegments: playbackModel.mediaSegments,
+          chapters: playbackModel.chapters,
+          playbackInfo: playbackInfo,
+          trickPlay: playbackModel.trickPlay,
+          media: Media(url: playUrl, libraryMediaFileId: libraryMediaFileId),
+          mediaStreams: mediaStreamsWithUrls,
+          bitRateOptions: playbackModel.bitRateOptions,
+        );
     } else if ((mediaSource.supportsTranscoding ?? false) && mediaSource.transcodingUrl != null) {
       newModel = TranscodePlaybackModel(
         item: playbackModel.item,

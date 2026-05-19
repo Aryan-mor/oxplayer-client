@@ -133,13 +133,17 @@ class _DetailScaffoldState extends ConsumerState<DetailScaffold> {
     final provider = newImage.imageProvider;
     _lastRequestedImage = provider;
 
-    final newColor = await getDominantColor(provider);
+    try {
+      final newColor = await getDominantColor(provider);
 
-    if (!mounted || !identical(_lastRequestedImage, provider)) return;
+      if (!mounted || !identical(_lastRequestedImage, provider)) return;
 
-    setState(() {
-      dominantColor = newColor;
-    });
+      setState(() {
+        dominantColor = newColor;
+      });
+    } catch (_) {
+      // Optional UX: `/Images/Logo` can hang or 404 (e.g. OX API / dev). Do not surface as unhandled.
+    }
   }
 
   @override

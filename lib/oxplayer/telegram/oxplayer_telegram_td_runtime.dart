@@ -1,4 +1,6 @@
-import 'tdlib_controller.dart' if (dart.library.html) 'tdlib_controller_web.dart';
+import 'tdlib_controller.dart'
+    if (dart.library.html) 'tdlib_controller_web.dart'
+    if (dart.library.js_interop) 'tdlib_controller_web.dart';
 
 /// Single [TelegramTdlibFacade] for login + Telegram media playback.
 final class OxplayerTelegramTdRuntime {

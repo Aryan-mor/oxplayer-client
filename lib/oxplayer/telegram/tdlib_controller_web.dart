@@ -13,6 +13,36 @@ import 'utils/tdlib_wire_json_compat.dart';
 
 void _tdlog(String message) => debugPrint(message);
 
+String _stringifyTdWebSendFailure(Object e) {
+  if (e is td.TdError) {
+    return '${e.message} (code ${e.code})';
+  }
+  try {
+    final dyn = e as dynamic;
+    final m = dyn.message;
+    if (m is String && m.isNotEmpty) {
+      return m;
+    }
+    final s = dyn.toString();
+    if (s.isNotEmpty && s != 'Instance of \'LegacyJavaScriptObject\'') {
+      return s;
+    }
+  } catch (_) {}
+  final s = e.toString();
+  if (s.contains('[object Object]') || s.contains('LegacyJavaScriptObject')) {
+    return 'JS/TDLib send rejected (see browser console).';
+  }
+  return s;
+}
+
+/// TDLib JSON [toJson] may include null `@extra`; tdweb/JSON.stringify tolerates it but
+/// stripping keeps the wire minimal.
+String _jsonEncodeTdFunction(td.TdFunction fn) {
+  final m = Map<String, dynamic>.from(fn.toJson());
+  m.removeWhere((_, v) => v == null);
+  return jsonEncode(m);
+}
+
 const _kDownloadConnectionsCount = 16;
 const _kMaxGetMeRetries = 2;
 
@@ -193,7 +223,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
       if (!_isUselessFatalDetail(encoded)) return encoded;
     } catch (_) {}
     return 'unknown fatal error (no readable message from tdweb; '
-        'see browser console for "[OX tdweb bridge] updateFatalError" and refresh '
+        'see browser console for "[OX_TG_WEB_STREAM] updateFatalError" and refresh '
         'after fixing API keys or clearing site data).';
   }
 
@@ -203,6 +233,16 @@ class TelegramTdlibFacade implements TdTelegramClient {
     _lastTdlibFatalDetail = msg;
     debugPrint('TDLib fatal: $msg');
     _tdlog('TDLib web ← updateFatalError: $msg');
+    final lower = msg.toLowerCase();
+    final runningDiffFatal =
+        lower.contains('running_get_difference_') ||
+        (lower.contains('notificationmanager') && lower.contains('check') && lower.contains('failed'));
+    if (runningDiffFatal && !_functionErrors.isClosed) {
+      _functionErrors.add(
+        'TDLib local web session is corrupted (running_get_difference failed). '
+        'Close other OXPlayer tabs for this origin, clear site data/IndexedDB, and restart Telegram login.',
+      );
+    }
     if (!_functionErrors.isClosed) {
       _functionErrors.add('TDLib fatal: $msg');
     }
@@ -343,10 +383,12 @@ class TelegramTdlibFacade implements TdTelegramClient {
 
   void _enginePost(td.TdFunction fn) {
     if (!_webJsAlive) return;
-    final payload = jsonEncode(fn.toJson());
+    final payload = _jsonEncodeTdFunction(fn);
     unawaited(
       _jsSendJson(payload).catchError((Object e) {
-        _tdlog('TDLib web fire-and-forget send failed: $e');
+        _tdlog(
+          'TDLib web fire-and-forget send failed: ${_stringifyTdWebSendFailure(e)}',
+        );
         return '';
       }),
     );
@@ -765,13 +807,13 @@ class TelegramTdlibFacade implements TdTelegramClient {
       _enginePost(
         td.SetTdlibParameters(
           useTestDc: false,
-          databaseDirectory: '/oxplayer_tdlib/db',
-          filesDirectory: '/oxplayer_tdlib/files',
+          databaseDirectory: '',
+          filesDirectory: '',
           databaseEncryptionKey: encKey,
           useFileDatabase: true,
           useChatInfoDatabase: true,
           useMessageDatabase: true,
-          useSecretChats: false, // unsupported on tdweb WASM
+          useSecretChats: false, // unsupported on tdweb WASM; worker may still align flags
           apiId: apiId,
           apiHash: apiHash,
           systemLanguageCode: 'en',

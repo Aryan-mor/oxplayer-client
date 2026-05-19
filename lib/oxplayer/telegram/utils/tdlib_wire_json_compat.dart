@@ -290,6 +290,23 @@ const _kUserFullInfoOptionalObjectWireKeys = <String>{
   'rating',
 };
 
+/// tdweb / JS may emit int64 effect ids as decimal strings; Dart `fromJson` expects [int].
+List<dynamic> _wireTdIntListFromJs(Object? raw) {
+  if (raw is! List) return <dynamic>[];
+  final out = <dynamic>[];
+  for (final e in raw) {
+    if (e is int) {
+      out.add(e);
+    } else if (e is num) {
+      out.add(e.toInt());
+    } else if (e is String) {
+      final p = int.tryParse(e);
+      if (p != null) out.add(p);
+    }
+  }
+  return out;
+}
+
 void _applyTypedObjectWireFixups(Map<String, dynamic> map) {
   var t = map['@type']?.toString();
   if (t == null || t.isEmpty) {
@@ -1086,6 +1103,16 @@ void _applyTypedObjectWireFixups(Map<String, dynamic> map) {
           } else {
             tm['@type'] = 'userTypeRegular';
           }
+        }
+      }
+      break;
+    case 'updateAvailableMessageEffects':
+      map['reaction_effect_ids'] = _wireTdIntListFromJs(map['reaction_effect_ids']);
+      map['sticker_effect_ids'] = _wireTdIntListFromJs(map['sticker_effect_ids']);
+      if (map['@client_id'] is String) {
+        final p = int.tryParse(map['@client_id'] as String);
+        if (p != null) {
+          map['@client_id'] = p;
         }
       }
       break;

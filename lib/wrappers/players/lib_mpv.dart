@@ -22,6 +22,21 @@ import 'package:fladder/util/subtitle_position_calculator.dart';
 import 'package:fladder/wrappers/players/base_player.dart';
 import 'package:fladder/wrappers/players/player_states.dart';
 
+void _oxPlaybackWebLog(String message) {
+  if (kDebugMode && kIsWeb) {
+    debugPrint('[OX_PLAYBACK_WEB] $message');
+  }
+}
+
+String _oxPlaybackUrlHint(String url) {
+  if (url.isEmpty) return 'empty';
+  final uri = Uri.tryParse(url);
+  if (uri == null) return 'unparseable len=${url.length}';
+  final host = uri.host.isEmpty ? 'none' : uri.host;
+  return 'scheme=${uri.scheme.isEmpty ? "none" : uri.scheme} host=$host '
+      'pathLen=${uri.path.length} queryKeys=${uri.queryParameters.keys.take(8).join(",")}';
+}
+
 class LibMPV extends BasePlayer {
   mpv.Player? _player;
   VideoController? _controller;
@@ -83,9 +98,14 @@ class LibMPV extends BasePlayer {
 
   @override
   Future<void> init(VideoPlayerSettingsModel settings) async {
+    _oxPlaybackWebLog(
+      'libMPV.init start useLibass=${settings.useLibass} '
+      'bufferSizeMb=${settings.bufferSize} hwAccel=${settings.hardwareAccel}',
+    );
     await dispose();
 
     mpv.MediaKit.ensureInitialized();
+    _oxPlaybackWebLog('libMPV.init mediaKit ensured');
 
     _player = mpv.Player(
       configuration: mpv.PlayerConfiguration(
@@ -95,6 +115,7 @@ class LibMPV extends BasePlayer {
         bufferSize: settings.bufferSize * 1024 * 1024, // MPV uses buffer size in bytes
       ),
     );
+    _oxPlaybackWebLog('libMPV.init player created platform=${_player?.platform.runtimeType}');
 
     if (_player != null) {
       _controller = VideoController(
@@ -111,6 +132,19 @@ class LibMPV extends BasePlayer {
       _player!.stream.volume.listen((value) => setState(lastState.update(volume: value)));
       _player!.stream.rate.listen((value) => setState(lastState.update(rate: value)));
       _player!.stream.buffer.listen((value) => setState(lastState.update(buffer: value)));
+      _player!.stream.error.listen((value) {
+        _oxPlaybackWebLog('libMPV.stream.error $value');
+        final err = value.toString().toLowerCase();
+        if (err.contains('format error') ||
+            err.contains('demuxer_error') ||
+            err.contains('no supported source')) {
+          _oxPlaybackWebLog(
+            'libMPV.stream.error hint: web uses Chrome <video> (not full MPV). '
+            'Check [OX_TG_WEB_STREAM] for webPlaybackRisk=ac3|moov_not_found|fragmented_mp4. '
+            'Large Telegram MP4s often need Android (TDLib+MPV) or server transcode.',
+          );
+        }
+      });
 
       _muxedSubtitleTracksController = StreamController<List<SubStreamModel>>.broadcast();
       _muxedAudioTracksController = StreamController<List<AudioStreamModel>>.broadcast();
@@ -126,10 +160,12 @@ class LibMPV extends BasePlayer {
         await nativePlayer.setProperty('ao', 'audiotrack');
       }
     }
+    _oxPlaybackWebLog('libMPV.init done');
   }
 
   @override
   Future<void> dispose() async {
+    _oxPlaybackWebLog('libMPV.dispose start hasPlayer=${_player != null}');
     await _muxedTracksSubscription?.cancel();
     _muxedTracksSubscription = null;
     await _muxedSubtitleTracksController?.close();
@@ -143,6 +179,7 @@ class LibMPV extends BasePlayer {
     _player = null;
     _retryTimer?.cancel();
     _retryTimer = null;
+    _oxPlaybackWebLog('libMPV.dispose done');
   }
 
   void setState(PlayerState state) {
@@ -152,12 +189,23 @@ class LibMPV extends BasePlayer {
 
   @override
   Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero}) async {
+    _oxPlaybackWebLog(
+      'libMPV.loadVideo start play=$play startMs=${startPosition.inMilliseconds} '
+      '${_oxPlaybackUrlHint(url)}',
+    );
     _loadCompleter = Completer<void>();
     _firstLoadAttempt = DateTime.now();
 
-    await setStartPosition(startPosition);
+    try {
+      await setStartPosition(startPosition);
+      _oxPlaybackWebLog('libMPV.loadVideo setStartPosition ok');
 
-    await _player?.open(mpv.Media(url), play: play);
+      await _player?.open(mpv.Media(url), play: play);
+      _oxPlaybackWebLog('libMPV.loadVideo open returned');
+    } catch (error, stackTrace) {
+      _oxPlaybackWebLog('libMPV.loadVideo ERROR $error\n$stackTrace');
+      rethrow;
+    }
 
     _retryTimer?.cancel();
     _retryTimer = null;
@@ -172,8 +220,14 @@ class LibMPV extends BasePlayer {
           _retryTimer = null;
         } else {
           log("Retrying to load video $url");
-          await setStartPosition(startPosition);
-          await _player?.open(mpv.Media(url), play: play);
+          _oxPlaybackWebLog('libMPV.retry opening ${_oxPlaybackUrlHint(url)}');
+          try {
+            await setStartPosition(startPosition);
+            await _player?.open(mpv.Media(url), play: play);
+            _oxPlaybackWebLog('libMPV.retry open returned');
+          } catch (error, stackTrace) {
+            _oxPlaybackWebLog('libMPV.retry ERROR $error\n$stackTrace');
+          }
           _retryTimer?.reset();
         }
       },

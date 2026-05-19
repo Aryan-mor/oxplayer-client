@@ -30,11 +30,11 @@ abstract final class OxplayerEnv {
     defaultValue: '',
   );
   static const String _cTelegramWebAppUrl = String.fromEnvironment(
-    'OXPLAYER_TELEGRAM_WEB_APP_URL',
+    'OXPLAYER_TELEGRAM_WEBAPP_URL',
     defaultValue: '',
   );
   static const String _cTelegramWebAppUrlAlt = String.fromEnvironment(
-    'OXPLAYER_TELEGRAM_WEBAPP_URL',
+    'OXPLAYER_TELEGRAM_WEB_APP_URL',
     defaultValue: '',
   );
   static const String _cJellyfinUrl = String.fromEnvironment(
@@ -199,13 +199,31 @@ abstract final class OxplayerEnv {
   static String? get telegramWebAppUrl {
     if (!OxplayerConfig.isEnabled) return null;
     var t = _pick(
-      ['OXPLAYER_TELEGRAM_WEB_APP_URL', 'OXPLAYER_TELEGRAM_WEBAPP_URL'],
+      ['OXPLAYER_TELEGRAM_WEBAPP_URL', 'OXPLAYER_TELEGRAM_WEB_APP_URL'],
       _cTelegramWebAppUrl,
       _cTelegramWebAppUrlAlt,
     );
     if (t.isEmpty) return null;
     final c = compactTelegramWireUrl(t);
     return c.isEmpty ? null : c;
+  }
+
+  /// Hosted **HTTPS** Mini App URL suitable for TDLib [getWebAppUrl] (not a `t.me/…` redirect).
+  ///
+  /// TDLib rejects `t.me` short links for the `url` argument; use your deployed app origin
+  /// in `OXPLAYER_TELEGRAM_WEBAPP_URL` (legacy alias: `OXPLAYER_TELEGRAM_WEB_APP_URL`).
+  /// Fragments (`#/ox-login`) are stripped because Telegram validates a raw HTTPS endpoint.
+  static String? get telegramHostedWebAppHttpsUrl {
+    final u = telegramWebAppUrl;
+    if (u == null || u.isEmpty) return null;
+    final lower = u.toLowerCase();
+    if (!lower.startsWith('https://')) return null;
+    if (lower.startsWith('https://t.me/')) return null;
+    final uri = Uri.tryParse(u);
+    if (uri == null || uri.scheme.toLowerCase() != 'https' || uri.host.isEmpty) {
+      return null;
+    }
+    return uri.replace(fragment: '').toString();
   }
 
   /// Optional alternate media server URL (`OXPLAYER_JELLYFIN_URL`), or null when unset.
@@ -255,13 +273,13 @@ abstract final class OxplayerEnv {
     return null;
   }
 
-  /// **Debug / web only:** raw `tgWebAppData` query value for `/auth/telegram` when tdweb lacks
-  /// `getWebAppUrl` / `getMainWebApp` (WASM out of sync with `tool/tdlib/TD_VERSION.json`).
+  /// **Debug only:** raw `tgWebAppData` query value for `/auth/telegram` when TDLib cannot
+  /// produce signed Mini App data (e.g. BotFather Main Web App not set, or tdweb pin mismatch).
   ///
-  /// Ignored unless [kIsWeb] and [kDebugMode]. Set `OXPLAYER_DEBUG_TELEGRAM_INIT_DATA` via
-  /// `--dart-define` / `--dart-define-from-file` or [OxplayerDotenv].
+  /// Ignored unless [kDebugMode]. Set `OXPLAYER_DEBUG_TELEGRAM_INIT_DATA` via `--dart-define`,
+  /// `--dart-define-from-file`, or [OxplayerDotenv].
   static String? get telegramWebAppInitDataDebugOverride {
-    if (!OxplayerConfig.isEnabled || !kIsWeb || !kDebugMode) return null;
+    if (!OxplayerConfig.isEnabled || !kDebugMode) return null;
     final t = _pick(['OXPLAYER_DEBUG_TELEGRAM_INIT_DATA'], _cDebugTelegramInitData).trim();
     return t.isEmpty ? null : t;
   }

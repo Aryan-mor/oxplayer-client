@@ -11,7 +11,9 @@ import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 
 import 'oxplayer_telegram_td_runtime.dart';
-import 'tdlib_controller.dart' if (dart.library.html) 'tdlib_controller_web.dart';
+import 'tdlib_controller.dart'
+    if (dart.library.html) 'tdlib_controller_web.dart'
+    if (dart.library.js_interop) 'tdlib_controller_web.dart';
 import 'tdlib_facade.dart';
 
 String _describeTdSendFailure(Object e) {
@@ -30,6 +32,17 @@ String _describeTdSendFailure(Object e) {
     return 'JS/TDLib request failed (open browser console → Network / TDLib for the rejected promise).';
   }
   return s;
+}
+
+String _debugUrlKind(String? url) {
+  final value = url?.trim() ?? '';
+  if (value.isEmpty) return 'empty';
+  final lower = value.toLowerCase();
+  final uri = Uri.tryParse(value);
+  final host = uri?.host.isNotEmpty == true ? uri!.host : 'unparsed';
+  if (lower.startsWith('https://t.me/')) return 't.me host=$host len=${value.length}';
+  if (lower.startsWith('https://')) return 'https host=$host len=${value.length}';
+  return 'non_https len=${value.length}';
 }
 
 const _kOxDeviceIdPrefsKey = 'oxplayer_td_device_id';
@@ -362,18 +375,34 @@ final class OxplayerTelegramTdSession {
   }
 
   Future<String> _fetchSignedInitDataImpl() async {
+    // Web + debug: short-circuit before any TDLib / WebApp RPC when a static
+    // init-data override is present.  Placed here — before ensureAuthorized —
+    // so an unconfigured bot (getMainWebApp / getWebAppUrl rejection) never
+    // surfaces as an async error during local development.
+    final entryDebugInitData = OxplayerEnv.telegramWebAppInitDataDebugOverride ?? '';
+    oxDebugLog(
+      'fetchSignedInitData.entry '
+      'web=$kIsWeb debug=$kDebugMode dotenv=${OxplayerDotenv.isLoaded} '
+      'debugInitDataLen=${entryDebugInitData.length}',
+    );
+    if (kIsWeb && kDebugMode) {
+      if (entryDebugInitData.isNotEmpty) {
+        oxEnvLog(
+          'fetchSignedInitData [web/debug]: '
+          'short-circuiting with OXPLAYER_DEBUG_TELEGRAM_INIT_DATA',
+        );
+        oxDebugLog('fetchSignedInitData.debugOverride hit before TDLib RPC');
+        return entryDebugInitData;
+      }
+      oxDebugLog(
+        'fetchSignedInitData.debugOverride missing/empty; continuing to TDLib WebApp URL flow',
+      );
+    }
+
     await _td.ensureAuthorized();
     final botUser = OxplayerEnv.botUsername;
     if (botUser == null || botUser.isEmpty) {
       throw StateError('BOT_USERNAME (or OXPLAYER_BOT_USERNAME) is not configured.');
-    }
-
-    final initDbg = OxplayerEnv.telegramWebAppInitDataDebugOverride;
-    if (initDbg != null && initDbg.isNotEmpty) {
-      oxEnvLog(
-        'fetchSignedInitData: OXPLAYER_DEBUG_TELEGRAM_INIT_DATA set (web debug bypass; skips GetWebApp*)',
-      );
-      return initDbg;
     }
 
     final resolved =
@@ -396,32 +425,55 @@ final class OxplayerTelegramTdSession {
     String? otherFailure;
 
     final shortName = OxplayerEnv.telegramWebAppShortName?.trim() ?? '';
+    final hostedHttps = OxplayerEnv.telegramHostedWebAppHttpsUrl;
+    final directWebAppUrl = OxplayerEnv.telegramWebAppUrl;
+    final miniOpenLink = OxplayerEnv.telegramMiniAppOpenLink;
 
-    var fallbackUrl = OxplayerEnv.telegramWebAppUrl ?? '';
-    if (fallbackUrl.isEmpty) {
-      fallbackUrl = OxplayerEnv.telegramMiniAppOpenLink ?? '';
-    }
-    fallbackUrl = OxplayerEnv.compactTelegramWireUrl(fallbackUrl);
+    oxDebugLog(
+      'fetchSignedInitData.config '
+      'bot=${botUser.isNotEmpty} shortName="$shortName" '
+      'hostedHttps=${_debugUrlKind(hostedHttps)} '
+      'direct=${_debugUrlKind(directWebAppUrl)} '
+      'mini=${_debugUrlKind(miniOpenLink)}',
+    );
 
     if (kIsWeb) {
-      // tdweb pin may omit [getWebAppLinkUrl] and [getWebAppUrl]; [getMainWebApp] is older.
+      // Prefer [getWebAppLinkUrl] for `https://t.me/<bot>/<shortName>` Mini App links.
+      // [getWebAppUrl] only accepts a URL that came from a WebApp button, not an arbitrary hosted URL.
+      // [getMainWebApp] requires BotFather "Main Web App"; keep it as a secondary path on web.
       const params = td_api.WebAppOpenParameters(theme: null, applicationName: 'oxplayer');
       final webErrs = <String>[];
       Future<String?> sendWeb(td_api.TdFunction fn) async {
+        oxDebugLog('fetchSignedInitData.webRpc.start ${fn.runtimeType}');
         try {
           final r = await _td.send(fn).timeout(const Duration(seconds: 25));
           if (r is td_api.HttpUrl) {
+            oxDebugLog(
+              'fetchSignedInitData.webRpc.ok ${fn.runtimeType} httpUrl=${_debugUrlKind(r.url)}',
+            );
             return r.url;
           }
           if (r is td_api.MainWebApp) {
             final u = r.url.trim();
             if (u.isNotEmpty) {
+              oxDebugLog(
+                'fetchSignedInitData.webRpc.ok ${fn.runtimeType} mainWebApp=${_debugUrlKind(u)}',
+              );
               return u;
             }
           }
+          oxDebugLog(
+            'fetchSignedInitData.webRpc.empty ${fn.runtimeType} result=${r.runtimeType}',
+          );
         } on td_api.TdError catch (e) {
+          oxDebugLog(
+            'fetchSignedInitData.webRpc.tdError ${fn.runtimeType} code=${e.code} message="${e.message}"',
+          );
           webErrs.add('${fn.runtimeType}: ${e.message} (${e.code})');
         } catch (e) {
+          oxDebugLog(
+            'fetchSignedInitData.webRpc.error ${fn.runtimeType} ${_describeTdSendFailure(e)}',
+          );
           webErrs.add('${fn.runtimeType}: ${_describeTdSendFailure(e)}');
         }
         return null;
@@ -429,6 +481,32 @@ final class OxplayerTelegramTdSession {
 
       if (shortName.isNotEmpty) {
         webAppUrl = await sendWeb(
+          td_api.GetWebAppLinkUrl(
+            chatId: privateChat.id,
+            botUserId: botUserId,
+            webAppShortName: shortName,
+            startParameter: '',
+            allowWriteAccess: true,
+            parameters: params,
+          ),
+        );
+      }
+      if (webAppUrl == null && hostedHttps != null && hostedHttps.isNotEmpty) {
+        webAppUrl ??= await sendWeb(
+          td_api.GetWebAppUrl(
+            botUserId: botUserId,
+            url: hostedHttps,
+            parameters: params,
+          ),
+        );
+      } else {
+        oxDebugLog(
+          'fetchSignedInitData.skip GetWebAppUrl: '
+          'OXPLAYER_TELEGRAM_WEBAPP_URL is missing or is a t.me/non-https URL',
+        );
+      }
+      if (shortName.isNotEmpty) {
+        webAppUrl ??= await sendWeb(
           td_api.GetMainWebApp(
             chatId: privateChat.id,
             botUserId: botUserId,
@@ -445,15 +523,6 @@ final class OxplayerTelegramTdSession {
           parameters: params,
         ),
       );
-      if (webAppUrl == null && fallbackUrl.isNotEmpty) {
-        webAppUrl = await sendWeb(
-          td_api.GetWebAppUrl(
-            botUserId: botUserId,
-            url: fallbackUrl,
-            parameters: params,
-          ),
-        );
-      }
       if (webAppUrl == null && webErrs.isNotEmpty) {
         otherFailure = webErrs.join(' | ');
       }
@@ -492,13 +561,13 @@ final class OxplayerTelegramTdSession {
         }
       }
 
-      if (webAppUrl == null && fallbackUrl.isNotEmpty) {
+      if (webAppUrl == null && hostedHttps != null && hostedHttps.isNotEmpty) {
         for (var attempt = 0; attempt < 2 && webAppUrl == null; attempt++) {
           try {
             final fallbackResult = await _td.send(
               td_api.GetWebAppUrl(
                 botUserId: botUserId,
-                url: fallbackUrl,
+                url: hostedHttps,
                 parameters: const td_api.WebAppOpenParameters(
                   theme: null,
                   applicationName: 'oxplayer',
@@ -524,6 +593,14 @@ final class OxplayerTelegramTdSession {
     }
 
     if (webAppUrl == null) {
+      final initDbg = OxplayerEnv.telegramWebAppInitDataDebugOverride;
+      if (initDbg != null && initDbg.isNotEmpty) {
+        oxEnvLog(
+          'fetchSignedInitData: TDLib did not return a WebApp URL; '
+          'using OXPLAYER_DEBUG_TELEGRAM_INIT_DATA (debug).',
+        );
+        return initDbg;
+      }
       const tdwebSyncHint =
           'On web, sync tdweb to tool/tdlib/TD_VERSION.json (see web/tdweb/README). '
           'Debug-only: OXPLAYER_DEBUG_TELEGRAM_INIT_DATA when kDebugMode.';
@@ -558,14 +635,24 @@ final class OxplayerTelegramTdSession {
       throw StateError(
         'Cannot get WebApp URL from Telegram (TDLib returned no URL and no error). '
         'short_name="$short" direct_url_set=${directUrl.isNotEmpty} mini="$mini" '
-        'dotenv=${OxplayerDotenv.isLoaded}. Use pnpm flutter:web or '
-        '--dart-define-from-file=dart_defines.dev.json.'
+        'hosted_https_set=${hostedHttps != null && hostedHttps.isNotEmpty} '
+        'dotenv=${OxplayerDotenv.isLoaded}. Set OXPLAYER_TELEGRAM_WEBAPP_URL to your '
+        'deployed https://… Mini App origin (not t.me) for GetWebAppUrl, or use '
+        'pnpm flutter:web / --dart-define-from-file=dart_defines.dev.json.'
         '${kIsWeb ? ' $tdwebSyncHint' : ''}',
       );
     }
 
     final initData = _extractTgWebAppData(webAppUrl);
     if (initData == null || initData.isEmpty) {
+      final initDbg = OxplayerEnv.telegramWebAppInitDataDebugOverride;
+      if (initDbg != null && initDbg.isNotEmpty) {
+        oxEnvLog(
+          'fetchSignedInitData: tgWebAppData missing in resolved URL; '
+          'using OXPLAYER_DEBUG_TELEGRAM_INIT_DATA (debug).',
+        );
+        return initDbg;
+      }
       throw StateError('tgWebAppData not found in WebApp URL from Telegram.');
     }
     return initData;

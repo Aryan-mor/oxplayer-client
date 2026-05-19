@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -270,16 +271,34 @@ class _AuthLinkDialogState extends State<AuthLinkDialog> {
       }
       return;
     }
+    final pngBytes = qrImageBytes.buffer.asUint8List();
+    if (kIsWeb) {
+      final xf = XFile.fromData(
+        pngBytes,
+        name: 'auth_qr.png',
+        mimeType: 'image/png',
+      );
+      await SharePlus.instance.share(
+        ShareParams(
+          title: context.localized.generateLoginLink(widget.user.name),
+          uri: Uri.parse(linkUrl),
+          fileNameOverrides: [context.localized.generateLoginLink(widget.user.name)],
+          files: [xf],
+          previewThumbnail: xf,
+        ),
+      );
+      return;
+    }
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/auth_qr.png');
-    await file.writeAsBytes(qrImageBytes.buffer.asUint8List());
+    await file.writeAsBytes(pngBytes);
     await SharePlus.instance.share(
       ShareParams(
         title: context.localized.generateLoginLink(widget.user.name),
         uri: Uri.parse(linkUrl),
         fileNameOverrides: [context.localized.generateLoginLink(widget.user.name)],
-        files: [XFile(file.path, bytes: qrImageBytes.buffer.asUint8List())],
-        previewThumbnail: XFile(file.path, bytes: qrImageBytes.buffer.asUint8List()),
+        files: [XFile(file.path, bytes: pngBytes)],
+        previewThumbnail: XFile(file.path, bytes: pngBytes),
       ),
     );
     await file.delete();

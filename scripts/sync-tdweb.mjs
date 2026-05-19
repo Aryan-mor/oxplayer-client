@@ -17,6 +17,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientRoot = path.join(__dirname, "..");
 const destDir = path.join(clientRoot, "web", "tdweb");
+const fetchArtifactsMarker = path.join(destDir, ".from_fetch_artifacts");
 
 const candidates = [
   process.env.TDLIB_WEB_DIST,
@@ -79,6 +80,15 @@ function patchTdwebWebpackPublicPath(dir) {
       "[sync-tdweb] no __webpack_require__.p = \"\" assignments found to patch (unexpected tdweb build?)",
     );
   }
+}
+
+if (fs.existsSync(fetchArtifactsMarker)) {
+  console.log(
+    "[sync-tdweb] skipping npm copy — web/tdweb is managed by fetch_artifacts " +
+      "(.from_fetch_artifacts present). Patching public path only.",
+  );
+  patchTdwebWebpackPublicPath(destDir);
+  process.exit(0);
 }
 
 const src = findSrc();

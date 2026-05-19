@@ -16,7 +16,7 @@ import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 import 'package:fladder/oxplayer/telegram/telegram_locator_env_search_chats.dart';
 import 'package:fladder/oxplayer/telegram/telegram_media_file_locator_resolver.dart'
-    show ResolvedTelegramMediaFile, resolveTelegramMediaFile;
+    show ResolvedTelegramMediaFile, resolveTelegramMediaFile, oxPlaybackMimeHintFromTdMessage;
 import 'package:fladder/oxplayer/telegram/telegram_range_playback.dart';
 
 /// Full TDLib locator fallback chain (`GetMessage`, `SearchChatMessages`, …). Off by default.
@@ -470,6 +470,7 @@ Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
     locatorMessageId: msgObj.id,
     locatorType: 'CHAT_MESSAGE',
     resolutionReason: 'provider_backup_post_url',
+    mimeHint: oxPlaybackMimeHintFromTdMessage(msgObj),
   );
 }
 

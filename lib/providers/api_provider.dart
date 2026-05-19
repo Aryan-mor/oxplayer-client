@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:punycoder/punycoder.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
@@ -17,6 +16,10 @@ import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
+import 'package:fladder/util/normalize_url.dart';
+
+export 'package:fladder/util/normalize_url.dart';
+
 part 'api_provider.g.dart';
 
 final serverUrlProvider = StateProvider<String?>((ref) {
@@ -141,34 +144,6 @@ class JellyRequest implements Interceptor {
         }
       }
     }
-  }
-}
-
-/// Whether [url] already carries an http or https scheme.
-/// Uses toLowerCase() because users may type mixed-case schemes (e.g. Https://, HTTP://).
-bool hasHttpScheme(String url) {
-  final lower = url.toLowerCase();
-  return lower.startsWith('http://') || lower.startsWith('https://');
-}
-
-String normalizeUrl(String url) {
-  final trimmed = url.trim();
-  if (trimmed.isEmpty) return '';
-
-  final withScheme = hasHttpScheme(trimmed) ? trimmed : 'http://$trimmed';
-  final parsed = Uri.parse(withScheme);
-
-  // Only punycode non-ASCII hostnames. IP addresses are always ASCII, so no special handling needed.
-  final host = parsed.host;
-  final hasNonAscii = host.runes.any((c) => c > 0x7F);
-
-  if (!hasNonAscii) return parsed.toString();
-
-  try {
-    final encodedHost = const PunycodeCodec().encode(host);
-    return parsed.replace(host: encodedHost).toString();
-  } catch (_) {
-    return parsed.toString();
   }
 }
 

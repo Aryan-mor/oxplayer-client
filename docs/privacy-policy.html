@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OXPlayer — Privacy Policy</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      line-height: 1.6;
+      max-width: 42rem;
+      margin: 2rem auto;
+      padding: 0 1.25rem;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e8e8e8; background: #121212; }
+      a { color: #8ab4ff; }
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.1rem; margin-top: 1.75rem; }
+    .meta { color: #555; font-size: 0.9rem; }
+    @media (prefers-color-scheme: dark) { .meta { color: #aaa; } }
+    ul { padding-left: 1.25rem; }
+    hr { margin: 2.5rem 0; border: none; border-top: 1px solid #ccc; }
+    @media (prefers-color-scheme: dark) { hr { border-color: #444; } }
+    nav a { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="#en">English</a>
+    <a href="#fa">فارسی</a>
+  </nav>
+
+  <section id="en" lang="en">
+    <h1>OXPlayer Privacy Policy</h1>
+    <p class="meta">Effective date: 21 May 2026 · App package: <code>de.aryanmo.oxplayer</code></p>
+
+    <p>
+      This policy describes how <strong>OXPlayer</strong> (“the app”), a Telegram-connected media
+      library client for Android (and related builds), handles information when you use the app.
+      OXPlayer is published by the developer of the
+      <a href="https://github.com/Aryan-mor/oxplayer-client">oxplayer-client</a> project.
+    </p>
+
+    <h2>1. Who we are</h2>
+    <p>
+      The app connects to an <strong>OXPlayer backend API</strong> (URL configured at build time, e.g.
+      your operator’s server) and to <strong>Telegram</strong> for sign-in and media access.
+      For privacy questions or requests, contact us via
+      <a href="https://github.com/Aryan-mor/oxplayer-client/issues">GitHub Issues</a>
+      on the repository above (preferred) or the support channel listed on your Play Store listing.
+    </p>
+
+    <h2>2. Information we collect and use</h2>
+    <ul>
+      <li>
+        <strong>Telegram account data</strong> — To sign you in, the app uses Telegram (TDLib / Mini App
+        <code>initData</code>). We send signed authentication data to the OXPlayer API
+        (<code>POST /auth/telegram</code>) to obtain an access token. This typically includes your
+        Telegram user identifier and profile fields Telegram provides in <code>initData</code>.
+        Telegram’s own <a href="https://telegram.org/privacy">Privacy Policy</a> applies to Telegram’s services.
+      </li>
+      <li>
+        <strong>Library and playback data</strong> — Watch progress, favorites, library items, search queries,
+        and related media metadata are requested from and stored on the OXPlayer API as needed to operate
+        your account (Jellyfin-compatible API).
+      </li>
+      <li>
+        <strong>Metadata from third-party catalogs</strong> — Title descriptions, posters, and similar
+        metadata may be loaded via the OXPlayer API (e.g. TMDB-backed endpoints). TMDB’s policies apply
+        to their content; we do not sell this data.
+      </li>
+      <li>
+        <strong>Data on your device</strong> — Session tokens, TDLib session state, cached images, and
+        app preferences may be stored locally on your phone or tablet for performance and offline resilience.
+      </li>
+      <li>
+        <strong>Technical data</strong> — Standard HTTPS requests include IP address and device/app
+        information required to deliver the service. We do not embed third-party advertising or
+        analytics SDKs in the open-source client build described in this repository.
+      </li>
+    </ul>
+
+    <h2>3. How we use information</h2>
+    <ul>
+      <li>Authenticate you and keep you signed in</li>
+      <li>Stream and organize your media library</li>
+      <li>Sync playback progress and user-specific settings</li>
+      <li>Operate, secure, and improve the service (e.g. fixing errors reported by users)</li>
+    </ul>
+
+    <h2>4. Sharing</h2>
+    <p>We do not sell your personal information. Data may be processed by:</p>
+    <ul>
+      <li><strong>Telegram</strong> — authentication and Telegram-hosted media flows you initiate</li>
+      <li><strong>OXPlayer API operator</strong> — the server that hosts your account data</li>
+      <li><strong>Infrastructure providers</strong> — hosting/CDN used by that API (under their terms)</li>
+      <li><strong>Metadata providers</strong> — e.g. TMDB for artwork and descriptions, as routed by the API</li>
+    </ul>
+    <p>We may disclose information if required by law or to protect rights, safety, and security.</p>
+
+    <h2>5. Retention and deletion</h2>
+    <p>
+      Server-side retention depends on the OXPlayer API operator. You may sign out in the app to remove
+      local tokens on the device. To delete account-related data on the server or exercise access rights,
+      contact us via GitHub Issues with your Telegram user ID (if comfortable sharing it) so we can
+      locate your account.
+    </p>
+
+    <h2>6. Security</h2>
+    <p>
+      Traffic uses HTTPS where supported. You are responsible for keeping your device and Telegram
+      account secure. No method of transmission or storage is 100% secure.
+    </p>
+
+    <h2>7. Children</h2>
+    <p>
+      OXPlayer is not directed at children under 13 (or the minimum age in your country). We do not
+      knowingly collect personal information from children.
+    </p>
+
+    <h2>8. International transfers</h2>
+    <p>
+      Your data may be processed in countries where the API, Telegram, or metadata providers operate.
+      By using the app, you understand that these transfers may occur.
+    </p>
+
+    <h2>9. Changes</h2>
+    <p>
+      We may update this policy. The effective date at the top will change. Continued use after
+      updates means you accept the revised policy.
+    </p>
+
+    <h2>10. Your rights</h2>
+    <p>
+      Depending on your region (e.g. GDPR), you may have rights to access, correct, delete, or restrict
+      processing of your data. Contact us via GitHub Issues to exercise these rights.
+    </p>
+  </section>
+
+  <hr />
+
+  <section id="fa" lang="fa" dir="rtl">
+    <h1>سیاست حریم خصوصی OXPlayer</h1>
+    <p class="meta">تاریخ اجرا: ۲۱ مه ۲۰۲۶ · شناسهٔ بسته: <code>de.aryanmo.oxplayer</code></p>
+
+    <p>
+      این سند توضیح می‌دهد اپلیکیشن <strong>OXPlayer</strong> (کلاینت کتابخانهٔ رسانه با اتصال تلگرام)
+      چگونه اطلاعات را هنگام استفاده از اپ پردازش می‌کند.
+    </p>
+
+    <h2>۱. مسئول سرویس</h2>
+    <p>
+      اپ به <strong>سرور API مربوط به OXPlayer</strong> و <strong>تلگرام</strong> برای ورود و دسترسی به رسانه متصل می‌شود.
+      برای سوال یا درخواست حریم خصوصی از
+      <a href="https://github.com/Aryan-mor/oxplayer-client/issues">GitHub Issues</a>
+      در مخزن پروژه استفاده کنید.
+    </p>
+
+    <h2>۲. داده‌های جمع‌آوری‌شده</h2>
+    <ul>
+      <li><strong>حساب تلگرام</strong> — ورود با TDLib / Mini App و ارسال <code>initData</code> به API برای دریافت توکن</li>
+      <li><strong>کتابخانه و پخش</strong> — پیشرفت تماشا، علاقه‌مندی‌ها و متادیتا روی سرور OXPlayer</li>
+      <li><strong>متادیتای شخص ثالث</strong> — مثلاً پوستر و توضیحات از مسیر API (TMDB)</li>
+      <li><strong>داده روی دستگاه</strong> — توکن، نشست TDLib و کش محلی</li>
+      <li><strong>داده فنی</strong> — IP و اطلاعات لازم HTTPS؛ بدون SDK تبلیغات/آنالیتیکس شخص ثالث در بیلد متن‌باز این مخزن</li>
+    </ul>
+
+    <h2>۳. استفاده از داده</h2>
+    <ul>
+      <li>احراز هویت و نگه‌داشتن ورود</li>
+      <li>پخش و سازمان‌دهی کتابخانه</li>
+      <li>همگام‌سازی پیشرفت تماشا و تنظیمات</li>
+      <li>نگهداری و امنیت سرویس</li>
+    </ul>
+
+    <h2>۴. اشتراک‌گذاری</h2>
+    <p>اطلاعات شخصی فروخته نمی‌شود. پردازش ممکن است توسط تلگرام، اپراتور API، میزبان و ارائه‌دهندگان متادیتا (مثل TMDB) انجام شود.</p>
+
+    <h2>۵. نگهداری و حذف</h2>
+    <p>خروج از اپ توکن محلی را حذف می‌کند. برای حذف داده سمت سرور، از طریق GitHub Issues درخواست دهید.</p>
+
+    <h2>۶. امنیت، کودکان، تغییرات و حقوق</h2>
+    <p>
+      ارتباط ترجیحاً HTTPS است. اپ برای کودکان زیر ۱۳ سال هدف‌گذاری نشده است. این سیاست ممکن است به‌روز شود.
+      بسته به قوانین منطقه (مثل GDPR) می‌توانید حق دسترسی، اصلاح یا حذف را درخواست کنید.
+    </p>
+  </section>
+</body>
+</html>

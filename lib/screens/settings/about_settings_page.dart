@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
-import 'package:fladder/models/funding_model.dart' as funding;
+// import 'package:fladder/models/funding_model.dart' as funding;
 import 'package:fladder/screens/crash_screen/crash_screen.dart';
 import 'package:fladder/screens/settings/settings_scaffold.dart';
 import 'package:fladder/screens/settings/widgets/settings_update_information.dart';
@@ -27,12 +27,12 @@ class _Socials {
 const socials = [
   _Socials(
     'Github',
-    'https://github.com/DonutWare/Fladder',
+    'https://github.com/Aryan-mor/oxplayer-client',
     FontAwesomeIcons.githubAlt,
   ),
   _Socials(
-    'Weblate',
-    'https://hosted.weblate.org/projects/fladder/',
+    'Website',
+    'https://t.me/OXPlayer',
     IconsaxPlusLinear.global,
   ),
 ];
@@ -66,7 +66,7 @@ class AboutSettingsPage extends ConsumerWidget {
           ),
         ),
         const _SocialsSection(),
-        const _SponsorsSection(),
+        // const _SponsorsSection(),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -134,81 +134,81 @@ class _SocialsSection extends StatelessWidget {
   }
 }
 
-class _SponsorsSection extends StatelessWidget {
-  const _SponsorsSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const FractionallySizedBox(
-          widthFactor: 0.25,
-          child: Divider(
-            indent: 16,
-            endIndent: 16,
-          ),
-        ),
-        Column(
-          spacing: 6,
-          children: [
-            Text(
-              context.localized.sponsor,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 600,
-              ),
-              child: Text(
-                context.localized.sponsorMessage,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: funding.sponsors
-                  .map(
-                    (sponsor) => Tooltip(
-                      message: sponsor.platform,
-                      child: IconButton.filledTonal(
-                        onPressed: () => launchUrl(context, sponsor.url),
-                        style: IconButton.styleFrom(
-                          padding: const EdgeInsets.all(12),
-                          minimumSize: const Size(64, 64),
-                          backgroundColor: sponsor.color?.withAlpha(75),
-                          side: BorderSide(
-                            color: sponsor.color?.withAlpha(150) ?? Theme.of(context).colorScheme.primary,
-                            width: 2,
-                          ),
-                        ),
-                        icon: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              sponsor.icon,
-                              color: sponsor.color,
-                            ),
-                            Flexible(
-                              child: Text(
-                                sponsor.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
+// class _SponsorsSection extends StatelessWidget {
+//   const _SponsorsSection();
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Column(
+//       children: [
+//         const FractionallySizedBox(
+//           widthFactor: 0.25,
+//           child: Divider(
+//             indent: 16,
+//             endIndent: 16,
+//           ),
+//         ),
+//         Column(
+//           spacing: 6,
+//           children: [
+//             Text(
+//               context.localized.sponsor,
+//               style: Theme.of(context).textTheme.titleLarge,
+//             ),
+//             ConstrainedBox(
+//               constraints: const BoxConstraints(
+//                 maxWidth: 600,
+//               ),
+//               child: Text(
+//                 context.localized.sponsorMessage,
+//                 style: Theme.of(context).textTheme.bodyMedium,
+//                 textAlign: TextAlign.center,
+//               ),
+//             ),
+//             Wrap(
+//               spacing: 8,
+//               runSpacing: 8,
+//               alignment: WrapAlignment.center,
+//               children: funding.sponsors
+//                   .map(
+//                     (sponsor) => Tooltip(
+//                       message: sponsor.platform,
+//                       child: IconButton.filledTonal(
+//                         onPressed: () => launchUrl(context, sponsor.url),
+//                         style: IconButton.styleFrom(
+//                           padding: const EdgeInsets.all(12),
+//                           minimumSize: const Size(64, 64),
+//                           backgroundColor: sponsor.color?.withAlpha(75),
+//                           side: BorderSide(
+//                             color: sponsor.color?.withAlpha(150) ?? Theme.of(context).colorScheme.primary,
+//                             width: 2,
+//                           ),
+//                         ),
+//                         icon: Column(
+//                           mainAxisSize: MainAxisSize.min,
+//                           children: [
+//                             Icon(
+//                               sponsor.icon,
+//                               color: sponsor.color,
+//                             ),
+//                             Flexible(
+//                               child: Text(
+//                                 sponsor.name,
+//                                 maxLines: 1,
+//                                 overflow: TextOverflow.ellipsis,
+//                                 style: Theme.of(context).textTheme.labelSmall,
+//                               ),
+//                             ),
+//                           ],
+//                         ),
+//                       ),
+//                     ),
+//                   )
+//                   .toList(),
+//             ),
+//           ],
+//         ),
+//       ],
+//     );
+//   }
+// }

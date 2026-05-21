@@ -43,7 +43,7 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
   bool _hidden = false;
 
   StreamSubscription<String?>? _notificationSub;
-  bool get enableNotifications => true;
+  bool get enableNotifications => !OxplayerConfig.isEnabled;
 
   @override
   void initState() {
@@ -55,11 +55,25 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
         ref.read(oxplayerRegisteredAppRouterProvider.notifier).state = autoRouter;
       }
       await platformInit();
+      if (OxplayerConfig.isEnabled) {
+        await _cancelLegacyBackgroundSyncTasks();
+      }
       await _initializeNotifications();
     });
   }
 
   Future<void> platformInit() async {}
+
+  /// Drops WorkManager jobs from older builds that used FOREGROUND_SERVICE_DATA_SYNC.
+  Future<void> _cancelLegacyBackgroundSyncTasks() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    try {
+      await Workmanager().initialize(update_worker.callbackDispatcher);
+      await Workmanager().cancelAll();
+    } catch (e) {
+      log('OXPlayer: cancel legacy WorkManager tasks: $e');
+    }
+  }
 
   Future<void> _initializeNotifications() async {
     if (!enableNotifications) return;

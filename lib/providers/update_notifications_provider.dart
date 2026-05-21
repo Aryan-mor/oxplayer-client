@@ -12,11 +12,14 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:fladder/background/update_notifications_worker.dart';
 import 'package:fladder/models/last_seen_notifications_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 
+/// Fladder library/Seerr background update notifications (WorkManager). Off for OXPlayer builds.
 final supportsNotificationsProvider = Provider.autoDispose<bool>((ref) {
+  if (OxplayerConfig.isEnabled) return false;
   final leanBackMode = ref.watch(argumentsStateProvider.select((value) => value.leanBackMode));
   return (!kIsWeb && !leanBackMode) &&
       (Platform.isAndroid || Platform.isIOS || Platform.isWindows || Platform.isMacOS || Platform.isLinux);
@@ -42,6 +45,7 @@ class UpdateNotifications {
   ReceivePort? _workerReceivePort;
 
   Future<void> registerBackgroundTask() async {
+    if (OxplayerConfig.isEnabled) return;
     await Future.delayed(const Duration(milliseconds: 500));
     final accounts = ref
         .read(sharedUtilityProvider)
@@ -122,6 +126,7 @@ class UpdateNotifications {
 
   //Used for debug purposes, to trigger the background task immediately and show a notification for any new items
   Future<void> executeBackgroundTask() async {
+    if (OxplayerConfig.isEnabled) return;
     try {
       if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
         await performHeadlessUpdateCheck(debug: true);
@@ -142,6 +147,7 @@ class UpdateNotifications {
   }
 
   Future<void> cancelAllTasks() async {
+    if (OxplayerConfig.isEnabled) return;
     _desktopTimer?.cancel();
     _desktopTimer = null;
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {

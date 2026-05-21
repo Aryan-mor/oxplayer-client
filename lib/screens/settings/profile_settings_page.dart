@@ -343,7 +343,7 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
               subLabel: Text(_seerrStatusLabel(context, user?.seerrCredentials, seerrUser)),
               onTap: () => showSeerrConnectionDialog(context),
             ),
-            if (seerrUser?.canManageRequests ?? false)
+            if ((seerrUser?.canManageRequests ?? false) && ref.watch(supportsNotificationsProvider))
               SettingsListTileCheckbox(
                 label: Text(context.localized.seerrRequestNotifications),
                 value: user?.seerrRequestsEnabled ?? false,

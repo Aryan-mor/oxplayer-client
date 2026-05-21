@@ -33,50 +33,34 @@ class SettingsUserIcon extends ConsumerWidget {
             context.router.push(const ClientSettingsRoute());
           }
         },
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
+          alignment: Alignment.bottomRight,
           children: [
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                UserIcon(
-                  user: user,
-                  cornerRadius: 8,
-                ),
-                if (hasNewUpdate)
-                  Transform.translate(
-                    offset: Offset(size / 4, size / 4),
-                    child: Container(
-                      width: size,
-                      height: size,
-                      decoration: BoxDecoration(
-                        color: context.colors.surface,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: FittedBox(
-                          child: Icon(
-                            IconsaxPlusBold.information,
-                            color: context.colors.primary,
-                          ),
-                        ),
+            UserIcon(
+              user: user,
+              cornerRadius: 8,
+            ),
+            if (hasNewUpdate)
+              Transform.translate(
+                offset: Offset(size / 4, size / 4),
+                child: Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    color: context.colors.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: FittedBox(
+                      child: Icon(
+                        IconsaxPlusBold.information,
+                        color: context.colors.primary,
                       ),
                     ),
-                  )
-              ],
-            ),
-            if (user?.name != null && user!.name.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  user.name,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+                  ),
                 ),
-              ),
-            ],
+              )
           ],
         ),
       ),

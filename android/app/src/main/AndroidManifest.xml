@@ -9,8 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Merged from plugins (e.g. background_downloader); strip so Play does not require DATA_SYNC declaration. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
+    <!-- background_downloader offline sync / download (UIDTJobService dataSync). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <uses-feature
         android:name="android.hardware.touchscreen"
@@ -80,12 +80,9 @@
             android:launchMode="singleTop"
             android:exported="true" />
 
-        <!-- Strip plugin FGS types that imply FOREGROUND_SERVICE_DATA_SYNC in Play Console. -->
+        <!-- OXPlayer: no library notification WorkManager FGS (still declare DATA_SYNC for background_downloader). -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
-            tools:node="remove" />
-        <service
-            android:name="com.bbflight.background_downloader.UIDTJobService"
             tools:node="remove" />
         <service
             android:name="com.ryanheise.audioservice.AudioService"

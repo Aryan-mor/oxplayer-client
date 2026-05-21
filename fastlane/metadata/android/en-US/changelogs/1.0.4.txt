@@ -1,0 +1,3 @@
+Restore offline sync/download foreground service (background_downloader). Declare FOREGROUND_SERVICE_DATA_SYNC in Play as Importing, exporting. Same as 1.0.2 otherwise.
+
+https://github.com/Aryan-mor/oxplayer-client/releases/tag/v1.0.4

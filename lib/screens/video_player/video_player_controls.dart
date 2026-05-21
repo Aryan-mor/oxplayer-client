@@ -241,73 +241,62 @@ class _DesktopControlsState extends ConsumerState<DesktopControls> {
   Widget topButtons(BuildContext context) {
     final currentItem = ref.watch(playBackModel.select((value) => value?.item));
     final maxHeight = 150.clamp(50, (MediaQuery.sizeOf(context).height * 0.25).clamp(51, double.maxFinite)).toDouble();
+    final isDesktop = AdaptiveLayout.of(context).isDesktop || kIsWeb;
+    final showPhoneTopChrome = !isDesktop;
     return Container(
       decoration: BoxDecoration(
-          gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.black.withValues(alpha: 0.8),
-          Colors.black.withValues(alpha: 0),
-        ],
-      )),
-      child: Padding(
-        padding: MediaQuery.paddingOf(context).copyWith(bottom: 0, top: 0),
-        child: Container(
-          alignment: Alignment.topCenter,
-          child: Column(
-            children: [
-              const Align(
-                alignment: Alignment.topRight,
-                child: DefaultTitleBar(),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  spacing: 16,
-                  mainAxisSize: MainAxisSize.max,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withValues(alpha: 0.8),
+            Colors.black.withValues(alpha: 0),
+          ],
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isDesktop)
+            const Align(
+              alignment: Alignment.topRight,
+              child: DefaultTitleBar(),
+            ),
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                spacing: 4,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (showPhoneTopChrome)
                     IconButton(
                       onPressed: () => minimizePlayer(context),
-                      icon: const Icon(
-                        IconsaxPlusLinear.arrow_down_1,
-                        size: 24,
-                      ),
+                      icon: const Icon(IconsaxPlusLinear.arrow_down_1, size: 24),
                     ),
-                    if (currentItem != null)
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxHeight: maxHeight,
-                                ),
-                                child: ItemLogo(
-                                  item: currentItem,
-                                  imageAlignment: Alignment.topLeft,
-                                  textStyle: Theme.of(context).textTheme.headlineLarge,
-                                ),
-                              ),
-                            ),
-                          ],
+                  if (currentItem != null)
+                    Expanded(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: maxHeight),
+                        child: ItemLogo(
+                          item: currentItem,
+                          imageAlignment: Alignment.topLeft,
+                          textStyle: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                    if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.touch)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Tooltip(
-                            message: context.localized.stop,
-                            child: IconButton(
-                                onPressed: () => closePlayer(), icon: const Icon(IconsaxPlusLinear.close_square))),
-                      ),
-                  ],
-                ),
+                    ),
+                  if (showPhoneTopChrome)
+                    IconButton(
+                      onPressed: () => closePlayer(),
+                      tooltip: context.localized.stop,
+                      icon: const Icon(IconsaxPlusLinear.close_square),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

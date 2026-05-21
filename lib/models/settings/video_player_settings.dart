@@ -173,7 +173,9 @@ enum PlayerOptions {
     }
     if (kIsWeb) return PlayerOptions.libMPV;
     return switch (defaultTargetPlatform) {
-      TargetPlatform.android => PlayerOptions.nativePlayer,
+      // OXPlayer phone UX: in-app player with minimize bar (arrow-down). Native opens a separate Activity without it.
+      TargetPlatform.android =>
+        OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer,
       _ => PlayerOptions.libMPV,
     };
   }

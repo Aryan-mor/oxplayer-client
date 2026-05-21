@@ -902,6 +902,8 @@ class TelegramTdlibFacade implements TdTelegramClient {
       _requestGetMe();
     } else if (state is td.AuthorizationStateWaitPassword) {
       authDebugDedup('tdlib_auth_state', AuthDebugLevel.info, 'TDLib auth state: WaitPassword.');
+      _failEnsureAuthorizedIfPending('WaitPassword');
+      unawaited(_invokeRequiresInteractiveLogin());
       if (!_authWaitPhoneNumber.isClosed) {
         _authWaitPhoneNumber.add(false);
       }

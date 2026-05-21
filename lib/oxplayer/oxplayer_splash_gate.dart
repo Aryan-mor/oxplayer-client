@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:fladder/models/account_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
+import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
+import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/screens/login/lock_screen.dart';
 import 'package:fladder/util/application_info.dart';
 import 'package:fladder/util/fladder_config.dart';
@@ -26,6 +29,44 @@ enum OxplayerSplashGateResult {
 
 /// Failsafe only (no process kill). Hitting this usually means TDLib/HTTP is wedged; user can retry.
 const Duration kOxplayerSplashSessionGateMaxWait = Duration(seconds: 90);
+
+/// Clears a half-finished Telegram sign-in and any saved Jellyfin/OX tokens so cold start
+/// cannot open the home stack with [userProvider] set while TDLib or the API is unauthorized.
+Future<void> oxplayerClearIncompleteLoginSession(dynamic ref) async {
+  if (!OxplayerConfig.isEnabled) return;
+
+  AccountModel? currentUser = ref.read(userProvider);
+  currentUser ??= ref.read(sharedUtilityProvider).getActiveAccount();
+
+  if (currentUser != null) {
+    final zeroed = currentUser.copyWith(
+      credentials: currentUser.credentials.copyWith(
+        token: '',
+        oxRefreshToken: '',
+      ),
+    );
+    await ref.read(sharedUtilityProvider).addAccount(zeroed);
+    await ref.read(sharedUtilityProvider).removeAccount(currentUser);
+  }
+
+  if (!kIsWeb) {
+    try {
+      final td = OxplayerTelegramTdSession(tdlib: OxplayerTelegramTdRuntime.facade);
+      await td.initClient();
+      await td.abandonStaleInteractiveAuthIfNeeded();
+      await td.resetLocalSessionForQrLogin();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[OX] oxplayerClearIncompleteLoginSession TDLib: $e');
+      }
+    }
+  }
+
+  ref.read(authProvider.notifier).clearAllProviders();
+  ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+      OxplayerBackgroundAuthStatus.idle;
+  ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+}
 
 final oxplayerBackgroundSessionRefreshProvider = Provider<OxplayerBackgroundSessionRefresh>((ref) {
   return OxplayerBackgroundSessionRefresh(ref);
@@ -66,28 +107,62 @@ class OxplayerBackgroundSessionRefresh {
       final result = await _oxplayerRunSplashSessionGateImpl(ref).timeout(
         kOxplayerSplashSessionGateMaxWait,
       );
-      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
-          result == OxplayerSplashGateResult.proceedToDashboard
-              ? OxplayerBackgroundAuthStatus.online
-              : OxplayerBackgroundAuthStatus.error;
-      if (result != OxplayerSplashGateResult.proceedToDashboard && OxplayerConfig.isEnabled) {
-        final tg = ref.read(oxplayerTelegramSessionReadyProvider);
-        oxplayerScheduleSessionRecoveryNavigation(
-          ref,
-          telegramTdlibAuthorized: tg,
-        );
-      }
+      _oxplayerApplyBackgroundAuthGateResult(ref, result);
     } catch (e) {
-      ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = e;
-      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state = OxplayerBackgroundAuthStatus.error;
-      if (OxplayerConfig.isEnabled) {
-        final tg = ref.read(oxplayerTelegramSessionReadyProvider);
-        oxplayerScheduleSessionRecoveryNavigation(
-          ref,
-          telegramTdlibAuthorized: tg,
-        );
-      }
+      _oxplayerApplyBackgroundAuthGateResult(
+        ref,
+        OxplayerSplashGateResult.needTelegramLogin,
+        error: e,
+      );
     }
+  }
+}
+
+/// Saved Jellyfin access token is enough for cached UI; TDLib/WebApp re-auth is best-effort.
+bool _oxplayerHasUsableJellyfinAccessToken(Ref ref) {
+  final user = ref.read(userProvider);
+  return user != null && user.credentials.token.trim().isNotEmpty;
+}
+
+void _oxplayerApplyBackgroundAuthGateResult(
+  Ref ref,
+  OxplayerSplashGateResult result, {
+  Object? error,
+}) {
+  if (result == OxplayerSplashGateResult.proceedToDashboard) {
+    ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.online;
+    return;
+  }
+
+  // Do not keep the home stack "online" when Telegram re-auth failed but a stale token remains
+  // (e.g. user closed the app during 2FA — API calls would 401 until recovery runs).
+  if (_oxplayerHasUsableJellyfinAccessToken(ref) &&
+      result != OxplayerSplashGateResult.needTelegramLogin) {
+    if (kDebugMode) {
+      debugPrint(
+        '[OX] background session refresh: gate=$result with saved access token — status Online',
+      );
+    }
+    ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.online;
+    return;
+  }
+
+  if (error != null) {
+    ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = error;
+  }
+  ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+      OxplayerBackgroundAuthStatus.error;
+  if (OxplayerConfig.isEnabled) {
+    unawaited(oxplayerClearIncompleteLoginSession(ref));
+    final tg = ref.read(oxplayerTelegramSessionReadyProvider);
+    oxplayerScheduleSessionRecoveryNavigation(
+      ref,
+      telegramTdlibAuthorized: tg,
+    );
   }
 }
 
@@ -161,6 +236,9 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(dynamic ref) 
     final td = OxplayerTelegramTdSession();
     await OxplayerTelegramTdSession.initPlugin();
     await td.initClient();
+    if (await td.hasPartialInteractiveAuthorization()) {
+      return OxplayerSplashGateResult.needTelegramLogin;
+    }
     if (!await td.trySilentRestoreWithRestart()) {
       return OxplayerSplashGateResult.needTelegramLogin;
     }

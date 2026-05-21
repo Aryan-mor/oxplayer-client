@@ -17,8 +17,9 @@ Future<void> _warmUpTdlibIfNeeded() async {
     await OxplayerTelegramTdSession.initPlugin();
     final session = OxplayerTelegramTdSession();
     await session.initClient();
+    await session.abandonStaleInteractiveAuthIfNeeded();
     if (kDebugMode) {
-      debugPrint('[OX TDLib] bootstrap warm-up: init only (no silentRestore)');
+      debugPrint('[OX TDLib] bootstrap warm-up: init + stale partial-auth cleared');
     }
   } catch (e, st) {
     if (kDebugMode) {

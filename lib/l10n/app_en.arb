@@ -387,6 +387,34 @@
       }
     }
   },
+  "oxplayerDeleteAccountTileTitle": "Delete account",
+  "@oxplayerDeleteAccountTileTitle": {
+    "description": "Profile settings: destructive account delete row title"
+  },
+  "oxplayerDeleteAccountSectionTitle": "Account deletion",
+  "@oxplayerDeleteAccountSectionTitle": {
+    "description": "Profile settings: section header above delete account row"
+  },
+  "oxplayerDeleteAccountTileSubtitle": "Remove your account from this server. You can sign in again as a new user.",
+  "@oxplayerDeleteAccountTileSubtitle": {
+    "description": "Profile settings: account delete row subtitle"
+  },
+  "oxplayerDeleteAccountDialogTitle": "Delete your account?",
+  "@oxplayerDeleteAccountDialogTitle": {
+    "description": "Confirmation dialog title for account deletion"
+  },
+  "oxplayerDeleteAccountDialogBody": "Your account will be closed and your Telegram id released. The next time you sign in, you will start as a new user.",
+  "@oxplayerDeleteAccountDialogBody": {
+    "description": "Confirmation dialog body for account deletion"
+  },
+  "oxplayerDeleteAccountConfirm": "Delete account",
+  "@oxplayerDeleteAccountConfirm": {
+    "description": "Confirmation button to proceed with account deletion"
+  },
+  "oxplayerDeleteAccountFailed": "Could not delete account. Try again.",
+  "@oxplayerDeleteAccountFailed": {
+    "description": "Shown when the delete-account API request fails"
+  },
   "loop": "Loop",
   "@loop": {},
   "markAsUnwatched": "Mark as unwatched",

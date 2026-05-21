@@ -77,10 +77,12 @@ class OxplayerTelegramSessionReadyNotifier extends Notifier<bool> {
       await OxplayerTelegramTdSession.initPlugin();
       final s = OxplayerTelegramTdSession();
       await s.initClient();
-      final ok = await s.trySilentRestore();
-      if (ok) {
-        state = true;
+      if (await s.hasPartialInteractiveAuthorization()) {
+        state = false;
+        return;
       }
+      final ok = await s.trySilentRestore();
+      state = ok;
     } catch (_) {
       state = false;
     }
@@ -136,6 +138,13 @@ final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
 
   final tgReady = kIsWeb ? true : ref.watch(oxplayerTelegramSessionReadyProvider);
   if (!tgReady && authStatus != OxplayerBackgroundAuthStatus.online) {
+    // After interactive login the Jellyfin token is valid; TDLib may still be catching up.
+    if (hasToken && authStatus == OxplayerBackgroundAuthStatus.idle) {
+      return const OxplayerAppStatus(
+        kind: OxplayerAppStatusKind.online,
+        label: 'Online',
+      );
+    }
     return const OxplayerAppStatus(
       kind: OxplayerAppStatusKind.connecting,
       label: 'Connecting Telegram',

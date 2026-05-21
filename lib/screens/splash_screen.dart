@@ -38,15 +38,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
       if (!context.mounted) return;
 
-      // OX opens immediately from the saved account; Telegram/OX refresh runs in the background.
+      // OX: validate Telegram + API session on splash before opening the home stack.
       if (OxplayerConfig.isEnabled &&
           lastUsedAccount != null &&
           lastUsedAccount.authMethod == Authentication.autoLogin &&
           !newWindow) {
-        ref.read(userProvider.notifier).updateUser(lastUsedAccount);
         final connectivity = await Connectivity().checkConnectivity();
         ref.read(ox_connectivity.connectivityStatusProvider.notifier).onStateChange(connectivity);
         final isOffline = connectivity.contains(ConnectivityResult.none);
+
+        if (!isOffline) {
+          final gateResult = await oxplayerRunSplashSessionGate(ref);
+          if (gateResult != OxplayerSplashGateResult.proceedToDashboard) {
+            await oxplayerClearIncompleteLoginSession(ref);
+            if (!context.mounted) return;
+            callBackOrNavigate(false);
+            return;
+          }
+        }
+
+        final activeAccount =
+            ref.read(sharedUtilityProvider).getActiveAccount() ?? lastUsedAccount;
+        ref.read(userProvider.notifier).updateUser(activeAccount);
         if (!isOffline) {
           unawaited(ref.read(oxplayerBackgroundSessionRefreshProvider).start());
         }

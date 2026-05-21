@@ -188,16 +188,20 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
     final currentUser = ref.read(userProvider);
     state = state.copyWith(serverLoginModel: null);
 
-    // Zero out the refresh token in SharedPreferences BEFORE removal so the
-    // splash gate cannot reuse it if something else fails later.
+    // Zero out tokens in SharedPreferences BEFORE removal so the splash gate
+    // cannot reuse a session if the process dies mid-logout.
     if (currentUser != null) {
       final zeroed = currentUser.copyWith(
-        credentials: currentUser.credentials.copyWith(oxRefreshToken: ''),
+        credentials: currentUser.credentials.copyWith(
+          token: '',
+          oxRefreshToken: '',
+        ),
       );
       await ref.read(sharedUtilityProvider).addAccount(zeroed);
     }
 
     await ref.read(sharedUtilityProvider).removeAccount(currentUser);
+    getSavedAccounts();
 
     // Sign out from Telegram to revoke the device session server-side and
     // wipe local TDLib database files so trySilentRestore() returns false.

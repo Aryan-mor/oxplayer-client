@@ -188,6 +188,29 @@ final class OxplayerTelegramTdSession {
     }
   }
 
+  static bool isPartialInteractiveAuthorizationState(td_api.AuthorizationState state) {
+    return state is td_api.AuthorizationStateWaitPassword ||
+        state is td_api.AuthorizationStateWaitCode ||
+        state is td_api.AuthorizationStateWaitOtherDeviceConfirmation ||
+        state is td_api.AuthorizationStateWaitEmailAddress ||
+        state is td_api.AuthorizationStateWaitEmailCode ||
+        state is td_api.AuthorizationStateWaitRegistration;
+  }
+
+  /// True when TDLib resumed a prior sign-in that still needs 2FA, SMS, QR confirm, etc.
+  Future<bool> hasPartialInteractiveAuthorization() async {
+    await initClient();
+    try {
+      final r = await _td
+          .send(const td_api.GetAuthorizationState())
+          .timeout(const Duration(seconds: 12));
+      if (r is! td_api.AuthorizationState) return false;
+      return isPartialInteractiveAuthorizationState(r);
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// After a refresh, TDLib can resume mid-login (2FA, QR confirm). [RequestQrCodeAuthentication]
   /// is only valid from [td_api.AuthorizationStateWaitPhoneNumber]; clear local storage first.
   Future<void> abandonStaleInteractiveAuthIfNeeded() async {
@@ -201,13 +224,7 @@ final class OxplayerTelegramTdSession {
       return;
     }
     if (r is! td_api.AuthorizationState) return;
-    final dirty = r is td_api.AuthorizationStateWaitPassword ||
-        r is td_api.AuthorizationStateWaitCode ||
-        r is td_api.AuthorizationStateWaitOtherDeviceConfirmation ||
-        r is td_api.AuthorizationStateWaitEmailAddress ||
-        r is td_api.AuthorizationStateWaitEmailCode ||
-        r is td_api.AuthorizationStateWaitRegistration;
-    if (!dirty) return;
+    if (!isPartialInteractiveAuthorizationState(r)) return;
     debugPrint(
       '[OX TDLib] abandonStaleInteractiveAuthIfNeeded: clearing partial login (${r.runtimeType})',
     );

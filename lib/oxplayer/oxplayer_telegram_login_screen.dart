@@ -19,6 +19,7 @@ import 'package:fladder/screens/login/lock_screen.dart';
 import 'package:fladder/screens/shared/fladder_logo.dart';
 import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/util/application_info.dart';
+import 'package:fladder/util/focus_provider.dart';
 import 'package:fladder/util/fladder_config.dart';
 import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/td_api_generated/td_api.dart' as td_api;
@@ -133,9 +134,12 @@ class _OxplayerTelegramLoginScreenState
 
   final FocusNode _passwordFocusNode =
       FocusNode(debugLabel: 'oxTelegram2faPassword');
+  final FocusNode _passwordVisibilityFocusNode =
+      FocusNode(debugLabel: 'oxTelegram2faPasswordVisibility');
   final FocusNode _codeFocusNode = FocusNode(debugLabel: 'oxTelegramSmsCode');
   final FocusNode _phoneFocusNode = FocusNode(debugLabel: 'oxTelegramPhone');
 
+  bool _passwordObscured = true;
   bool _passwordSubmitting = false;
   bool _phoneSubmitting = false;
   bool _codeSubmitting = false;
@@ -162,6 +166,7 @@ class _OxplayerTelegramLoginScreenState
     // ([OxplayerTelegramTdRuntime.facade]). Disposing here ran after navigate to
     // [DashboardRoute] and closed TDLib, breaking Telegram media playback.
     _passwordFocusNode.dispose();
+    _passwordVisibilityFocusNode.dispose();
     _codeFocusNode.dispose();
     _phoneFocusNode.dispose();
     _passwordController.dispose();
@@ -234,6 +239,9 @@ class _OxplayerTelegramLoginScreenState
       }
       setState(() {
         _cloudPasswordChallenge = c;
+        if (c != null) {
+          _passwordObscured = true;
+        }
         // Cloud password is an interactive state — unblock the UI so the
         // Continue button can be tapped.
         if (c != null) _busy = false;
@@ -927,25 +935,52 @@ class _OxplayerTelegramLoginScreenState
               ),
             ],
             const SizedBox(height: 20),
-            FocusTraversalOrder(
-              order: const NumericFocusOrder(1),
-              child: TextField(
-                focusNode: _passwordFocusNode,
-                controller: _passwordController,
-                obscureText: true,
-                autofocus: false,
-                keyboardType: TextInputType.visiblePassword,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Password',
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: FocusTraversalOrder(
+                    order: const NumericFocusOrder(1),
+                    child: TextField(
+                      focusNode: _passwordFocusNode,
+                      controller: _passwordController,
+                      obscureText: _passwordObscured,
+                      autofocus: false,
+                      keyboardType: TextInputType.visiblePassword,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Password',
+                      ),
+                      onSubmitted: (_) => unawaited(_submitPassword()),
+                    ),
+                  ),
                 ),
-                onSubmitted: (_) => unawaited(_submitPassword()),
-              ),
+                const SizedBox(width: 8),
+                FocusTraversalOrder(
+                  order: const NumericFocusOrder(2),
+                  child: FocusButton(
+                    focusNode: _passwordVisibilityFocusNode,
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => setState(() => _passwordObscured = !_passwordObscured),
+                    child: Tooltip(
+                      message: _passwordObscured ? 'Show password' : 'Hide password',
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          _passwordObscured ? Icons.visibility : Icons.visibility_off,
+                          semanticLabel:
+                              _passwordObscured ? 'Show password' : 'Hide password',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             FocusTraversalOrder(
-              order: const NumericFocusOrder(2),
+              order: const NumericFocusOrder(3),
               child: FilledButton(
                 onPressed: _passwordSubmitting ? null : () => unawaited(_submitPassword()),
                 child: _passwordSubmitting
@@ -959,7 +994,7 @@ class _OxplayerTelegramLoginScreenState
             ),
             const SizedBox(height: 12),
             FocusTraversalOrder(
-              order: const NumericFocusOrder(3),
+              order: const NumericFocusOrder(4),
               child: OutlinedButton(
                 onPressed: () => unawaited(_resetTelegramFlow()),
                 child: const Text('Back'),

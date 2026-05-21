@@ -56,9 +56,12 @@ class User extends _$User {
 
       final customConfig = await api.getCustomConfig();
 
+      final account = state;
+      if (account == null) return null;
+
       // Only generate Jellyfin image URL if avatar is not already set (e.g., from Telegram photoUrl)
-      var imageUrl = state!.avatar.isNotEmpty
-          ? state!.avatar
+      var imageUrl = account.avatar.isNotEmpty
+          ? account.avatar
           : ref.read(imageUtilityProvider).getUserImageUrl(response.body?.id ?? "");
 
       final user = response.body;

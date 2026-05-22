@@ -101,9 +101,8 @@ abstract class VideoPlayerSettingsModel with _$VideoPlayerSettingsModel {
 
   factory VideoPlayerSettingsModel.fromJson(Map<String, dynamic> json) => _$VideoPlayerSettingsModelFromJson(json);
 
-  /// Upstream Fladder forces native on lean-back; OX TV defaults to MPV when [OxplayerConfig.isEnabled].
   PlayerOptions get wantedPlayer =>
-      (leanBackMode && !OxplayerConfig.isEnabled) ? PlayerOptions.nativePlayer : playerOptions ?? PlayerOptions.platformDefaults;
+      leanBackMode ? PlayerOptions.nativePlayer : playerOptions ?? PlayerOptions.platformDefaults;
 
   Map<VideoHotKeys, KeyCombination> get currentShortcuts =>
       _defaultVideoHotKeys.map((key, value) => MapEntry(key, hotKeys[key] ?? value));
@@ -157,9 +156,7 @@ enum PlayerOptions {
   const PlayerOptions();
 
   static Iterable<PlayerOptions> get available => leanBackMode
-      ? (OxplayerConfig.isEnabled
-          ? {PlayerOptions.libMPV, PlayerOptions.nativePlayer}
-          : {PlayerOptions.nativePlayer})
+      ? {PlayerOptions.nativePlayer}
       : kIsWeb
           ? {PlayerOptions.libMPV}
           : switch (defaultTargetPlatform) {

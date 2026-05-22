@@ -111,6 +111,8 @@ class _OxplayerTelegramLoginScreenState
   bool _backendBridgeDone = false;
   /// Prevents double [applyOxplayerTelegramAuthResponse] from TDLib + bootstrap paths.
   bool _tdToBackendInFlight = false;
+  /// True after TDLib accepts credentials until OX backend exchange + navigation finish.
+  bool _completingOxLogin = false;
   bool _tdListenersStarted = false;
 
   OxplayerTelegramTdSession? _tdSession;
@@ -241,6 +243,9 @@ class _OxplayerTelegramLoginScreenState
         _cloudPasswordChallenge = c;
         if (c != null) {
           _passwordObscured = true;
+          // TDLib needs 2FA — leave code/phone panes for the password step.
+          _codeSubmitting = false;
+          _completingOxLogin = false;
         }
         // Cloud password is an interactive state — unblock the UI so the
         // Continue button can be tapped.
@@ -262,7 +267,7 @@ class _OxplayerTelegramLoginScreenState
       }
     });
     _waitPhoneSub = s.authorizationWaitPhoneNumber.listen((waiting) {
-      if (!mounted) return;
+      if (!mounted || _completingOxLogin || _tdToBackendInFlight) return;
       setState(() {
         // Phone number entry is interactive — unblock the UI.
         if (waiting) _busy = false;
@@ -285,7 +290,12 @@ class _OxplayerTelegramLoginScreenState
       return;
     }
     _tdToBackendInFlight = true;
-    setState(() => _busy = true);
+    setState(() {
+      _completingOxLogin = true;
+      _busy = true;
+      _codeSubmitting = false;
+      _passwordSubmitting = false;
+    });
     try {
       final app = ref.read(applicationInfoProvider);
       final deviceName =
@@ -300,11 +310,17 @@ class _OxplayerTelegramLoginScreenState
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _completingOxLogin = false);
         FladderSnack.show('$e', context: context);
       }
     } finally {
       _tdToBackendInFlight = false;
-      if (mounted) setState(() => _busy = false);
+      if (mounted && !_backendBridgeDone) {
+        setState(() {
+          _busy = false;
+          _completingOxLogin = false;
+        });
+      }
     }
   }
 
@@ -610,8 +626,10 @@ class _OxplayerTelegramLoginScreenState
     }
 
     setState(() => _codeSubmitting = true);
+    var codeAccepted = false;
     try {
       await session.submitAuthenticationCode(code);
+      codeAccepted = true;
     } catch (e) {
       if (mounted) {
         FladderSnack.show('Telegram: ${_formatTelegramLoginError(e)}', context: context);
@@ -623,7 +641,10 @@ class _OxplayerTelegramLoginScreenState
         } else {
           _dismissKeyboard();
         }
-        setState(() => _codeSubmitting = false);
+        if (!codeAccepted) {
+          setState(() => _codeSubmitting = false);
+        }
+        // On success keep [_codeSubmitting] until 2FA UI or [_bridgeTdToBackend].
       }
     }
   }
@@ -634,14 +655,19 @@ class _OxplayerTelegramLoginScreenState
     if (session == null || password.isEmpty || _passwordSubmitting) return;
 
     setState(() => _passwordSubmitting = true);
+    var passwordAccepted = false;
     try {
       await session.submitCloudPassword(password);
+      passwordAccepted = true;
     } catch (e) {
       if (mounted) {
         FladderSnack.show('Telegram: ${_formatTelegramLoginError(e)}', context: context);
       }
     } finally {
-      if (mounted) setState(() => _passwordSubmitting = false);
+      if (mounted && !passwordAccepted) {
+        setState(() => _passwordSubmitting = false);
+      }
+      // On success keep [_passwordSubmitting] until [_bridgeTdToBackend].
     }
   }
 
@@ -660,6 +686,9 @@ class _OxplayerTelegramLoginScreenState
       _busy = true; // block UI while old TDLib client is torn down
       _authorizationAttempt = null;
       _backendBridgeDone = false;
+      _completingOxLogin = false;
+      _codeSubmitting = false;
+      _passwordSubmitting = false;
       _flowError = null;
       _qrPayload = null;
       _cloudPasswordChallenge = null;
@@ -1074,43 +1103,73 @@ class _OxplayerTelegramLoginScreenState
     );
   }
 
-  Widget _buildProgressState() {
-    return const Column(
+  Widget _buildProgressState({required bool signingIn, bool verifying = false}) {
+    final message = signingIn
+        ? 'Signing in…'
+        : verifying
+            ? 'Verifying with Telegram…'
+            : 'Waiting for Telegram authentication…';
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircularProgressIndicator(),
-        SizedBox(height: 16),
+        const CircularProgressIndicator(),
+        const SizedBox(height: 16),
         Text(
-          'Waiting for Telegram authentication…',
+          message,
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey),
+          style: const TextStyle(color: Colors.grey),
         ),
       ],
     );
   }
 
   Widget _buildAuthContent(BuildContext context, {required double qrSize}) {
-    final showQr = _cloudPasswordChallenge == null &&
+    // Only after TDLib auth is done (no further 2FA) — OX backend exchange.
+    final showCompleting = _completingOxLogin || _tdToBackendInFlight;
+    // Brief gap after SMS code accepted, before 2FA or backend bridge.
+    final showPostCodePending = _codeSubmitting &&
+        !showCompleting &&
+        _cloudPasswordChallenge == null;
+    final showPostPasswordPending = _passwordSubmitting &&
+        !showCompleting &&
+        _cloudPasswordChallenge == null;
+    final showQr = !showCompleting &&
+        !showPostCodePending &&
+        !showPostPasswordPending &&
+        _cloudPasswordChallenge == null &&
         _smsCodeChallenge == null &&
         _qrPayload != null &&
         _qrPayload!.isNotEmpty &&
         _pane == _OxLoginPane.qr;
-    final showCode =
-        _cloudPasswordChallenge == null && _smsCodeChallenge != null;
+    final showCode = !showCompleting &&
+        !showPostCodePending &&
+        _cloudPasswordChallenge == null &&
+        _smsCodeChallenge != null;
     // Show the phone input as soon as the user picks that pane — don't wait
     // for TDLib's WaitPhoneNumber event (which causes a loading-spinner gap).
-    final showPhone = _cloudPasswordChallenge == null &&
+    final showPhone = !showCompleting &&
+        !showPostCodePending &&
+        !showPostPasswordPending &&
+        _cloudPasswordChallenge == null &&
         _smsCodeChallenge == null &&
         !showQr &&
         _pane == _OxLoginPane.phone;
-    final showProgress = _busy &&
+    final showProgress = (_busy || showCompleting) &&
         !showQr &&
         !showCode &&
         !showPhone &&
+        !showPostCodePending &&
+        !showPostPasswordPending &&
         _cloudPasswordChallenge == null;
 
     if (_cloudPasswordChallenge != null) {
       return _buildPasswordStep(context);
+    }
+    if (showCompleting) {
+      return _buildProgressState(signingIn: true);
+    }
+    if (showPostCodePending || showPostPasswordPending) {
+      return _buildProgressState(signingIn: false, verifying: true);
     }
     if (showQr) {
       return _buildQrPane(context);
@@ -1125,7 +1184,7 @@ class _OxplayerTelegramLoginScreenState
       return _buildQrPane(context);
     }
     if (showProgress) {
-      return _buildProgressState();
+      return _buildProgressState(signingIn: false);
     }
     return _buildHub(context);
   }

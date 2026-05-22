@@ -442,10 +442,25 @@ Future<String?> resolveTelegramMessageToPlayableUrl({
   return _messageToBlobUrl(OxplayerTelegramTdRuntime.facade, message);
 }
 
+Future<String?> downloadOxplayerTelegramMediaForSync({
+  required Ref ref,
+  required String mediaId,
+}) async {
+  _webPlayLog('sync', 'full offline download not implemented on web');
+  return null;
+}
+
 Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   required String oxplayerLocatorUri,
   required Ref ref,
+  bool forOfflineSync = false,
 }) async {
+  if (forOfflineSync) {
+    return downloadOxplayerTelegramMediaForSync(
+      ref: ref,
+      mediaId: _parseOxplayerTelegramMediaId(oxplayerLocatorUri) ?? '',
+    );
+  }
   _webPlayLog('resolve', 'ENTER locator=$oxplayerLocatorUri');
   await OxplayerDotenv.ensureLoaded();
   final mediaId = _parseOxplayerTelegramMediaId(oxplayerLocatorUri);

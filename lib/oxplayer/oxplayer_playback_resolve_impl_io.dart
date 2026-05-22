@@ -17,6 +17,7 @@ import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 import 'package:fladder/oxplayer/telegram/telegram_locator_env_search_chats.dart';
 import 'package:fladder/oxplayer/telegram/telegram_media_file_locator_resolver.dart'
     show ResolvedTelegramMediaFile, resolveTelegramMediaFile, oxPlaybackMimeHintFromTdMessage;
+import 'package:fladder/oxplayer/ox_sync_telegram_progress.dart';
 import 'package:fladder/oxplayer/telegram/telegram_range_playback.dart';
 
 /// Full TDLib locator fallback chain (`GetMessage`, `SearchChatMessages`, …). Off by default.
@@ -274,6 +275,8 @@ Future<String?> _resolveRecoveredProviderBackupUrl({
   required String mediaId,
   required String mediaFileId,
   required String overrideUrl,
+  bool forOfflineSync = false,
+  OxTelegramSyncProgressCallback? onSyncProgress,
 }) async {
   final recovered = await _postRecoverFromBackup(ref, mediaFileId, fresh: true);
   if (recovered != true) {
@@ -299,7 +302,12 @@ Future<String?> _resolveRecoveredProviderBackupUrl({
     'recover.detail',
     'refetched backupPostUrl len=${backupAfter.length} excerpt=${_truncateForLog(backupAfter, max: 120)}',
   );
-  final urlAfter = await _tryPlayableUrlFromProviderBackupPost(tdlib, backupAfter);
+  final urlAfter = await _tryPlayableUrlFromProviderBackupPost(
+    tdlib,
+    backupAfter,
+    forOfflineSync: forOfflineSync,
+    onSyncProgress: onSyncProgress,
+  );
   if (urlAfter == null) {
     oxTelegramLocalStreamLog(
       'tdlib.file',
@@ -477,8 +485,10 @@ Future<ResolvedTelegramMediaFile?> _resolveFromProviderBackupPostUrl(
 /// Resolve public `t.me/...` backup → playable stream / file URL, or null if any step fails.
 Future<String?> _tryPlayableUrlFromProviderBackupPost(
   TdlibFacade tdlib,
-  String providerBackupPostUrl,
-) async {
+  String providerBackupPostUrl, {
+  bool forOfflineSync = false,
+  OxTelegramSyncProgressCallback? onSyncProgress,
+}) async {
   final direct =
       await _resolveFromProviderBackupPostUrl(tdlib, providerBackupPostUrl);
   if (direct == null) return null;
@@ -490,26 +500,62 @@ Future<String?> _tryPlayableUrlFromProviderBackupPost(
     tdlib: tdlib,
     resolvedFile: direct.file,
     messageForMime: null,
+    forOfflineSync: forOfflineSync,
+    onSyncProgress: onSyncProgress,
   );
 }
 
 Future<String?> _downloadTelegramFileFully(
   TdlibFacade tdlib,
-  int fileId,
-) async {
+  int fileId, {
+  OxTelegramSyncProgressCallback? onProgress,
+}) async {
   try {
     await tdlib.send(td.DownloadFile(
         fileId: fileId, priority: 5, offset: 0, limit: 0, synchronous: false));
   } catch (_) {}
 
   const pollInterval = Duration(milliseconds: 320);
+  var lastDownloaded = 0;
+  var lastProgressAt = DateTime.now();
 
   while (true) {
     final fileResult = await tdlib.send(td.GetFile(fileId: fileId));
     if (fileResult is! td.File) return null;
 
     final srcPath = fileResult.local.path.trim();
+    final downloaded = fileResult.local.downloadedSize;
+    final total = fileResult.size > 0
+        ? fileResult.size
+        : (fileResult.expectedSize > 0 ? fileResult.expectedSize : 0);
+
+    if (onProgress != null && total > 0) {
+      final now = DateTime.now();
+      final dt = now.difference(lastProgressAt).inMilliseconds;
+      String? speedLabel;
+      if (dt >= 400 && downloaded >= lastDownloaded) {
+        final bps = (downloaded - lastDownloaded) * 1000 / dt;
+        speedLabel = oxSyncFormatBytesPerSec(bps);
+        lastDownloaded = downloaded;
+        lastProgressAt = now;
+      }
+      onProgress(
+        (downloaded / total).clamp(0.0, 1.0),
+        downloadedBytes: downloaded,
+        totalBytes: total,
+        speedLabel: speedLabel,
+      );
+    }
+
     if (srcPath.isNotEmpty && fileResult.local.isDownloadingCompleted) {
+      if (onProgress != null && total > 0) {
+        onProgress(
+          1.0,
+          downloadedBytes: total,
+          totalBytes: total,
+          speedLabel: '',
+        );
+      }
       return srcPath;
     }
 
@@ -568,7 +614,27 @@ Future<String?> _resolveToStreamOrFileUrl({
   required TdlibFacade tdlib,
   required td.File resolvedFile,
   required td.Message? messageForMime,
+  bool forOfflineSync = false,
+  OxTelegramSyncProgressCallback? onSyncProgress,
 }) async {
+  if (forOfflineSync) {
+    oxTelegramLocalStreamLog(
+      'sync',
+      'full TDLib download fileId=${resolvedFile.id} bytes=${resolvedFile.expectedSize}',
+    );
+    final downloadedPath = await _downloadTelegramFileFully(
+      tdlib,
+      resolvedFile.id,
+      onProgress: onSyncProgress,
+    );
+    if (downloadedPath != null && downloadedPath.isNotEmpty) {
+      oxTelegramLocalStreamLog('sync', 'OK file $downloadedPath');
+      return Uri.file(downloadedPath).toString();
+    }
+    oxTelegramLocalStreamLog('sync', 'FAIL full download');
+    return null;
+  }
+
   final mime = messageForMime != null ? _mimeFromMessage(messageForMime) : null;
   final streamUrl = await TelegramRangePlayback.instance.openResolvedFile(
     tdlib: tdlib,
@@ -636,13 +702,32 @@ Future<String?> resolveTelegramMessageToPlayableUrl({
   return url;
 }
 
+/// Full local file via TDLib (offline sync). Same locator chain as playback, no HTTP loopback.
+Future<String?> downloadOxplayerTelegramMediaForSync({
+  required Ref ref,
+  required String mediaId,
+  OxTelegramSyncProgressCallback? onProgress,
+}) =>
+    resolveOxplayerTelegramLocatorToPlayableUrl(
+      oxplayerLocatorUri: 'oxplayer://telegram/$mediaId',
+      ref: ref,
+      forOfflineSync: true,
+      onSyncProgress: onProgress,
+    );
+
 Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
   required String oxplayerLocatorUri,
   required Ref ref,
+  bool forOfflineSync = false,
+  OxTelegramSyncProgressCallback? onSyncProgress,
 }) async {
   if (kIsWeb) {
     oxTelegramLocalStreamLog('prep ABORT', 'web');
     return null;
+  }
+
+  if (forOfflineSync) {
+    oxTelegramLocalStreamLog('sync', 'offline full-file download');
   }
 
   await OxplayerDotenv.ensureLoaded();
@@ -667,8 +752,12 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
       return null;
     }
     final tdlib = OxplayerTelegramTdRuntime.facade;
-    final url =
-        await _tryPlayableUrlFromProviderBackupPost(tdlib, overrideUrl);
+    final url = await _tryPlayableUrlFromProviderBackupPost(
+      tdlib,
+      overrideUrl,
+      forOfflineSync: forOfflineSync,
+      onSyncProgress: onSyncProgress,
+    );
     if (url != null) oxTelegramLocalStreamLog('resolve.done', 'OK $url');
     return url;
   }
@@ -728,7 +817,12 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
 
   // 2) Try reading via provider `t.me` link (resolve + stream).
   if (backup.isNotEmpty) {
-    var url = await _tryPlayableUrlFromProviderBackupPost(tdlib, backup);
+    var url = await _tryPlayableUrlFromProviderBackupPost(
+      tdlib,
+      backup,
+      forOfflineSync: forOfflineSync,
+      onSyncProgress: onSyncProgress,
+    );
     if (url != null) {
       oxTelegramLocalStreamLog('resolve.done', 'OK $url');
       return url;
@@ -745,7 +839,12 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
         final detailFresh = await _fetchLibraryMediaDetail(ref, mediaId);
         final backup2 = detailFresh?.providerBackupPostUrl?.trim() ?? '';
         if (backup2.isNotEmpty) {
-          url = await _tryPlayableUrlFromProviderBackupPost(tdlib, backup2);
+          url = await _tryPlayableUrlFromProviderBackupPost(
+            tdlib,
+            backup2,
+            forOfflineSync: forOfflineSync,
+            onSyncProgress: onSyncProgress,
+          );
           if (url != null) {
             oxTelegramLocalStreamLog('resolve.done', 'OK $url');
             return url;
@@ -776,6 +875,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
       mediaId: mediaId,
       mediaFileId: file.mediaId,
       overrideUrl: overrideUrl,
+      forOfflineSync: forOfflineSync,
+      onSyncProgress: onSyncProgress,
     );
   }
 
@@ -852,6 +953,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
       mediaId: mediaId,
       mediaFileId: file.mediaId,
       overrideUrl: overrideUrl,
+      forOfflineSync: forOfflineSync,
+      onSyncProgress: onSyncProgress,
     );
   }
   oxTelegramLocalStreamLog(
@@ -864,6 +967,8 @@ Future<String?> resolveOxplayerTelegramLocatorToPlayableUrl({
     tdlib: tdlib,
     resolvedFile: resolvedMedia.file,
     messageForMime: null,
+    forOfflineSync: forOfflineSync,
+    onSyncProgress: onSyncProgress,
   );
   if (url == null) {
     oxTelegramLocalStreamLog('resolve.done', 'FAIL');

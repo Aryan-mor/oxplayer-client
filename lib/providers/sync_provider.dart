@@ -31,7 +31,11 @@ import 'package:fladder/models/syncing/transcode_download_model.dart';
 import 'package:fladder/models/video_stream_model.dart';
 import 'package:fladder/profiles/default_profile.dart';
 import 'package:fladder/providers/api_provider.dart';
+import 'package:fladder/oxplayer/ox_sync_log.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/oxplayer_sync_telegram.dart';
+import 'package:fladder/oxplayer/oxplayer_verified_streams_client.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/sync/background_download_provider.dart';
@@ -41,6 +45,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/util/duration_extensions.dart';
 import 'package:fladder/util/localization_helper.dart';
+import 'package:fladder/util/size_formatting.dart';
 import 'package:fladder/util/string_extensions.dart';
 
 final syncProvider = StateNotifierProvider<SyncNotifier, SyncSettingsModel>((ref) => throw UnimplementedError());
@@ -481,6 +486,89 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
     if (user == null) return null;
 
     final mediaSource = playbackData.mediaSources?.firstOrNull;
+    final telegramMediaId = parseOxplayerTelegramMediaId(mediaSource?.path);
+
+    if (OxplayerConfig.isEnabled && telegramMediaId != null && !skipDownload) {
+      oxSyncLog(
+        'telegram',
+        'detected mediaId=$telegramMediaId path=${mediaSource?.path} msId=${mediaSource?.id}',
+      );
+      final container = (mediaSource?.container ?? 'mp4').trim();
+      final ext = container.isEmpty ? '.mp4' : '.${container.replaceAll('.', '')}';
+      syncItem = syncItem.copyWith(
+        videoFileName: oxSyncTelegramVideoFileName(telegramMediaId, extension: ext),
+      );
+      await updateItem(syncItem);
+
+      if (!kIsWeb) {
+        const tdlibWeight = 0.72;
+        const copyWeight = 0.28;
+        var finalFileSizeSet = (syncItem.fileSize ?? 0) > 0;
+
+        Future<void> ensureFinalFileSizeOnce(int? bytes) async {
+          if (finalFileSizeSet || bytes == null || bytes <= 0) return;
+          finalFileSizeSet = true;
+          syncItem = syncItem.copyWith(fileSize: bytes);
+          await updateItem(syncItem);
+          oxSyncLog('telegram', 'final fileSize=${bytes.byteFormat}');
+        }
+
+        void pushProgress(double overall, {String? speed}) {
+          ref.read(downloadTasksProvider(syncItem.id).notifier).update(
+                (state) => DownloadStream(
+                  id: syncItem.id,
+                  task: state.task,
+                  status: TaskStatus.running,
+                  progress: overall.clamp(0.0, 1.0),
+                  downloadSpeed: speed ?? state.downloadSpeed,
+                ),
+              );
+        }
+
+        ref.read(downloadTasksProvider(syncItem.id).notifier).update(
+              (state) => DownloadStream(
+                id: syncItem.id,
+                task: state.task,
+                status: TaskStatus.running,
+                progress: 0,
+              ),
+            );
+
+        final localPath = await oxDownloadTelegramMediaToLocalPath(
+          ref: ref,
+          mediaId: telegramMediaId,
+          onProgress: (fraction, {downloadedBytes, totalBytes, speedLabel}) {
+            unawaited(ensureFinalFileSizeOnce(totalBytes));
+            pushProgress(fraction * tdlibWeight, speed: speedLabel);
+          },
+        );
+        if (localPath == null) {
+          ref.read(downloadTasksProvider(syncItem.id).notifier).update(
+                (state) => DownloadStream(id: syncItem.id, status: TaskStatus.failed),
+              );
+          oxSyncLog('telegram', 'TDLib sync FAIL');
+          return false;
+        }
+
+        final srcLen = await File(localPath).length();
+        await ensureFinalFileSizeOnce(srcLen);
+
+        await oxCopyTelegramDownloadIntoSyncFolder(
+          syncItem: syncItem,
+          localPath: localPath,
+          onCopyProgress: (copyFraction) {
+            pushProgress(tdlibWeight + copyFraction * copyWeight);
+          },
+        );
+
+        ref.read(downloadTasksProvider(syncItem.id).notifier).update(
+              (state) => DownloadStream(id: syncItem.id, status: TaskStatus.complete),
+            );
+        oxSyncLog('telegram', 'TDLib sync OK');
+        return true;
+      }
+      oxSyncLog('telegram', 'web: no TDLib — trying HTTP server proxy download');
+    }
 
     final String downloadUrl;
     if ((mediaSource?.supportsDirectStream ?? false) || (mediaSource?.supportsDirectPlay ?? false)) {
@@ -494,11 +582,18 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
         pathSegments: ['Videos', mediaSource.id!, 'stream'],
         queryParameters: directOptions,
       );
+      oxSyncLog('http', 'direct stream url=$downloadUrl telegramMediaId=$telegramMediaId');
       log('Using direct stream URL: $downloadUrl');
     } else if ((mediaSource?.supportsTranscoding ?? false) && mediaSource?.transcodingUrl != null) {
       downloadUrl = buildServerUrl(ref, relativeUrl: mediaSource!.transcodingUrl);
+      oxSyncLog('http', 'transcode url=$downloadUrl');
       log('Using transcode URL: $downloadUrl');
     } else {
+      oxSyncLog(
+        'http',
+        'FAIL no playback method direct=${mediaSource?.supportsDirectStream} '
+            'play=${mediaSource?.supportsDirectPlay} transcode=${mediaSource?.supportsTranscoding}',
+      );
       log('No supported playback method found');
       return null;
     }
@@ -534,10 +629,15 @@ class SyncNotifier extends StateNotifier<SyncSettingsModel> {
 
         final defaultDownloadStream = DownloadStream(id: syncItem.id, task: downloadTask, status: TaskStatus.enqueued);
         ref.read(downloadTasksProvider(syncItem.id).notifier).update((state) => defaultDownloadStream);
-        return await ref.read(backgroundDownloaderProvider).enqueue(downloadTask);
+        oxSyncLog('http', 'enqueue taskId=${downloadTask.taskId} file=${downloadTask.filename}');
+        final enqueued = await ref.read(backgroundDownloaderProvider).enqueue(downloadTask);
+        oxSyncLog('http', 'enqueue result=$enqueued');
+        return enqueued;
       }
-    } catch (e) {
+    } catch (e, st) {
+      oxSyncLog('http', 'ERROR $e');
       log(e.toString());
+      log(st.toString());
       return null;
     }
 
@@ -636,10 +736,16 @@ extension SyncNotifierHelpers on SyncNotifier {
       await _db.insertItem(syncItem);
     }
 
+    final msPath = response.mediaSources?.firstOrNull?.path;
+    final telegramMediaId = parseOxplayerTelegramMediaId(msPath);
+    final videoFileName = telegramMediaId != null
+        ? oxSyncTelegramVideoFileName(telegramMediaId)
+        : (response.path?.universalBasename ?? "");
+
     return syncItem.copyWith(
       fileSize: response.mediaSources?.firstOrNull?.size ?? 0,
       syncing: false,
-      videoFileName: response.path?.universalBasename ?? "",
+      videoFileName: videoFileName,
     );
   }
 

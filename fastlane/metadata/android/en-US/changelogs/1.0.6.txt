@@ -1,0 +1,1 @@
+Google Play review login: use phone +123456789 and code 1234 to sign in without SMS. Demo library loads right after login. Bug fixes and stability improvements.

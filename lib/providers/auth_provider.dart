@@ -8,6 +8,8 @@ import 'package:fladder/models/account_model.dart';
 import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/models/login_screen_model.dart';
+import 'package:fladder/oxplayer/oxplayer_account_flags.dart';
+import 'package:fladder/oxplayer/oxplayer_post_auth_warmup.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:flutter/foundation.dart';
@@ -223,6 +225,7 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
       // Ignore logout errors for seerr
     }
     clearAllProviders();
+    ref.read(oxplayerAccountDeleteDisabledProvider.notifier).state = false;
     return null;
   }
 
@@ -295,31 +298,39 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
       refreshToken: exchanged.refreshToken,
     );
 
-    final serverResponse = await api.systemInfoPublicGet();
     final login = oxplayerServerLoginModel!;
     final mergedCreds = login.tempCredentials;
-    final creds = mergedCreds.copyWith(
-      serverName: serverResponse.body?.serverName ?? mergedCreds.serverName,
+    final credsWithToken = mergedCreds.copyWith(
+      token: token,
       serverId: ar.serverId ?? mergedCreds.serverId,
       oxRefreshToken: exchanged.refreshToken ?? mergedCreds.oxRefreshToken,
     );
 
-    // Use Telegram photoUrl instead of Jellyfin image URL
+    // Login bootstrap uses initModel(clearUserState: false); JellyRequest prefers
+    // userProvider over tempCredentials — set the new session before any API call.
     final imageUrl = exchanged.photoUrl ?? '';
-    // final imageUrl = ref
-    //     .read(imageUtilityProvider)
-    //     .getUserImageUrl(ar.user?.id ?? '');
     final newUser = AccountModel(
       name: ar.user?.name ?? '',
       id: ar.user?.id ?? '',
       avatar: imageUrl,
-      credentials: creds,
+      credentials: credsWithToken,
       lastUsed: DateTime.now(),
     );
-
-    await ref.read(sharedUtilityProvider).addAccount(newUser);
     ref.read(userProvider.notifier).userState = newUser;
+
+    final serverResponse = await api.systemInfoPublicGet();
+    final creds = credsWithToken.copyWith(
+      serverName: serverResponse.body?.serverName ?? credsWithToken.serverName,
+    );
+    final persistedUser = newUser.copyWith(credentials: creds);
+
+    await ref.read(sharedUtilityProvider).addAccount(persistedUser);
+    ref.read(userProvider.notifier).userState = persistedUser;
+    ref.read(oxplayerAccountDeleteDisabledProvider.notifier).state =
+        exchanged.accountDeleteDisabled;
     getSavedAccounts();
+
+    await oxplayerWarmupHomeLibraryAfterAuth(ref);
   }
 
   void clearAllProviders() {

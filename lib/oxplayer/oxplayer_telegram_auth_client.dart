@@ -10,12 +10,14 @@ class OxplayerTelegramAuthResponse {
     required this.jellyfin,
     this.refreshToken,
     this.photoUrl,
+    this.accountDeleteDisabled = false,
   });
 
   final String accessToken;
   final AuthenticationResult jellyfin;
   final String? refreshToken;
   final String? photoUrl;
+  final bool accountDeleteDisabled;
 }
 
 /// Calls the OXPlayer HTTP API to exchange Telegram Mini App [initData] for a session.
@@ -40,6 +42,37 @@ final class OxplayerTelegramAuthClient {
 
     final response = await http.post(
       _refreshAuthUri,
+      headers: const {'Content-Type': 'application/json; charset=utf-8'},
+      body: jsonEncode(payload),
+    );
+
+    final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
+    if (response.statusCode != 200 || decoded is! Map<String, dynamic>) {
+      final err = decoded is Map<String, dynamic> ? decoded['error'] : null;
+      final msg = err is String ? err : 'HTTP ${response.statusCode}';
+      throw OxplayerTelegramAuthException(msg);
+    }
+
+    return _parseAuthOk(decoded);
+  }
+
+  Future<OxplayerTelegramAuthResponse> googlePlayReviewLogin({
+    required String phoneNumber,
+    required String code,
+    String? deviceId,
+    String? deviceName,
+  }) async {
+    final payload = <String, dynamic>{
+      'phoneNumber': phoneNumber,
+      'code': code,
+      if (deviceId != null && deviceId.trim().isNotEmpty)
+        'deviceId': deviceId.trim(),
+      if (deviceName != null && deviceName.trim().isNotEmpty)
+        'deviceName': deviceName.trim(),
+    };
+
+    final response = await http.post(
+      Uri.parse('$apiBase/auth/google-play-review'),
       headers: const {'Content-Type': 'application/json; charset=utf-8'},
       body: jsonEncode(payload),
     );
@@ -104,12 +137,16 @@ final class OxplayerTelegramAuthClient {
     
     final userRaw = decoded['user'];
     final photoUrl = userRaw is Map ? userRaw['photoUrl'] as String? : null;
+    final accountDeleteDisabled = userRaw is Map
+        ? userRaw['accountDeleteDisabled'] == true
+        : false;
 
     return OxplayerTelegramAuthResponse(
       accessToken: token,
       jellyfin: jellyfin,
       refreshToken: (refresh != null && refresh.isNotEmpty) ? refresh : null,
       photoUrl: photoUrl,
+      accountDeleteDisabled: accountDeleteDisabled,
     );
   }
 }

@@ -57,6 +57,14 @@ abstract final class OxplayerEnv {
     'OXPLAYER_DEBUG_TELEGRAM_INIT_DATA',
     defaultValue: '',
   );
+  static const String _cGooglePlayReviewPhone = String.fromEnvironment(
+    'OXPLAYER_GOOGLE_PLAY_REVIEW_PHONE',
+    defaultValue: '',
+  );
+  static const String _cGooglePlayReviewCode = String.fromEnvironment(
+    'OXPLAYER_GOOGLE_PLAY_REVIEW_CODE',
+    defaultValue: '',
+  );
   static const String _cTelegramApiId = String.fromEnvironment(
     'TELEGRAM_API_ID',
     defaultValue: '',
@@ -283,6 +291,47 @@ abstract final class OxplayerEnv {
     final t = _pick(['OXPLAYER_DEBUG_TELEGRAM_INIT_DATA'], _cDebugTelegramInitData).trim();
     return t.isEmpty ? null : t;
   }
+
+  static const String _defaultGooglePlayReviewPhone = '+123456789';
+  static const String _defaultGooglePlayReviewCode = '1234';
+
+  /// Google Play review login (defaults match server when env unset).
+  static String get googlePlayReviewPhone {
+    if (!OxplayerConfig.isEnabled) return _defaultGooglePlayReviewPhone;
+    final t = _pick(
+      ['OXPLAYER_GOOGLE_PLAY_REVIEW_PHONE', 'GOOGLE_PLAY_REVIEW_PHONE'],
+      _cGooglePlayReviewPhone,
+    ).trim();
+    return t.isEmpty ? _defaultGooglePlayReviewPhone : t;
+  }
+
+  static String get googlePlayReviewCode {
+    if (!OxplayerConfig.isEnabled) return _defaultGooglePlayReviewCode;
+    final t = _pick(
+      ['OXPLAYER_GOOGLE_PLAY_REVIEW_CODE', 'GOOGLE_PLAY_REVIEW_CODE'],
+      _cGooglePlayReviewCode,
+    ).trim();
+    return t.isEmpty ? _defaultGooglePlayReviewCode : t;
+  }
+
+  static String normalizeReviewPhoneNumber(String raw) {
+    final t = raw.trim().replaceAll(RegExp(r'[\s()-]'), '');
+    if (t.startsWith('00')) return '+${t.substring(2)}';
+    if (t.startsWith('+')) return t;
+    return '+$t';
+  }
+
+  static bool isGooglePlayReviewPhone(String phone) {
+    return normalizeReviewPhoneNumber(phone) ==
+        normalizeReviewPhoneNumber(googlePlayReviewPhone);
+  }
+
+  static bool isGooglePlayReviewCredentials(String phone, String code) {
+    if (!isGooglePlayReviewPhone(phone)) return false;
+    return code.trim() == googlePlayReviewCode.trim();
+  }
+
+  static bool get isGooglePlayReviewLoginConfigured => OxplayerConfig.isEnabled;
 
   static String? get telegramApiId {
     if (!OxplayerConfig.isEnabled) return null;

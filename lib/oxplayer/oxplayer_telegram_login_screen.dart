@@ -81,7 +81,7 @@ String _formatTelegramLoginError(Object e) {
   } catch (_) {}
   final s = e.toString();
   if (s == '[object Object]') {
-    return 'Request failed (see browser console for TDLib / network details).';
+    return 'Request failed (see browser console for Telegram connection details).';
   }
   return s;
 }
@@ -383,6 +383,53 @@ class _OxplayerTelegramLoginScreenState
     }
   }
 
+  Future<void> _completeGooglePlayReviewSignIn(
+    String phoneNumber,
+    String code,
+  ) async {
+    final apiBase = OxplayerEnv.apiBaseUrl;
+    if (apiBase == null) {
+      FladderSnack.show('Missing API configuration', context: context);
+      return;
+    }
+
+    if (ref.read(authProvider).serverLoginModel == null) {
+      FladderSnack.show('Connecting to server… try again in a moment.',
+          context: context);
+      await _bootstrap();
+      return;
+    }
+
+    setState(() => _codeSubmitting = true);
+    try {
+      final app = ref.read(applicationInfoProvider);
+      final deviceName = kIsWeb
+          ? 'OXPlayer Web'
+          : '${app.name} / ${defaultTargetPlatform.name}';
+
+      final client = OxplayerTelegramAuthClient(apiBase: apiBase);
+      final exchanged = await client.googlePlayReviewLogin(
+        phoneNumber: phoneNumber,
+        code: code,
+        deviceName: deviceName,
+      );
+
+      await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
+
+      ref.read(lockScreenActiveProvider.notifier).update((s) => false);
+
+      if (mounted) {
+        await context.router.replaceAll([const DashboardRoute()]);
+      }
+    } on OxplayerTelegramAuthException catch (e) {
+      if (mounted) FladderSnack.show(e.message, context: context);
+    } catch (e) {
+      if (mounted) FladderSnack.show('$e', context: context);
+    } finally {
+      if (mounted) setState(() => _codeSubmitting = false);
+    }
+  }
+
   /// Optional path: raw WebApp initData from a deep link (same backend exchange).
   Future<void> _completeSignInWithInitData(String rawInitData) async {
     final apiBase = OxplayerEnv.apiBaseUrl;
@@ -478,9 +525,8 @@ class _OxplayerTelegramLoginScreenState
         if (_qrPayload != null && _qrPayload!.isNotEmpty) return;
         setState(() {
           _flowError =
-              'No QR link from TDLib. Check the error snack or console for '
-              'requestQrCodeAuthentication / TdError. localhost and #/ox-login are fine; '
-              'ngrok is not required for QR. Verify TELEGRAM_API_ID and TELEGRAM_API_HASH.';
+              'Could not load the Telegram sign-in QR code. '
+              'Check your connection and try again.';
         });
       });
     } catch (error) {
@@ -522,6 +568,17 @@ class _OxplayerTelegramLoginScreenState
     final phoneNumber = _phoneController.text.trim();
     if (session == null || phoneNumber.isEmpty || _phoneSubmitting) return;
 
+    if (OxplayerEnv.isGooglePlayReviewPhone(phoneNumber)) {
+      setState(() {
+        _smsCodeChallenge = TdlibSmsCodeChallenge(
+          phoneNumber: phoneNumber,
+          resendTimeoutSeconds: 0,
+        );
+      });
+      _requestFocusOnNextFrame(_codeFocusNode);
+      return;
+    }
+
     setState(() => _phoneSubmitting = true);
     try {
       await session.submitAuthenticationPhoneNumber(phoneNumber);
@@ -544,7 +601,13 @@ class _OxplayerTelegramLoginScreenState
   Future<void> _submitCode() async {
     final session = _tdSession;
     final code = _codeController.text.trim();
+    final phoneNumber = _phoneController.text.trim();
     if (session == null || code.isEmpty || _codeSubmitting) return;
+
+    if (OxplayerEnv.isGooglePlayReviewCredentials(phoneNumber, code)) {
+      await _completeGooglePlayReviewSignIn(phoneNumber, code);
+      return;
+    }
 
     setState(() => _codeSubmitting = true);
     try {
@@ -679,7 +742,7 @@ class _OxplayerTelegramLoginScreenState
         ),
         const SizedBox(height: 8),
         const Text(
-          'Uses TDLib (tdweb on web, native on mobile): scan QR or enter your phone number in international format.',
+          'Scan a QR code in the Telegram app, or sign in with the phone number linked to your Telegram account.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey, fontSize: 13),
         ),
@@ -802,7 +865,8 @@ class _OxplayerTelegramLoginScreenState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Enter your mobile number in international format.',
+              'Enter the phone number linked to your Telegram account, '
+              'in international format (e.g. +989123456789).',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
@@ -852,9 +916,13 @@ class _OxplayerTelegramLoginScreenState
 
   Widget _buildCodeStep(BuildContext context) {
     final challenge = _smsCodeChallenge;
-    final instruction = challenge == null || challenge.phoneNumber.isEmpty
-        ? 'Enter the login code Telegram sent to your phone.'
-        : 'Enter the login code Telegram sent to ${challenge.phoneNumber}.';
+    final isReviewCodeStep = OxplayerEnv.isGooglePlayReviewLoginConfigured &&
+        OxplayerEnv.isGooglePlayReviewPhone(_phoneController.text.trim());
+    final instruction = isReviewCodeStep
+        ? 'Enter the review login code configured for this build.'
+        : challenge == null || challenge.phoneNumber.isEmpty
+            ? 'Enter the login code Telegram sent to your phone.'
+            : 'Enter the login code Telegram sent to ${challenge.phoneNumber}.';
 
     return FocusTraversalGroup(
       policy: OrderedTraversalPolicy(),

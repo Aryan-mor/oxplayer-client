@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as enums;
 import 'package:fladder/models/seerr_credentials_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_account_flags.dart';
 import 'package:fladder/oxplayer/oxplayer_delete_account_flow.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/cultures_provider.dart';
@@ -402,7 +403,8 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
             ),
           ],
         ),
-        if (OxplayerConfig.isEnabled) ...[
+        if (OxplayerConfig.isEnabled &&
+            !ref.watch(oxplayerAccountDeleteDisabledProvider)) ...[
           const SizedBox(height: 16),
           ...settingsListGroup(
             context,

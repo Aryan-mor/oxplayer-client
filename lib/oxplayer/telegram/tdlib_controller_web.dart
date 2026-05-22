@@ -30,7 +30,7 @@ String _stringifyTdWebSendFailure(Object e) {
   } catch (_) {}
   final s = e.toString();
   if (s.contains('[object Object]') || s.contains('LegacyJavaScriptObject')) {
-    return 'JS/TDLib send rejected (see browser console).';
+    return 'Telegram request failed (see browser console).';
   }
   return s;
 }
@@ -174,9 +174,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
   static Future<void> initTdlibPlugin() async {
     if (!_tdwebGlobalsPresent()) {
       throw StateError(
-        'TDLib web (tdweb) is not available. Run `node scripts/sync-tdweb.mjs` in '
-        'oxplayer-client (after `pnpm add -w tdweb` or `npm install tdweb`) so '
-        'web/tdweb/tdweb.js exists, then rebuild or hard-refresh the browser.',
+        'Telegram web sign-in failed to load. Hard-refresh the page or reinstall the app.',
       );
     }
   }
@@ -441,23 +439,22 @@ class TelegramTdlibFacade implements TdTelegramClient {
   @override
   Future<td.TdObject> send(td.TdFunction request) async {
     if (!_webJsAlive) {
-      return Future.error(StateError('TDLib is not initialized.'));
+      return Future.error(StateError('Telegram sign-in is not ready yet.'));
     }
     if (_receivedTdlibFatal) {
       final detail = _lastTdlibFatalDetail;
       final extra = (detail != null && detail.isNotEmpty) ? ': $detail' : '';
       return Future.error(
         StateError(
-          'TDLib reported a fatal error$extra. '
-          'Search the console for "TDLib fatal:" or fix API keys / tdweb storage, then refresh.',
+          'Telegram sign-in failed$extra. Refresh the page and try again.',
         ),
       );
     }
     if (_unsupportedAuthWire != null) {
       return Future.error(
         StateError(
-          'TDLib auth is blocked: unsupported authorization state "$_unsupportedAuthWire". '
-          'Regenerate lib/td_api_generated from tool/tdlib/TD_VERSION.json so Dart types match your tdweb / WASM TDLib build.',
+          'Telegram sign-in is blocked at an unsupported step ("$_unsupportedAuthWire"). '
+          'Update the app or refresh and try again.',
         ),
       );
     }
@@ -658,8 +655,8 @@ class TelegramTdlibFacade implements TdTelegramClient {
         lastAuth != null ? ' Last authorization state: ${lastAuth.runtimeType}.' : '';
     if (!_functionErrors.isClosed) {
       _functionErrors.add(
-        'TDLib did not reach QR confirmation state.$tail '
-        'Check browser console for "requestQrCodeAuthentication" or TdError lines.',
+        'Telegram did not show a sign-in QR code.$tail '
+        'Check your connection and try again.',
       );
     }
   }
@@ -1073,13 +1070,13 @@ class TelegramTdlibFacade implements TdTelegramClient {
     } on TimeoutException catch (e) {
       final fatalTail = _lastTdlibFatalDetail;
       final msg = _unsupportedAuthWire != null
-          ? 'requestQrCodeAuthentication: unsupported auth state "$_unsupportedAuthWire" '
-                '(regenerate lib/td_api_generated to match tdweb).'
+          ? 'Telegram QR sign-in blocked at unsupported step "$_unsupportedAuthWire". '
+                'Update the app or refresh and try again.'
           : _receivedTdlibFatal
-              ? 'requestQrCodeAuthentication: TDLib fatal'
-                    '${fatalTail != null && fatalTail.isNotEmpty ? ': $fatalTail' : ''} '
-                    '(see console "TDLib fatal:"). Refresh after fixing.'
-              : 'requestQrCodeAuthentication timed out: $e';
+              ? 'Telegram QR sign-in failed'
+                    '${fatalTail != null && fatalTail.isNotEmpty ? ': $fatalTail' : ''}. '
+                    'Refresh the page and try again.'
+              : 'Telegram QR sign-in timed out: $e';
       if (!_functionErrors.isClosed) {
         _functionErrors.add(msg);
       }

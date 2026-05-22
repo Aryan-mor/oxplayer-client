@@ -29,7 +29,7 @@ String _describeTdSendFailure(Object e) {
   } catch (_) {}
   final s = e.toString();
   if (s.contains('[object Object]') || s.contains('LegacyJavaScriptObject')) {
-    return 'JS/TDLib request failed (open browser console → Network / TDLib for the rejected promise).';
+    return 'Telegram request failed (open browser console for connection details).';
   }
   return s;
 }
@@ -618,9 +618,8 @@ final class OxplayerTelegramTdSession {
         );
         return initDbg;
       }
-      const tdwebSyncHint =
-          'On web, sync tdweb to tool/tdlib/TD_VERSION.json (see web/tdweb/README). '
-          'Debug-only: OXPLAYER_DEBUG_TELEGRAM_INIT_DATA when kDebugMode.';
+      const webRetryHint =
+          'On web, refresh the page and sign in to Telegram again.';
       final short = OxplayerEnv.telegramWebAppShortName?.trim() ?? '';
       final directUrl = OxplayerEnv.telegramWebAppUrl ?? '';
       final mini = OxplayerEnv.compactTelegramWireUrl(
@@ -645,18 +644,18 @@ final class OxplayerTelegramTdSession {
           ' short_name="$short" mini="$mini" dotenv=${OxplayerDotenv.isLoaded}.',
         );
         if (kIsWeb) {
-          b.write(' $tdwebSyncHint');
+          b.write(' $webRetryHint');
         }
         throw StateError(b.toString());
       }
       throw StateError(
-        'Cannot get WebApp URL from Telegram (TDLib returned no URL and no error). '
+        'Cannot get WebApp URL from Telegram (no URL and no error). '
         'short_name="$short" direct_url_set=${directUrl.isNotEmpty} mini="$mini" '
         'hosted_https_set=${hostedHttps != null && hostedHttps.isNotEmpty} '
         'dotenv=${OxplayerDotenv.isLoaded}. Set OXPLAYER_TELEGRAM_WEBAPP_URL to your '
         'deployed https://… Mini App origin (not t.me) for GetWebAppUrl, or use '
         'pnpm flutter:web / --dart-define-from-file=dart_defines.dev.json.'
-        '${kIsWeb ? ' $tdwebSyncHint' : ''}',
+        '${kIsWeb ? ' $webRetryHint' : ''}',
       );
     }
 

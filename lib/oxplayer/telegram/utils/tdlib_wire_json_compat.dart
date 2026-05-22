@@ -290,7 +290,7 @@ const _kUserFullInfoOptionalObjectWireKeys = <String>{
   'rating',
 };
 
-/// tdweb / JS may emit int64 effect ids as decimal strings; Dart `fromJson` expects [int].
+/// tdweb and native TD JSON may emit int64 ids as decimal strings; Dart `fromJson` expects [int].
 List<dynamic> _wireTdIntListFromJs(Object? raw) {
   if (raw is! List) return <dynamic>[];
   final out = <dynamic>[];
@@ -1218,12 +1218,29 @@ String tdlibJsonPeekForLog(String rawJson) {
   }
 }
 
+/// `@type` values that need coercion on native TD JSON before [convertToObject].
+const _kNativeWireSanitizeAtTypeSubstrings = <String>[
+  'updateAvailableMessageEffects',
+];
+
+bool _nativeTdJsonNeedsWireSanitize(String rawJson) {
+  for (final hint in _kNativeWireSanitizeAtTypeSubstrings) {
+    if (rawJson.contains(hint)) return true;
+  }
+  return false;
+}
+
+/// Root-level native wire fixups (no recursive bool/null tdweb defaults).
+void _sanitizeTdPayloadNativeMinimal(Map<String, dynamic> map) {
+  _applyTypedObjectWireFixups(map);
+}
+
 /// Normalizes TDLib **wire JSON** (primarily **tdweb**) so strict `td_api` `fromJson`
 /// does not throw on null / empty-string / partial-object quirks.
 ///
 /// **Contract:** mutates [rawJson] in place when [kIsWeb] is true; returns the same
-/// map reference. When not on web, returns [rawJson] without reading the tree
-/// (native TDLib JSON is treated as already spec-shaped).
+/// map reference. On native, returns [rawJson] unchanged unless the caller applies
+/// [sanitizeTdPayloadNative] for known wire quirks.
 ///
 /// Deterministic for a given input map; intended to run immediately before
 /// `td.convertToObject(jsonEncode(...))`.
@@ -1235,18 +1252,30 @@ Map<String, dynamic> sanitizeTdPayload(Map<String, dynamic> rawJson) {
   return rawJson;
 }
 
-/// Decode → [sanitizeTdPayload] (web only) → encode for `td.convertToObject`.
+/// Native-only subset of [sanitizeTdPayload] for known TD JSON quirks.
+Map<String, dynamic> sanitizeTdPayloadNative(Map<String, dynamic> rawJson) {
+  _sanitizeTdPayloadNativeMinimal(rawJson);
+  return rawJson;
+}
+
+/// Decode → sanitize → encode for `td.convertToObject`.
 ///
-/// On Android/desktop, returns [rawJson] unchanged (**no** extra json parse).
+/// Web: full [sanitizeTdPayload]. Native: parse/encode only for updates listed in
+/// [_kNativeWireSanitizeAtTypeSubstrings]; all other messages pass through unchanged.
 String tdJsonPrepareForConvertToObject(String rawJson) {
-  if (!kIsWeb) {
+  final needsNativeSanitize = !kIsWeb && _nativeTdJsonNeedsWireSanitize(rawJson);
+  if (!kIsWeb && !needsNativeSanitize) {
     return rawJson;
   }
   final map = parseTdJsonObjectMap(rawJson);
   if (map == null) {
     return rawJson;
   }
-  sanitizeTdPayload(map);
+  if (kIsWeb) {
+    sanitizeTdPayload(map);
+  } else {
+    sanitizeTdPayloadNative(map);
+  }
   try {
     return jsonEncode(map);
   } catch (_) {

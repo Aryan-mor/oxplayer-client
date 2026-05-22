@@ -1,7 +1,5 @@
 import 'dart:developer' show log;
 
-import 'package:collection/collection.dart';
-
 import 'package:flutter/foundation.dart' show kDebugMode;
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
@@ -94,18 +92,6 @@ List<ItemBaseModel> _userOwnedTvLatestBySeries(Iterable<ViewModel> dashboardView
     out.add(it);
   }
   return out;
-}
-
-ItemBaseModel? _mostRecentlyPlayedVideo(List<ItemBaseModel> resumeVideo) {
-  final eligible =
-      resumeVideo.where((e) => !_isOxGeneralVideoCarouselItem(e)).toList();
-  if (eligible.isEmpty) return null;
-  return eligible
-      .sortedByCompare(
-        (e) => e.userData.lastPlayed ?? DateTime.fromMillisecondsSinceEpoch(0),
-        (a, b) => b.compareTo(a),
-      )
-      .first;
 }
 
 /// Splits [curated] then [globalLatest] into up to [maxEach] movies and TV rows (server-driven lists).
@@ -226,7 +212,7 @@ String _oxDebugRecentKindStats(Iterable<ViewModel> dashboardViews) {
   return 'recentJellyTypes null=$nullType movie=$movie episode=$episode series=$series other=$other';
 }
 
-/// OX home hero: **combined** = last played → your library latest (2+2 or 1+1) → server-pinned custom slides →
+/// OX home hero: **combined** = your library latest (2+2 or 1+1) → server-pinned custom slides →
 /// curated/global → **TrendingTop10**. Dedupes by TMDB (and series key) so the same title is not shown twice.
 /// **General video** (`ProviderIds.OX=general_video`) is never included (not even from resume / next up / curated lists).
 List<ItemBaseModel> buildOxplayerHomeCarouselItems({
@@ -271,10 +257,6 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
       }
       final contOut = <ItemBaseModel>[];
       final seenCt = <String>{};
-      final lastPlayedCont = _mostRecentlyPlayedVideo(resumeVideo);
-      if (lastPlayedCont != null) {
-        _appendCarouselDeduped(contOut, seenCt, lastPlayedCont);
-      }
       final hasSuppCont = bannerCurated.isNotEmpty ||
           bannerGlobalLatest.isNotEmpty ||
           bannerTrendingTop10.isNotEmpty;
@@ -299,11 +281,6 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
     case HomeCarouselSettings.combined:
       final out = <ItemBaseModel>[];
       final seen = <String>{};
-
-      final lastPlayed = _mostRecentlyPlayedVideo(resumeVideo);
-      if (lastPlayed != null) {
-        _appendCarouselDeduped(out, seen, lastPlayed);
-      }
 
       final hasSupplementalBanner = bannerCurated.isNotEmpty ||
           bannerGlobalLatest.isNotEmpty ||
@@ -368,7 +345,7 @@ List<ItemBaseModel> buildOxplayerHomeCarouselItems({
             '$mode|supp=$hasSupplementalBanner|rv=${resumeVideo.length}|nu=${nextUp.length}|bc=${bannerCustom.length}|bt=${bannerTrendingTop10.length}|dv=${dashboardViews.length}|tr=$totalRecent|mp=${moviePicks.length}|tp=${tvPicks.length}|out=${out.length}',
         message:
             'OX home carousel combined: mode=$mode supplementalBanner=$hasSupplementalBanner '
-            'resumeVideo=${resumeVideo.length} lastPlayed=${lastPlayed != null} bannerCustom=${bannerCustom.length} '
+            'resumeVideo=${resumeVideo.length} bannerCustom=${bannerCustom.length} '
             'trending=${bannerTrendingTop10.length} nextUp=${nextUp.length} '
             'dashboardViews=${dashboardViews.length} recentTotal=$totalRecent '
             'perView=$viewSummary ${_oxDebugRecentKindStats(dashboardViews)} '

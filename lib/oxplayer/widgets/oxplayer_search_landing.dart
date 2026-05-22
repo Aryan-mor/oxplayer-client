@@ -2,6 +2,7 @@ import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/api_provider.dart';
+import 'package:fladder/oxplayer/providers/ox_home_banner_discovery_cache.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/screens/shared/media/poster_row.dart';
@@ -65,18 +66,36 @@ final oxplayerSearchLandingProvider = FutureProvider.autoDispose<OxplayerSearchL
     top10 = _moviesAndSeriesOnly(dash.bannerTrendingTop10);
     homeDiscoveryLayout = true;
   } else {
-    final disc = await api.userItemsHomeBannerDiscoveryGet();
-    homeDiscoveryLayout = disc != null;
-    if (disc != null) {
+    final cached = await OxHomeBannerDiscoveryCache.read(ref);
+    if (cached != null) {
+      homeDiscoveryLayout = true;
       custom = _moviesAndSeriesOnly(
-        disc.customSlider.map((e) => ItemBaseModel.fromBaseDto(e, ref)),
+        cached.customSlider.map((e) => ItemBaseModel.fromBaseDto(e, ref)),
       );
       top10 = _moviesAndSeriesOnly(
-        disc.trendingTop10.map((e) => ItemBaseModel.fromBaseDto(e, ref)),
+        cached.trendingTop10.map((e) => ItemBaseModel.fromBaseDto(e, ref)),
       );
     } else {
-      custom = const [];
-      top10 = const [];
+      final disc = await api.userItemsHomeBannerDiscoveryGet();
+      homeDiscoveryLayout = disc != null;
+      if (disc != null) {
+        await OxHomeBannerDiscoveryCache.write(
+          ref,
+          curated: disc.curated,
+          globalLatest: disc.globalLatest,
+          customSlider: disc.customSlider,
+          trendingTop10: disc.trendingTop10,
+        );
+        custom = _moviesAndSeriesOnly(
+          disc.customSlider.map((e) => ItemBaseModel.fromBaseDto(e, ref)),
+        );
+        top10 = _moviesAndSeriesOnly(
+          disc.trendingTop10.map((e) => ItemBaseModel.fromBaseDto(e, ref)),
+        );
+      } else {
+        custom = const [];
+        top10 = const [];
+      }
     }
   }
 

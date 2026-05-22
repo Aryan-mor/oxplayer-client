@@ -437,13 +437,11 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
 
     await playbackModel.playbackStopped(position, totalDuration, ref);
 
-    Future.microtask(() async {
-      try {
-        await ref.read(dashboardProvider.notifier).fetchNextUpAndResume(force: true);
-      } catch (e, st) {
-        log('[DEBUG_WL] post-stop fetchNextUpAndResume failed: $e\n$st');
-      }
-    });
+    try {
+      await ref.read(dashboardProvider.notifier).refreshContinueWatching();
+    } catch (e, st) {
+      log('[DEBUG_WL] post-stop refreshContinueWatching failed: $e\n$st');
+    }
     ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(position: Duration.zero));
 
     smtc?.setPlaybackStatus(PlaybackStatus.stopped);

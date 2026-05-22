@@ -9,7 +9,6 @@ import 'package:fladder/models/collection_types.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/library_search/library_search_options.dart';
 import 'package:fladder/models/settings/home_settings_model.dart';
-import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/home_settings_provider.dart';
@@ -75,13 +74,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Future<void> _refreshHome() async {
     if (!mounted) return;
-    await ref.read(connectivityStatusProvider.notifier).checkConnectivity();
-    if (!mounted) return;
     await ref.read(userProvider.notifier).updateInformation();
     if (!mounted) return;
-    await ref.read(viewsProvider.notifier).fetchViews(force: true);
+    await ref.read(viewsProvider.notifier).fetchViews();
     if (!mounted) return;
-    await ref.read(dashboardProvider.notifier).fetchNextUpAndResume(force: true);
+    await ref.read(dashboardProvider.notifier).fetchNextUpAndResume();
   }
 
   @override
@@ -99,17 +96,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final allResume = [...resumeVideo, ...resumeAudio, ...resumeBooks].toList();
 
-    final homeCarouselItems = buildOxplayerHomeCarouselItems(
-      mode: homeSettings.carouselSettings,
-      allResume: allResume,
-      resumeVideo: resumeVideo,
-      nextUp: dashboardData.nextUp,
-      dashboardViews: views.dashboardViews,
-      bannerCurated: dashboardData.bannerCurated,
-      bannerGlobalLatest: dashboardData.bannerGlobalLatest,
-      bannerCustom: dashboardData.bannerCustom,
-      bannerTrendingTop10: dashboardData.bannerTrendingTop10,
-    );
+    final homeCarouselItems = OxplayerConfig.isEnabled
+        ? buildOxplayerHomeCarouselItems(
+            mode: homeSettings.carouselSettings,
+            allResume: allResume,
+            resumeVideo: resumeVideo,
+            nextUp: dashboardData.nextUp,
+            dashboardViews: views.dashboardViews,
+            bannerCurated: dashboardData.bannerCurated,
+            bannerGlobalLatest: dashboardData.bannerGlobalLatest,
+            bannerCustom: dashboardData.bannerCustom,
+            bannerTrendingTop10: dashboardData.bannerTrendingTop10,
+          )
+        : switch (homeSettings.carouselSettings) {
+            HomeCarouselSettings.nextUp => dashboardData.nextUp,
+            HomeCarouselSettings.combined => [...allResume, ...dashboardData.nextUp],
+            HomeCarouselSettings.cont => allResume,
+          };
 
     if (kDebugMode &&
         OxplayerConfig.isEnabled &&

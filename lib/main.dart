@@ -13,6 +13,7 @@ import 'package:fladder/oxplayer/oxplayer_brand.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_sentry.dart';
 import 'package:fladder/l10n/generated/app_localizations.dart';
 import 'package:fladder/localization_delegates.dart';
 import 'package:fladder/providers/arguments_provider.dart';
@@ -30,6 +31,10 @@ import 'package:fladder/util/themes_data.dart';
 import 'package:fladder/widgets/media_query_scaler.dart';
 
 void main(List<String> args) async {
+  await OxplayerSentry.runApp(() => _runApp(args));
+}
+
+Future<void> _runApp(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await OxplayerDotenv.ensureLoaded();
@@ -38,7 +43,8 @@ void main(List<String> args) async {
     OxplayerEnv.debugLogTelegramReadiness();
     debugPrint(
       '[OX main] dotenv loaded=${OxplayerDotenv.isLoaded} '
-      'OxplayerConfig.isEnabled=${OxplayerConfig.isEnabled}',
+      'OxplayerConfig.isEnabled=${OxplayerConfig.isEnabled} '
+      'sentry=${OxplayerSentry.isActive}',
     );
   }
 
@@ -47,6 +53,7 @@ void main(List<String> args) async {
   }
 
   final bootstrap = await bootstrapApplication(args);
+  OxplayerSentry.wrapCrashHandlers();
 
   if (OxplayerConfig.isEnabled) {
     await OxplayerBootstrap.afterAppBootstrap(bootstrap);

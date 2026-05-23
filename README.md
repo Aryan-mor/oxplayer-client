@@ -21,3 +21,7 @@ See [`docs/UPSTREAM_SYNC.md`](docs/UPSTREAM_SYNC.md).
 ## API
 
 Point the app at your `oxplayer` API base URL (set in `assets/env/default.env` or `--dart-define`) under `lib/oxplayer/`.
+
+## Sentry (optional)
+
+Set `SENTRY_DSN` in `assets/env/default.env`, `dart_defines.*.json`, or `--dart-define` (same variable names as the `oxplayer` API). When the DSN is empty, the SDK is not loaded. Implementation: `lib/oxplayer/oxplayer_sentry.dart`.

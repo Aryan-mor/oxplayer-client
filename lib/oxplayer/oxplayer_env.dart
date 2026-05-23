@@ -85,6 +85,22 @@ abstract final class OxplayerEnv {
     'OXM_PREFIX',
     defaultValue: '',
   );
+  static const String _cSentryDsn = String.fromEnvironment(
+    'SENTRY_DSN',
+    defaultValue: '',
+  );
+  static const String _cSentryEnvironment = String.fromEnvironment(
+    'SENTRY_ENVIRONMENT',
+    defaultValue: '',
+  );
+  static const String _cSentryTracesSampleRate = String.fromEnvironment(
+    'SENTRY_TRACES_SAMPLE_RATE',
+    defaultValue: '',
+  );
+  static const String _cSentryDebug = String.fromEnvironment(
+    'SENTRY_DEBUG',
+    defaultValue: '',
+  );
 
   static String _pick(
     List<String> dotKeys,
@@ -386,6 +402,34 @@ abstract final class OxplayerEnv {
     if (!OxplayerConfig.isEnabled) return false;
     final v = OxplayerDotenv.get('OX_FALLBACK_PROVIDER_ONLY').trim().toLowerCase();
     return v == 'true' || v == '1' || v == 'yes' || v == 'on';
+  }
+
+  /// Sentry DSN, or null when unset (crash reporting off). Same keys as `oxplayer` API: `SENTRY_DSN`, etc.
+  static String? get sentryDsn {
+    final dsn = _pick(['SENTRY_DSN'], _cSentryDsn).trim();
+    return dsn.isEmpty ? null : dsn;
+  }
+
+  /// Sentry environment tag (e.g. `production`, `development`). Defaults to `development` in debug builds.
+  static String get sentryEnvironment {
+    final fromEnv = _pick(['SENTRY_ENVIRONMENT'], _cSentryEnvironment).trim();
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return kDebugMode ? 'development' : 'production';
+  }
+
+  /// Performance trace sample rate (0–1). Default `0.1` when DSN is set.
+  static double get sentryTracesSampleRate {
+    final raw = _pick(['SENTRY_TRACES_SAMPLE_RATE'], _cSentryTracesSampleRate).trim();
+    if (raw.isEmpty) return 0.1;
+    final parsed = double.tryParse(raw);
+    if (parsed == null) return 0.1;
+    return parsed.clamp(0.0, 1.0);
+  }
+
+  /// Verbose Sentry SDK logs to console. Set `SENTRY_DEBUG=1` while debugging SDK wiring.
+  static bool get sentryDebug {
+    final raw = _pick(['SENTRY_DEBUG'], _cSentryDebug).trim();
+    return raw == '1' || raw.toLowerCase() == 'true';
   }
 
   /// Dev override for public `t.me/...` post when API has no [providerBackupPostUrl] yet.

@@ -46,7 +46,7 @@ jobs:
       should_run: ${{ steps.check.outputs.should_run }}
       build_type: ${{ steps.check.outputs.build_type }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -89,9 +89,10 @@ jobs:
       nightly_version: ${{ steps.fetch.outputs.nightly_version }}
       build_type: ${{ needs.check-trigger.outputs.build_type }}
     steps:
-      - uses: actions/checkout@v4
+      # Shallow clone: only pubspec.yaml + .fvmrc are read (avoids noisy full-history fetch).
+      - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - id: fetch
         shell: bash
@@ -130,7 +131,7 @@ jobs:
       OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME || vars.OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME }}
       OXPLAYER_TELEGRAM_WEBAPP_URL: ${{ secrets.OXPLAYER_TELEGRAM_WEBAPP_URL || vars.OXPLAYER_TELEGRAM_WEBAPP_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - id: meta
         shell: bash
@@ -277,7 +278,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: needs.fetch-info.outputs.build_type == 'nightly'
         with:
           fetch-depth: 0

@@ -294,7 +294,7 @@ jobs:
       - name: Delete existing nightly release
         if: needs.fetch-info.outputs.build_type == 'nightly'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           if gh release view ${{ env.NIGHTLY_TAG }} >/dev/null 2>&1; then
             gh release delete ${{ env.NIGHTLY_TAG }} --yes --cleanup-tag
@@ -306,7 +306,7 @@ jobs:
       - name: Generate nightly changelog
         if: needs.fetch-info.outputs.build_type == 'nightly'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           LATEST_STABLE=$(gh release list --limit 50 --exclude-drafts --json tagName,isPrerelease --jq '.[] | select(.isPrerelease == false) | .tagName' | head -1 || echo "")
           {
@@ -368,7 +368,7 @@ jobs:
             OXPlayer-Android-${{ steps.version.outputs.version }}-x86_64.apk
             OXPlayer-Android-${{ steps.version.outputs.version }}.aab
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Notify admins (Telegram via oxplayer API)
         if: success()
@@ -376,7 +376,7 @@ jobs:
           API_BASE: ${{ secrets.OXPLAYER_API_BASE_URL || vars.OXPLAYER_API_BASE_URL }}
           NOTIFY_TOKEN_PRIMARY: ${{ secrets.OXPLAYER_CLIENT_RELEASE_NOTIFY_TOKEN }}
           NOTIFY_TOKEN_FALLBACK: ${{ secrets.PROVIDER_INTERNAL_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           BUILD_TYPE: ${{ needs.fetch-info.outputs.build_type }}
         shell: bash
@@ -392,7 +392,11 @@ jobs:
             TAG="${{ github.ref_name }}"
           fi
           BASE="${API_BASE%/}"
-          JSON=$(gh release view "${TAG}" --repo "${REPO}" --json url,name,assets)
+          if ! JSON=$(gh release view "${TAG}" --repo "${REPO}" --json url,name,assets 2>/tmp/gh-release-view.err); then
+            echo "::warning::Could not read release ${TAG} from GitHub: $(cat /tmp/gh-release-view.err)"
+            echo "If this persists, remove any repository secret named GITHUB_TOKEN (it overrides the workflow token)."
+            exit 0
+          fi
           RELEASE_URL=$(echo "$JSON" | jq -r .url)
           RELEASE_NAME=$(echo "$JSON" | jq -r .name)
           ASSETS=$(echo "$JSON" | jq -c '[.assets[] | {name:.name, url:.url}]')

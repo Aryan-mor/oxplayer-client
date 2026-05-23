@@ -37,6 +37,10 @@ gradle.beforeProject { proj ->
             "OX_FALLBACK_LOCATOR_ENV_SEARCH",
             "OX_FALLBACK_LOCATOR_GLOBAL_SEARCH",
             "OX_FALLBACK_LOCATOR_HISTORY_SCAN",
+            "SENTRY_DSN",
+            "SENTRY_ENVIRONMENT",
+            "SENTRY_TRACES_SAMPLE_RATE",
+            "SENTRY_DEBUG",
     ] as Set
 
     def stripQuotes = { String s ->

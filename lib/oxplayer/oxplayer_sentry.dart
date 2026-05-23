@@ -4,32 +4,54 @@ import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'package:fladder/oxplayer/oxplayer_debug.dart';
+import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 
 /// Optional crash reporting via [Sentry](https://sentry.io). Disabled when [OxplayerEnv.sentryDsn] is empty.
 abstract final class OxplayerSentry {
   static const String _cGitCommit = String.fromEnvironment('GIT_COMMIT');
 
+  static bool _handlersWrapped = false;
+
   /// `true` when a DSN is configured (dotenv or dart-define).
   static bool get isActive => OxplayerEnv.sentryDsn != null;
 
+  /// Log whether Sentry will init (filter Logcat / console by `OX_ENV`).
+  static void logStartupStatus() {
+    final dsn = OxplayerEnv.sentryDsn;
+    oxEnvLog(
+      'Sentry startup: active=$isActive environment=${OxplayerEnv.sentryEnvironment} '
+      'dotenvLoaded=${OxplayerDotenv.isLoaded} dotenvKeys=${OxplayerDotenv.keyCount} '
+      'dsnConfigured=${dsn != null} dsnLength=${dsn?.length ?? 0}',
+    );
+  }
+
   /// Runs [body] inside [SentryFlutter.init] when [isActive]; otherwise runs [body] directly.
   static Future<void> runApp(Future<void> Function() body) async {
+    logStartupStatus();
     if (!isActive) {
       await body();
       return;
     }
 
     final packageInfo = await PackageInfo.fromPlatform();
-    await SentryFlutter.init(
-      (options) => _configure(options, packageInfo),
-      appRunner: body,
-    );
+    try {
+      await SentryFlutter.init(
+        (options) => _configure(options, packageInfo),
+        appRunner: body,
+      );
+      oxEnvLog('SentryFlutter.init completed');
+    } catch (e, stack) {
+      oxEnvLog('SentryFlutter.init failed: $e\n$stack');
+      await body();
+    }
   }
 
-  /// Chain Sentry onto handlers installed by [CrashLogNotifier] (runs after bootstrap).
+  /// Chain Sentry onto handlers installed by [CrashLogNotifier] (after [CrashLogNotifier.ready]).
   static void wrapCrashHandlers() {
-    if (!isActive) return;
+    if (!isActive || _handlersWrapped) return;
+    _handlersWrapped = true;
 
     final prevFlutter = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -48,6 +70,21 @@ abstract final class OxplayerSentry {
       unawaited(Sentry.captureException(error, stackTrace: stack));
       return handled;
     };
+    oxEnvLog('Sentry error handlers chained after CrashLogNotifier');
+  }
+
+  /// Sends a one-off test event when [OxplayerEnv.sentryDebug] is on (dev wiring check).
+  static Future<void> debugPingIfEnabled() async {
+    if (!kDebugMode || !isActive || !OxplayerEnv.sentryDebug) return;
+    try {
+      final id = await Sentry.captureException(
+        StateError('OXPlayer Sentry dev ping'),
+        stackTrace: StackTrace.current,
+      );
+      oxEnvLog('Sentry dev ping eventId=$id');
+    } catch (e, stack) {
+      oxEnvLog('Sentry dev ping failed: $e\n$stack');
+    }
   }
 
   static void _configure(SentryFlutterOptions options, PackageInfo packageInfo) {
@@ -55,6 +92,7 @@ abstract final class OxplayerSentry {
     options.environment = OxplayerEnv.sentryEnvironment;
     options.tracesSampleRate = OxplayerEnv.sentryTracesSampleRate;
     options.debug = OxplayerEnv.sentryDebug;
+    options.enableLogs = OxplayerEnv.sentryDebug;
     options.attachStacktrace = true;
     options.enableAutoSessionTracking = false;
     options.recordHttpBreadcrumbs = false;

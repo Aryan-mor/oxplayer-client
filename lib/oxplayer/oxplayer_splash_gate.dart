@@ -5,6 +5,7 @@ import 'package:fladder/models/account_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/oxplayer/oxplayer_session_refresh_coordinator.dart';
 import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
@@ -63,6 +64,7 @@ Future<void> oxplayerClearIncompleteLoginSession(dynamic ref) async {
   }
 
   ref.read(authProvider.notifier).clearAllProviders();
+  oxplayerClearSessionEstablished();
   ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
       OxplayerBackgroundAuthStatus.idle;
   ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
@@ -100,12 +102,22 @@ class OxplayerBackgroundSessionRefresh {
       return;
     }
 
+    // Splash gate already rotated tokens; a second refresh invalidates in-flight API calls.
+    if (oxplayerSessionEstablishedThisProcess) {
+      ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.online;
+      return;
+    }
+
     ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
     ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state = OxplayerBackgroundAuthStatus.connecting;
 
     try {
-      final result = await _oxplayerRunSplashSessionGateImpl(ref).timeout(
-        kOxplayerSplashSessionGateMaxWait,
+      final result = await oxplayerWithExclusiveSessionRefresh(
+        () => _oxplayerRunSplashSessionGateImpl(ref).timeout(
+          kOxplayerSplashSessionGateMaxWait,
+        ),
       );
       _oxplayerApplyBackgroundAuthGateResult(ref, result);
     } catch (e) {
@@ -175,17 +187,28 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
     return OxplayerSplashGateResult.proceedToDashboard;
   }
 
-  return _oxplayerRunSplashSessionGateImpl(ref).timeout(
-    kOxplayerSplashSessionGateMaxWait,
-    onTimeout: () {
-      if (kDebugMode) {
-        debugPrint(
-          '[OX] oxplayerRunSplashSessionGate: exceeded $kOxplayerSplashSessionGateMaxWait',
-        );
-      }
-      return OxplayerSplashGateResult.needTelegramLogin;
-    },
+  final result = await oxplayerWithExclusiveSessionRefresh(
+    () => _oxplayerRunSplashSessionGateImpl(ref).timeout(
+      kOxplayerSplashSessionGateMaxWait,
+      onTimeout: () {
+        if (kDebugMode) {
+          debugPrint(
+            '[OX] oxplayerRunSplashSessionGate: exceeded $kOxplayerSplashSessionGateMaxWait',
+          );
+        }
+        return OxplayerSplashGateResult.needTelegramLogin;
+      },
+    ),
   );
+
+  if (result == OxplayerSplashGateResult.proceedToDashboard) {
+    oxplayerNoteSessionEstablished();
+    ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.online;
+  }
+
+  return result;
 }
 
 /// Prefer **`POST /auth/refresh` first** so returning from the Android back stack does not block on
@@ -225,6 +248,8 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(dynamic ref) 
       );
       await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
       ref.read(lockScreenActiveProvider.notifier).update((s) => false);
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.online;
       return OxplayerSplashGateResult.proceedToDashboard;
     } catch (_) {
       // TDLib or initData exchange may still work.
@@ -258,6 +283,8 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(dynamic ref) 
         );
         await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
         ref.read(lockScreenActiveProvider.notifier).update((s) => false);
+        ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+            OxplayerBackgroundAuthStatus.online;
         return OxplayerSplashGateResult.proceedToDashboard;
       } catch (_) {}
     }
@@ -266,6 +293,8 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(dynamic ref) 
     final exchanged = await td.authenticateWithOxApi(deviceName: deviceName);
     await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(exchanged);
     ref.read(lockScreenActiveProvider.notifier).update((s) => false);
+    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+        OxplayerBackgroundAuthStatus.online;
     return OxplayerSplashGateResult.proceedToDashboard;
   } catch (_) {
     return OxplayerSplashGateResult.needTelegramLogin;

@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_session_refresh_coordinator.dart';
 import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
@@ -13,22 +14,16 @@ import 'package:fladder/util/application_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-Future<bool>? _oxJellyfinRefreshInFlight;
-
 /// On **401**: Telegram must be authorized; then try **POST /auth/refresh** if a refresh token exists,
 /// else exchange WebApp [initData] via TDLib (`POST /auth/telegram`).
 Future<bool> oxplayerTryRefreshJellyfinSessionAfter401(Ref ref) {
-  final existing = _oxJellyfinRefreshInFlight;
-  if (existing != null) return existing;
-
-  final run = _oxplayerDoJellyfinSessionRefresh(ref);
-  _oxJellyfinRefreshInFlight = run;
-  run.whenComplete(() {
-    if (identical(_oxJellyfinRefreshInFlight, run)) {
-      _oxJellyfinRefreshInFlight = null;
+  return oxplayerWithExclusiveSessionRefresh(() async {
+    if (oxplayerSessionRefreshCompletedRecently()) {
+      final token = ref.read(userProvider)?.credentials.token.trim() ?? '';
+      if (token.isNotEmpty) return true;
     }
+    return _oxplayerDoJellyfinSessionRefresh(ref);
   });
-  return run;
 }
 
 Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {

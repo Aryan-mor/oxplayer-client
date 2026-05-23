@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 /// we also [debugPrint] a prefixed line so startup env checks are visible next to `[OX main]`.
 void oxEnvLog(String message) {
   developer.log(message, name: 'OX_ENV');
-  if (kDebugMode && kIsWeb) {
+  if (kDebugMode) {
     debugPrint('[OX_ENV] $message');
   }
 }

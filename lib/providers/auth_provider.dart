@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:chopper/chopper.dart';
@@ -9,7 +11,9 @@ import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/models/login_screen_model.dart';
 import 'package:fladder/oxplayer/oxplayer_account_flags.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_post_auth_warmup.dart';
+import 'package:fladder/oxplayer/oxplayer_session_refresh_coordinator.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:flutter/foundation.dart';
@@ -330,10 +334,24 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
         exchanged.accountDeleteDisabled;
     getSavedAccounts();
 
-    await oxplayerWarmupHomeLibraryAfterAuth(ref);
+    // Do not block navigation on home prefetch; [NavigationScaffold] fetches views on mount.
+    unawaited(oxplayerWarmupHomeLibraryAfterAuth(ref));
+
+    if (OxplayerConfig.isEnabled && !kIsWeb) {
+      oxplayerNoteSessionEstablished();
+      ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.online;
+    }
   }
 
   void clearAllProviders() {
+    if (OxplayerConfig.isEnabled) {
+      oxplayerClearSessionEstablished();
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.idle;
+      ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+    }
     ref.read(dashboardProvider.notifier).clear();
     ref.read(viewsProvider.notifier).clear();
     ref.read(favouritesProvider.notifier).clear();

@@ -1,21 +1,16 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/bootstrap/app_bootstrap.dart';
 import 'package:fladder/bootstrap/platform/platform_app_wrapper.dart';
+import 'package:fladder/l10n/generated/app_localizations.dart';
+import 'package:fladder/localization_delegates.dart';
 import 'package:fladder/oxplayer/oxplayer_bootstrap.dart';
 import 'package:fladder/oxplayer/oxplayer_brand.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_sentry.dart';
-import 'package:fladder/l10n/generated/app_localizations.dart';
-import 'package:fladder/localization_delegates.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/crash_log_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
@@ -29,14 +24,21 @@ import 'package:fladder/util/deep_link_helper.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/themes_data.dart';
 import 'package:fladder/widgets/media_query_scaler.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main(List<String> args) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Dotenv must load before [OxplayerSentry.runApp]: `isActive` reads [OxplayerEnv.sentryDsn]
+  // and Sentry is configured at init time. Android Gradle only injects a subset of keys (see
+  // android/build.gradle); SENTRY_* is read from the bundled default.env asset.
+  await OxplayerDotenv.ensureLoaded();
+  OxplayerSentry.logStartupStatus();
   await OxplayerSentry.runApp(() => _runApp(args));
 }
 
 Future<void> _runApp(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   await OxplayerDotenv.ensureLoaded();
   OxplayerEnv.debugLogApiResolution();
   if (kDebugMode) {
@@ -54,6 +56,7 @@ Future<void> _runApp(List<String> args) async {
 
   final bootstrap = await bootstrapApplication(args);
   OxplayerSentry.wrapCrashHandlers();
+  await OxplayerSentry.debugPingIfEnabled();
 
   if (OxplayerConfig.isEnabled) {
     await OxplayerBootstrap.afterAppBootstrap(bootstrap);

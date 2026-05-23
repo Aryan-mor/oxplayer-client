@@ -23,20 +23,42 @@ class CrashLogNotifier extends StateNotifier<List<ErrorLogModel>> {
   Timer? _debounceTimer;
   static const _debounceDuration = Duration(milliseconds: 500);
 
+  final Completer<void> _ready = Completer<void>();
+
+  /// Completes when [init] has installed error handlers (so Sentry can chain after).
+  Future<void> get ready => _ready.future;
+
   void init() async {
+    if (_ready.isCompleted) return;
+    try {
+      await _initBody();
+    } finally {
+      if (!_ready.isCompleted) {
+        _ready.complete();
+      }
+    }
+  }
+
+  Future<void> _initBody() async {
     logger = Logger.root;
     logger.level = Level.ALL;
     logger.onRecord.listen(logPrint);
 
-    FlutterError.onError = (FlutterErrorDetails details) => logFile(details);
+    final prevFlutter = FlutterError.onError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      prevFlutter?.call(details);
+      logFile(details);
+    };
 
+    final prevPlatform = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
+      final handled = prevPlatform?.call(error, stack) ?? false;
       logFile(FlutterErrorDetails(
         exception: error,
         stack: stack,
         library: 'Unhandled',
       ));
-      return false;
+      return handled;
     };
 
     if (!kIsWeb) {

@@ -156,7 +156,7 @@ enum ItemActions {
 }
 
 void _debugWatchedLog(String message) {
-  // Use debugPrint so lines appear under `I/flutter` in Android logcat (developer.log is easy to miss).
+  if (!kDebugMode) return;
   debugPrint('[DEBUG_WATCHED] $message');
 }
 

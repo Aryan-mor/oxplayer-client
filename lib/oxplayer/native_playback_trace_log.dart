@@ -1,6 +1,4 @@
-import 'dart:developer' as developer;
-
-import 'package:flutter/foundation.dart';
+import 'package:fladder/oxplayer/oxplayer_debug.dart';
 
 /// Trace path: UI → [loadPlaybackItem] → [MediaControlsWrapper.loadVideo] →
 /// [NativePlayer.sendPlaybackDataToNative] / [NativePlayer.loadVideo] → Android Exo.
@@ -8,11 +6,8 @@ import 'package:flutter/foundation.dart';
 /// Flutter console: `flutter run`
 /// Android: `adb logcat | findstr OX_NATIVE_PLY`
 void oxNativePlaybackTrace(String detail) {
-  const tag = 'OX_NATIVE_PLY';
-  final line = '[$tag] $detail';
-  developer.log(detail, name: tag);
-  debugPrint(line);
-  print(line);
+  if (!oxDiagnosticLogsEnabled) return;
+  oxDevLog(detail, name: 'OX_NATIVE_PLY', linePrefix: '[OX_NATIVE_PLY]');
 }
 
 /// Short URL line for logs (full query strings are often huge / sensitive).

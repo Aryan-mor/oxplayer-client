@@ -147,6 +147,7 @@ abstract final class OxplayerEnv {
 
   /// Logcat filter: **`OX_ENV`**. Call after [OxplayerDotenv.ensureLoaded] to trace API URL resolution.
   static void debugLogApiResolution() {
+    if (!kDebugMode) return;
     final dotBase = OxplayerDotenv.get('OXPLAYER_API_BASE');
     final dotUrl = OxplayerDotenv.get('OXPLAYER_API_BASE_URL');
     oxEnvLog(
@@ -165,7 +166,7 @@ abstract final class OxplayerEnv {
   /// (only whether API id/hash exist and string lengths). Use from [main] in debug to verify env
   /// before Telegram login / WebApp init.
   static void debugLogTelegramReadiness() {
-    if (!OxplayerConfig.isEnabled) {
+    if (!kDebugMode || !OxplayerConfig.isEnabled) {
       return;
     }
     final id = telegramApiId;

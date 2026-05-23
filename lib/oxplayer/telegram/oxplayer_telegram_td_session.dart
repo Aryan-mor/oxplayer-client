@@ -10,6 +10,7 @@ import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 
+import 'oxplayer_tdlib_debug.dart';
 import 'oxplayer_telegram_td_runtime.dart';
 import 'tdlib_controller.dart'
     if (dart.library.html) 'tdlib_controller_web.dart'
@@ -138,17 +139,17 @@ final class OxplayerTelegramTdSession {
     } on TdlibInteractiveLoginRequired {
       return false;
     } on TimeoutException {
-      debugPrint('[OX TDLib] silent restore timed out; restarting TDLib client once.');
+      authDebugError('silent restore timed out; restarting TDLib client once.');
       try {
         await _td.restartPreservingSession();
       } catch (e) {
-        debugPrint('[OX TDLib] restartPreservingSession failed: $e');
+        authDebugError('restartPreservingSession failed: $e');
       }
       _clientInited = false;
       await Future<void>.delayed(const Duration(milliseconds: 600));
       return trySilentRestore();
     } catch (e) {
-      debugPrint('[OX TDLib] silent restore failed; restarting TDLib client once: $e');
+      authDebugError('silent restore failed; restarting TDLib client once: $e');
       try {
         await _td.restartPreservingSession();
       } catch (_) {}
@@ -169,17 +170,17 @@ final class OxplayerTelegramTdSession {
   }
 
   Future<void> startQrLogin() async {
-    debugPrint('[OX TDLib] startQrLogin: begin');
+    authDebugSuccess('startQrLogin: begin');
     await initClient();
     await _ensureFreshPhoneNumberGateForQrStart();
     await _waitForPhoneNumberState();
-    debugPrint('[OX TDLib] startQrLogin: posting RequestQrCodeAuthentication to TDLib');
+    authDebugSuccess('startQrLogin: posting RequestQrCodeAuthentication to TDLib');
     try {
       await _td.startQrLogin();
     } catch (e) {
       if (!_isStaleTelegramAuthTokenError(e)) rethrow;
-      debugPrint(
-        '[OX TDLib] startQrLogin: stale auth token (${e is td_api.TdError ? e.message : e}) — resetting once.',
+      authDebugError(
+        'startQrLogin: stale auth token (${e is td_api.TdError ? e.message : e}) — resetting once.',
       );
       await resetLocalSessionForQrLogin();
       await initClient();
@@ -225,8 +226,8 @@ final class OxplayerTelegramTdSession {
     }
     if (r is! td_api.AuthorizationState) return;
     if (!isPartialInteractiveAuthorizationState(r)) return;
-    debugPrint(
-      '[OX TDLib] abandonStaleInteractiveAuthIfNeeded: clearing partial login (${r.runtimeType})',
+    authDebugSuccess(
+      'abandonStaleInteractiveAuthIfNeeded: clearing partial login (${r.runtimeType})',
     );
     await resetLocalSessionForQrLogin();
     await initClient();
@@ -246,8 +247,8 @@ final class OxplayerTelegramTdSession {
       await _waitForPhoneNumberState();
       return;
     }
-    debugPrint(
-      '[OX TDLib] QR requires WaitPhoneNumber; saw ${r.runtimeType} — resetting local Telegram session.',
+    authDebugSuccess(
+      'QR requires WaitPhoneNumber; saw ${r.runtimeType} — resetting local Telegram session.',
     );
     await resetLocalSessionForQrLogin();
     await initClient();
@@ -277,26 +278,26 @@ final class OxplayerTelegramTdSession {
     const maxWait = Duration(seconds: 16);
     final sw = Stopwatch()..start();
     if (_td.hasReachedAuthorizationWaitPhoneNumber) {
-      debugPrint(
-        '[OX TDLib] _waitForPhoneNumberState: gate already open (${sw.elapsedMilliseconds}ms)',
+      authDebugSuccess(
+        '_waitForPhoneNumberState: gate already open (${sw.elapsedMilliseconds}ms)',
       );
       return;
     }
-    debugPrint(
-      '[OX TDLib] _waitForPhoneNumberState: polling hasReached (max ${maxWait.inSeconds}s)…',
+    authDebugSuccess(
+      '_waitForPhoneNumberState: polling hasReached (max ${maxWait.inSeconds}s)…',
     );
     final deadline = DateTime.now().add(maxWait);
     while (DateTime.now().isBefore(deadline)) {
       if (_td.hasReachedAuthorizationWaitPhoneNumber) {
-        debugPrint(
-          '[OX TDLib] _waitForPhoneNumberState: gate open after ${sw.elapsedMilliseconds}ms',
+        authDebugSuccess(
+          '_waitForPhoneNumberState: gate open after ${sw.elapsedMilliseconds}ms',
         );
         return;
       }
       await Future<void>.delayed(step);
     }
-    debugPrint(
-      '[OX TDLib] _waitForPhoneNumberState: timeout after ${sw.elapsedMilliseconds}ms '
+    authDebugError(
+      '_waitForPhoneNumberState: timeout after ${sw.elapsedMilliseconds}ms '
       '(hasReached=${_td.hasReachedAuthorizationWaitPhoneNumber}) — proceeding anyway',
     );
   }

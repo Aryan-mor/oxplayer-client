@@ -219,10 +219,12 @@ class _OxplayerTelegramLoginScreenState
     _tdListenersStarted = true;
     final s = _tdSession!;
     _qrSub = s.qrLoginPayload.listen((payload) {
-      debugPrint(
-        '[OX login] qrLoginPayload: '
-        '${payload == null ? "null" : "len=${payload.length}"}',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[OX login] qrLoginPayload: '
+          '${payload == null ? "null" : "len=${payload.length}"}',
+        );
+      }
       if (!mounted) return;
       setState(() {
         _qrPayload = payload;
@@ -519,19 +521,25 @@ class _OxplayerTelegramLoginScreenState
 
   Future<void> _startQrAuthentication() async {
     if (_tdSession == null) {
-      debugPrint('[OX login] _startQrAuthentication: no TD session');
+      if (kDebugMode) debugPrint('[OX login] _startQrAuthentication: no TD session');
       return;
     }
-    debugPrint('[OX login] _startQrAuthentication: tap (listenersStarted=$_tdListenersStarted)');
+    if (kDebugMode) {
+      debugPrint('[OX login] _startQrAuthentication: tap (listenersStarted=$_tdListenersStarted)');
+    }
     setState(() {
       _pane = _OxLoginPane.qr;
       _flowError = null;
     });
     try {
       await _ensureAuthorizationStarted();
-      debugPrint('[OX login] _startQrAuthentication: ensureAuthorizationStarted scheduled');
+      if (kDebugMode) {
+        debugPrint('[OX login] _startQrAuthentication: ensureAuthorizationStarted scheduled');
+      }
       await _tdSession!.startQrLogin();
-      debugPrint('[OX login] _startQrAuthentication: startQrLogin completed');
+      if (kDebugMode) {
+        debugPrint('[OX login] _startQrAuthentication: startQrLogin completed');
+      }
       if (!mounted) return;
       setState(() => _busy = false);
       _qrStallTimer?.cancel();

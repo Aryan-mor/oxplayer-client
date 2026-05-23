@@ -7,11 +7,8 @@ import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
 import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 
 const String _kLiveSearchChatMessagesQuery = '';
-const bool _kMyTelegramLiveFetcherVerboseLog = true;
 void _mtLiveLog(String m) {
-  if (_kMyTelegramLiveFetcherVerboseLog) {
-    debugPrint('[MyTelegram live-fetch] $m');
-  }
+  if (kDebugMode) debugPrint('[MyTelegram live-fetch] $m');
 }
 
 const Duration _kSearchChatMessagesTimeout = Duration(seconds: 55);

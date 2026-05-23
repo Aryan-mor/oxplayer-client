@@ -8,6 +8,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/seerr/seerr_models.dart';
 import 'package:fladder/util/fladder_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -51,13 +52,13 @@ class _TmdbSuggestion {
 /// Returns an empty list when the server responds with a non-success status or on any error.
 final _oxplayerTmdbSuggestionsProvider = FutureProvider.autoDispose.family<List<_TmdbSuggestion>, String>(
   (ref, query) async {
-    debugPrint('[OX_TMDB] provider triggered, query="$query"');
+    if (kDebugMode) debugPrint('[OX_TMDB] provider triggered, query="$query"');
 
     if (query.trim().isEmpty) return const [];
 
     final credentials = ref.read(userProvider)?.credentials;
     if (credentials == null) {
-      debugPrint('[OX_TMDB] no credentials — user not logged in, skipping');
+      if (kDebugMode) debugPrint('[OX_TMDB] no credentials — user not logged in, skipping');
       return const [];
     }
 
@@ -65,10 +66,12 @@ final _oxplayerTmdbSuggestionsProvider = FutureProvider.autoDispose.family<List<
     // Fall back to the compile/dotenv API base URL when the stored URL is blank.
     final credUrl = credentials.url.trim();
     final rawOrigin = credUrl.isNotEmpty ? credUrl : (OxplayerEnv.apiBaseUrl ?? '');
-    debugPrint('[OX_TMDB] credentials.url="$credUrl", effective="$rawOrigin"');
+    if (kDebugMode) {
+      debugPrint('[OX_TMDB] credentials.url="$credUrl", effective="$rawOrigin"');
+    }
 
     if (rawOrigin.isEmpty) {
-      debugPrint('[OX_TMDB] URL is empty — skipping request');
+      if (kDebugMode) debugPrint('[OX_TMDB] URL is empty — skipping request');
       return const [];
     }
 
@@ -76,15 +79,15 @@ final _oxplayerTmdbSuggestionsProvider = FutureProvider.autoDispose.family<List<
     final uri = Uri.parse('$base/search/suggestions').replace(
       queryParameters: {'q': query.trim()},
     );
-    debugPrint('[OX_TMDB] --> GET $uri');
+    if (kDebugMode) debugPrint('[OX_TMDB] --> GET $uri');
 
     try {
       final headers = credentials.header(ref);
       final res = await http.get(uri, headers: headers);
-      debugPrint('[OX_TMDB] <-- ${res.statusCode} (${res.body.length} bytes)');
+      if (kDebugMode) debugPrint('[OX_TMDB] <-- ${res.statusCode} (${res.body.length} bytes)');
 
       if (res.statusCode != 200) {
-        debugPrint('[OX_TMDB] non-200: ${res.body}');
+        if (kDebugMode) debugPrint('[OX_TMDB] non-200: ${res.body}');
         return const [];
       }
 
@@ -99,10 +102,10 @@ final _oxplayerTmdbSuggestionsProvider = FutureProvider.autoDispose.family<List<
           .map(_TmdbSuggestion.fromJson)
           .whereType<_TmdbSuggestion>()
           .toList(growable: false);
-      debugPrint('[OX_TMDB] parsed ${results.length} suggestions');
+      if (kDebugMode) debugPrint('[OX_TMDB] parsed ${results.length} suggestions');
       return results;
     } catch (e, st) {
-      debugPrint('[OX_TMDB] error: $e\n$st');
+      if (kDebugMode) debugPrint('[OX_TMDB] error: $e\n$st');
       return const [];
     }
   },
@@ -127,7 +130,7 @@ class OxplayerSearchTmdbSuggestions extends ConsumerWidget {
     return suggestionsAsync.when(
       loading: () => const _TmdbSuggestionsShimmer(),
       error: (err, st) {
-        debugPrint('[OX_TMDB] widget error state: $err');
+        if (kDebugMode) debugPrint('[OX_TMDB] widget error state: $err');
         return const SizedBox.shrink();
       },
       data: (posters) {

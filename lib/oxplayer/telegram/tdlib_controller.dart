@@ -14,7 +14,7 @@ import 'tdlib_facade.dart';
 import 'utils/tdlib_wire_json_compat.dart';
 
 void _tdlog(String message) {
-  debugPrint(message);
+  if (kDebugMode) debugPrint(message);
 }
 
 const _kDownloadConnectionsCount = 16;
@@ -185,7 +185,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
     _nativeClientOwner = this;
 
     if (sessionString.isNotEmpty && kDebugMode) {
-      debugPrint('TDLib: session string is ignored; local TDLib files are used instead.');
+      if (kDebugMode) {
+        debugPrint('TDLib: session string is ignored; local TDLib files are used instead.');
+      }
     }
 
     final support = await getApplicationSupportDirectory();
@@ -351,7 +353,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
         errorsAreFatal: false,
       );
     } catch (error, stackTrace) {
-      debugPrint('TDLib receive isolate spawn failed: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint('TDLib receive isolate spawn failed: $error\n$stackTrace');
+      }
       _receiveLoopRunning = false;
       port.close();
       await _receiveExitSub?.cancel();
@@ -729,7 +733,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
     try {
       await callback();
     } catch (error, stackTrace) {
-      debugPrint('TDLib onRequiresInteractiveLogin error: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint('TDLib onRequiresInteractiveLogin error: $error\n$stackTrace');
+      }
     }
   }
 
@@ -872,7 +878,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
       await _authUserId.close();
       await _functionErrors.close();
     } catch (error, stackTrace) {
-      debugPrint('TDLib dispose error: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint('TDLib dispose error: $error\n$stackTrace');
+      }
     }
   }
 }

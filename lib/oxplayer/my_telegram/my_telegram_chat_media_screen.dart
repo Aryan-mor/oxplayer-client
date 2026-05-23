@@ -20,11 +20,8 @@ import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/widgets/shared/pull_to_refresh.dart';
 
-const bool _kMyTelegramChatMediaVerboseLog = true;
 void _mtMediaLog(String m) {
-  if (_kMyTelegramChatMediaVerboseLog) {
-    debugPrint('[MyTelegram media] $m');
-  }
+  if (kDebugMode) debugPrint('[MyTelegram media] $m');
 }
 
 @RoutePage()

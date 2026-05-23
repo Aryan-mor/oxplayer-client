@@ -38,6 +38,8 @@ Future<void> tryForwardIndexedMessageToEnvBot({
       ),
     );
   } catch (e, st) {
-    debugPrint('[MyTelegram index] forward to BOT_USERNAME chat failed: $e\n$st');
+    if (kDebugMode) {
+      debugPrint('[MyTelegram index] forward to BOT_USERNAME chat failed: $e\n$st');
+    }
   }
 }

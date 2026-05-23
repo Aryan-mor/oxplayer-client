@@ -23,9 +23,6 @@ import 'package:fladder/providers/api_provider.dart';
 
 void _webPlayLog(String context, String message) {
   oxTelegramLocalStreamLog('web.$context', message);
-  if (kDebugMode) {
-    debugPrint('[OX_TG_WEB_STREAM] $context $message');
-  }
 }
 
 JSObject get _windowObj => window as JSObject;

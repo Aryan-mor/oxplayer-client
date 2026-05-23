@@ -80,21 +80,27 @@ class OxplayerUserChatsClient {
       },
     );
     final sw = Stopwatch()..start();
-    debugPrint(
-      '[MyTelegram API] (1) GET /me/chats start bucket=$bucket offset=$offset limit=$limit host=${uri.host}',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[MyTelegram API] (1) GET /me/chats start bucket=$bucket offset=$offset limit=$limit host=${uri.host}',
+      );
+    }
     late http.Response r;
     try {
       r = await http.get(uri, headers: _jsonHeaders);
     } catch (e, st) {
-      debugPrint(
-        '[MyTelegram API] (2) GET /me/chats FAILED after ${sw.elapsedMilliseconds}ms: $e\n$st',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[MyTelegram API] (2) GET /me/chats FAILED after ${sw.elapsedMilliseconds}ms: $e\n$st',
+        );
+      }
       rethrow;
     }
-    debugPrint(
-      '[MyTelegram API] (2) GET /me/chats done status=${r.statusCode} bodyLen=${r.body.length} in ${sw.elapsedMilliseconds}ms',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[MyTelegram API] (2) GET /me/chats done status=${r.statusCode} bodyLen=${r.body.length} in ${sw.elapsedMilliseconds}ms',
+      );
+    }
     if (r.statusCode == 401) throw const OxUserChatsUnauthorized();
     if (r.statusCode != 200) {
       throw StateError('GET /me/chats failed: ${r.statusCode} ${r.body}');

@@ -219,7 +219,7 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
         await session.signOut();
       } catch (e) {
         // Non-fatal: log the error but continue the logout flow.
-        debugPrint('[OX logout] Telegram signOut error: $e');
+        if (kDebugMode) debugPrint('[OX logout] Telegram signOut error: $e');
       }
     }
 

@@ -5,6 +5,7 @@ import 'package:fladder/providers/search_provider.dart';
 import 'package:fladder/screens/shared/media/poster_grid.dart';
 import 'package:fladder/util/debouncer.dart';
 import 'package:fladder/util/string_extensions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -74,7 +75,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   onSubmitted: (value) {
                     ref.read(searchProvider.notifier).searchQuery();
                     if (OxplayerConfig.isEnabled) {
-                      debugPrint('[OX_TMDB] onSubmitted: setting _tmdbQuery="${value.trim()}"');
+                      if (kDebugMode) {
+                        debugPrint('[OX_TMDB] onSubmitted: setting _tmdbQuery="${value.trim()}"');
+                      }
                       setState(() => _tmdbQuery = value.trim());
                     }
                   },
@@ -83,7 +86,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     searchDebouncer.run(() {
                       ref.read(searchProvider.notifier).searchQuery();
                       if (OxplayerConfig.isEnabled) {
-                        debugPrint('[OX_TMDB] debouncer fired: setting _tmdbQuery="${query.trim()}"');
+                        if (kDebugMode) {
+                          debugPrint('[OX_TMDB] debouncer fired: setting _tmdbQuery="${query.trim()}"');
+                        }
                         setState(() => _tmdbQuery = query.trim());
                       }
                     });

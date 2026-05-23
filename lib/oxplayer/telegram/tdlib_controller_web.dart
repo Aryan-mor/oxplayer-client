@@ -11,7 +11,9 @@ import 'oxplayer_tdlib_debug.dart';
 import 'tdlib_facade.dart';
 import 'utils/tdlib_wire_json_compat.dart';
 
-void _tdlog(String message) => debugPrint(message);
+void _tdlog(String message) {
+  if (kDebugMode) debugPrint(message);
+}
 
 String _stringifyTdWebSendFailure(Object e) {
   if (e is td.TdError) {
@@ -68,12 +70,16 @@ String _jsAnyToDartJsonString(JSAny? value) {
 void _oxplayerTdwebDartPush(JSAny? raw) {
   final facade = _webActiveFacade;
   if (facade == null) {
-    debugPrint('[OX TD web] oxplayerTdwebDartPush: dropped (no active facade)');
+    if (kDebugMode) {
+      debugPrint('[OX TD web] oxplayerTdwebDartPush: dropped (no active facade)');
+    }
     return;
   }
   final s = _jsAnyToDartJsonString(raw);
   if (s.isEmpty) {
-    debugPrint('[OX TD web] oxplayerTdwebDartPush: dropped (empty JSON string)');
+    if (kDebugMode) {
+      debugPrint('[OX TD web] oxplayerTdwebDartPush: dropped (empty JSON string)');
+    }
     return;
   }
   unawaited(facade._dispatchIncomingJson(s));
@@ -229,7 +235,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
     _receivedTdlibFatal = true;
     final msg = _formatTdwebFatalPayload(map);
     _lastTdlibFatalDetail = msg;
-    debugPrint('TDLib fatal: $msg');
+    if (kDebugMode) debugPrint('TDLib fatal: $msg');
     _tdlog('TDLib web ← updateFatalError: $msg');
     final lower = msg.toLowerCase();
     final runningDiffFatal =
@@ -544,7 +550,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
     _databaseEncryptionKeyProbeSent = false;
 
     if (sessionString.isNotEmpty && kDebugMode) {
-      debugPrint('TDLib web: session string is ignored; IndexedDB + instanceName are used.');
+      if (kDebugMode) {
+        debugPrint('TDLib web: session string is ignored; IndexedDB + instanceName are used.');
+      }
     }
 
     await initTdlibPlugin();
@@ -987,7 +995,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
     try {
       await callback();
     } catch (error, stackTrace) {
-      debugPrint('TDLib onRequiresInteractiveLogin error: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint('TDLib onRequiresInteractiveLogin error: $error\n$stackTrace');
+      }
     }
   }
 
@@ -1170,7 +1180,9 @@ class TelegramTdlibFacade implements TdTelegramClient {
       await _authUserId.close();
       await _functionErrors.close();
     } catch (error, stackTrace) {
-      debugPrint('TDLib web dispose error: $error\n$stackTrace');
+      if (kDebugMode) {
+        debugPrint('TDLib web dispose error: $error\n$stackTrace');
+      }
     }
   }
 }

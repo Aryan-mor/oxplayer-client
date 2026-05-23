@@ -17,11 +17,8 @@ import 'package:fladder/l10n/generated/app_localizations.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/widgets/shared/pull_to_refresh.dart';
 
-const bool _kMyTelegramConfigVerboseLog = true;
 void _mtConfLog(String m) {
-  if (_kMyTelegramConfigVerboseLog) {
-    debugPrint('[MyTelegram config] $m');
-  }
+  if (kDebugMode) debugPrint('[MyTelegram config] $m');
 }
 
 @RoutePage()

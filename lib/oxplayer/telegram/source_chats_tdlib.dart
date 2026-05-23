@@ -163,7 +163,7 @@ Future<List<td.ForumTopic>> tdlibLoadAllForumTopics(TdlibFacade facade, int chat
       );
     } on td.TdError catch (e) {
       final desc = describeTdlibError(e);
-      debugPrint('GetForumTopics failed chatId=$chatId: $desc');
+      if (kDebugMode) debugPrint('GetForumTopics failed chatId=$chatId: $desc');
       final msg = e.message.toLowerCase();
       if (msg.contains('not a forum') || msg.contains('is not a forum') || msg.contains('not supported')) {
         return const <td.ForumTopic>[];

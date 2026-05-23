@@ -14,11 +14,8 @@ import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/widgets/shared/pull_to_refresh.dart';
 
-const bool _kMyTelegramHubVerboseLog = true;
 void _mtHubLog(String m) {
-  if (_kMyTelegramHubVerboseLog) {
-    debugPrint('[MyTelegram hub] $m');
-  }
+  if (kDebugMode) debugPrint('[MyTelegram hub] $m');
 }
 
 @RoutePage()

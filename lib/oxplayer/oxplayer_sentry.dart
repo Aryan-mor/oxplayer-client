@@ -87,6 +87,19 @@ abstract final class OxplayerSentry {
     }
   }
 
+  /// Hidden About → Error logs long-press: test Sentry in release/production builds.
+  ///
+  /// Returns the Sentry event id when sent, or `null` when the DSN is not configured.
+  static Future<String?> sendProductionTestPing() async {
+    if (!isActive) return null;
+    final id = await Sentry.captureException(
+      StateError('OXPlayer Sentry production test ping'),
+      stackTrace: StackTrace.current,
+    );
+    oxEnvLog('Sentry production test ping eventId=$id');
+    return id.toString();
+  }
+
   static void _configure(SentryFlutterOptions options, PackageInfo packageInfo) {
     options.dsn = OxplayerEnv.sentryDsn;
     options.environment = OxplayerEnv.sentryEnvironment;

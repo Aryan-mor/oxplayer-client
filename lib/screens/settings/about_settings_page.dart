@@ -9,6 +9,8 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 
 // import 'package:fladder/models/funding_model.dart' as funding;
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_sentry.dart';
 import 'package:fladder/oxplayer/oxplayer_test_mode_api.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/screens/crash_screen/crash_screen.dart';
@@ -54,16 +56,33 @@ class AboutSettingsPage extends ConsumerStatefulWidget {
 class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
   Timer? _testModeHoldTimer;
   bool _testModeActivating = false;
+  Timer? _sentryTestHoldTimer;
+  bool _sentryTestSending = false;
 
   @override
   void dispose() {
     _cancelTestModeHold();
+    _cancelSentryTestHold();
     super.dispose();
   }
 
   void _cancelTestModeHold() {
     _testModeHoldTimer?.cancel();
     _testModeHoldTimer = null;
+  }
+
+  void _cancelSentryTestHold() {
+    _sentryTestHoldTimer?.cancel();
+    _sentryTestHoldTimer = null;
+  }
+
+  void _onSentryTestHoldStart() {
+    if (_sentryTestSending) return;
+    _cancelSentryTestHold();
+    _sentryTestHoldTimer = Timer(const Duration(seconds: 5), () {
+      _sentryTestHoldTimer = null;
+      unawaited(_sendSentryProductionTest());
+    });
   }
 
   void _onTestModeHoldStart() {
@@ -115,6 +134,31 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
     } finally {
       if (mounted) {
         setState(() => _testModeActivating = false);
+      }
+    }
+  }
+
+  Future<void> _sendSentryProductionTest() async {
+    if (_sentryTestSending || !mounted) return;
+    setState(() => _sentryTestSending = true);
+    try {
+      final eventId = await OxplayerSentry.sendProductionTestPing();
+      if (!mounted) return;
+      if (eventId == null) {
+        FladderSnack.show('Sentry is not configured (no DSN)', context: context);
+      } else {
+        FladderSnack.show(
+          'Sentry test sent (${OxplayerEnv.sentryEnvironment}). Event: $eventId',
+          context: context,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        FladderSnack.show('Sentry test failed: $e', context: context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _sentryTestSending = false);
       }
     }
   }
@@ -171,13 +215,23 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FilledButton.tonal(
-              onPressed: () => showDialog(
-                context: context,
-                builder: (context) => const CrashScreen(),
+            GestureDetector(
+              onLongPressStart: (_) => _onSentryTestHoldStart(),
+              onLongPressEnd: (_) => _cancelSentryTestHold(),
+              onLongPressCancel: _cancelSentryTestHold,
+              child: Opacity(
+                opacity: _sentryTestSending ? 0.6 : 1,
+                child: FilledButton.tonal(
+                  onPressed: _sentryTestSending
+                      ? null
+                      : () => showDialog(
+                            context: context,
+                            builder: (context) => const CrashScreen(),
+                          ),
+                  child: Text(context.localized.errorLogs),
+                ),
               ),
-              child: Text(context.localized.errorLogs),
-            )
+            ),
           ],
         ),
         const SettingsUpdateInformation(),

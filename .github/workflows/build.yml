@@ -451,12 +451,15 @@ jobs:
           name: oxplayer-android
           path: oxplayer-android
 
+      # Always internal: production track commits fail with "Precondition check failed"
+      # until the app has a published internal/closed test release and production is ready.
+      # Promote to production (or closed/open testing) in Play Console when appropriate.
       - uses: r0adkll/upload-google-play@v1.1.4
         if: steps.play_secret.outputs.has_secret == 'true'
         with:
           serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
           packageName: "de.aryanmo.oxplayer"
           releaseFiles: "oxplayer-android/${{ needs.build-android.outputs.artifact_suffix }}.aab"
-          track: ${{ needs.fetch-info.outputs.build_type == 'nightly' && 'internal' || 'production' }}
-          status: ${{ needs.fetch-info.outputs.build_type == 'nightly' && 'completed' || 'draft' }}
+          tracks: internal
+          status: completed
           releaseName: "${{ github.run_number }} (${{ needs.fetch-info.outputs.version_name }})"

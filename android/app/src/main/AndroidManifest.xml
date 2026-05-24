@@ -18,6 +18,13 @@
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
+    <!-- local_auth adds USE_BIOMETRIC / USE_FINGERPRINT; Play treats those as required hardware unless opted out. -->
+    <uses-feature
+        android:name="android.hardware.fingerprint"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.biometrics"
+        android:required="false" />
 
     <application
         android:label="OXPlayer"

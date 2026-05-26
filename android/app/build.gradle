@@ -31,18 +31,20 @@ if (flutterVersionName == null) {
 }
 
 android {
-    packagingOptions {
+    packaging {
         jniLibs {
+            // media_kit sets extractNativeLibs=true; align with Play-safe extraction for
+            // mixed plugin .so sets (TDLib, MPV, FFmpeg) on mid-tier ARM devices.
+            useLegacyPackaging = true
+            excludes += ["lib/x86/**"]
             pickFirsts += [
                     "lib/x86_64/libc++_shared.so",
                     "lib/arm64-v8a/libc++_shared.so",
                     "lib/armeabi-v7a/libc++_shared.so",
-                    "lib/x86/libc++_shared.so",
 
                     "lib/x86_64/libass.so",
                     "lib/arm64-v8a/libass.so",
                     "lib/armeabi-v7a/libass.so",
-                    "lib/x86/libass.so",
             ]
         }
     }
@@ -71,6 +73,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Play 64-bit rule: each 32-bit ABI in the bundle needs a matching 64-bit set.
+        // Flutter never ships libflutter/libapp on x86 (32-bit); packaging x86 tdlib/media
+        // without peers breaks Play matching (catalog "supported" vs install "incompatible").
+        // ARM phones (e.g. Moto G Play 2024 / SD680) use arm64-v8a; keep v7a for 32-bit ARM.
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+        }
     }
 
     composeOptions {
@@ -87,8 +97,7 @@ android {
     }
     buildTypes {
         debug {
-            // abiFilters intentionally removed: conflicts with --split-per-abi in CI release builds.
-            // For faster local debug runs on arm64, use: flutter run --target-platform android-arm64
+            // For faster local debug on arm64 only: flutter run --target-platform android-arm64
         }
         release {
             minifyEnabled true

@@ -2,8 +2,9 @@ Place `libtdjson.so` here for Android (not committed at scale — use registry f
 
   arm64-v8a/libtdjson.so
   armeabi-v7a/libtdjson.so
-  x86/libtdjson.so
   x86_64/libtdjson.so
+
+  (x86 32-bit is not packaged — see ndk.abiFilters in android/app/build.gradle)
 
 Build or download artifacts that match [tool/tdlib/TD_VERSION.json](../../tool/tdlib/TD_VERSION.json) (`commit_sha`).
 

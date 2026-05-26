@@ -111,7 +111,8 @@ Future<void> main(List<String> args) async {
 
   final tasks = <Future<void>>[];
 
-  const abis = ['arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'];
+  // App AAB/APK packages only these ABIs (see android/app/build.gradle ndk.abiFilters).
+  const abis = ['arm64-v8a', 'armeabi-v7a', 'x86_64'];
   for (final abi in abis) {
     final rel =
         githubRelease ? 'libtdjson-$abi.so' : 'android/$abi/libtdjson.so';
@@ -208,7 +209,7 @@ void _verifyTdwebFlatLayout(String webOut) {
 }
 
 void _verifyArtifacts(String androidOut, String webOut) {
-  const abis = ['arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'];
+  const abis = ['arm64-v8a', 'armeabi-v7a', 'x86_64'];
   for (final abi in abis) {
     final f = File(p.join(androidOut, abi, 'libtdjson.so'));
     if (!f.existsSync() || f.lengthSync() < 4096) {

@@ -233,6 +233,14 @@ jobs:
             --build-number=${{ github.run_number }} \
             --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
 
+      - name: Verify native ABI parity (Play 64-bit / no x86)
+        if: needs.fetch-info.outputs.build_type != 'development'
+        run: |
+          set -euo pipefail
+          AAB="build/app/outputs/bundle/productionRelease/app-production-release.aab"
+          test -f "$AAB"
+          dart run tool/android/verify_native_abi_parity.dart --aab "$AAB"
+
       - name: Clean up keystore
         if: always()
         run: rm -f android/app/keystore.jks android/app/key.properties

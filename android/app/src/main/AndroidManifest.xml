@@ -33,7 +33,9 @@
         android:banner="@drawable/app_banner"
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true"
-        android:largeHeap="true">
+        android:extractNativeLibs="true"
+        android:largeHeap="true"
+        tools:replace="android:extractNativeLibs">
 
         <meta-data
             android:name="com.ryanheise.audioservice.notification_icon"

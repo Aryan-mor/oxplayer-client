@@ -74,13 +74,10 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Play 64-bit rule: each 32-bit ABI in the bundle needs a matching 64-bit set.
-        // Flutter never ships libflutter/libapp on x86 (32-bit); packaging x86 tdlib/media
-        // without peers breaks Play matching (catalog "supported" vs install "incompatible").
-        // ARM phones (e.g. Moto G Play 2024 / SD680) use arm64-v8a; keep v7a for 32-bit ARM.
-        ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
-        }
+        // Do NOT set ndk.abiFilters here: `flutter build apk --split-per-abi` (CI) already
+        // configures splits.abi (armeabi-v7a, arm64-v8a, x86_64) and Gradle fails if both exist.
+        // Exclude broken 32-bit x86 via packaging.jniLibs.excludes, jniLibs layout, and
+        // tool/tdlib/fetch_artifacts.dart (see tool/android/verify_native_abi_parity.dart).
     }
 
     composeOptions {

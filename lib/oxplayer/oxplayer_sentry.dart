@@ -7,6 +7,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:fladder/oxplayer/oxplayer_debug.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 
 /// Optional crash reporting via [Sentry](https://sentry.io). Disabled when [OxplayerEnv.sentryDsn] is empty.
 abstract final class OxplayerSentry {
@@ -48,14 +49,15 @@ abstract final class OxplayerSentry {
     }
   }
 
-  /// Chain Sentry onto handlers installed by [CrashLogNotifier] (after [CrashLogNotifier.ready]).
+  /// Chain OX crash filters (and Sentry when [isActive]) after [CrashLogNotifier].
   static void wrapCrashHandlers() {
-    if (!isActive || _handlersWrapped) return;
+    if (_handlersWrapped) return;
     _handlersWrapped = true;
 
     final prevFlutter = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
       prevFlutter?.call(details);
+      if (!isActive) return;
       unawaited(
         Sentry.captureException(
           details.exception,
@@ -66,11 +68,19 @@ abstract final class OxplayerSentry {
 
     final prevPlatform = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
+      // Expected when splash silent-restore times out before TDLib needs login UI.
+      if (isTdlibInteractiveLoginRequired(error)) {
+        return true;
+      }
       final handled = prevPlatform?.call(error, stack) ?? false;
-      unawaited(Sentry.captureException(error, stackTrace: stack));
+      if (isActive) {
+        unawaited(Sentry.captureException(error, stackTrace: stack));
+      }
       return handled;
     };
-    oxEnvLog('Sentry error handlers chained after CrashLogNotifier');
+    oxEnvLog(
+      'OX platform error handler chained after CrashLogNotifier (sentry=$isActive)',
+    );
   }
 
   /// Sends a one-off test event when [OxplayerEnv.sentryDebug] is on (dev wiring check).
@@ -125,7 +135,20 @@ abstract final class OxplayerSentry {
 
   static FutureOr<SentryEvent?> _beforeSend(SentryEvent event, Hint _) {
     if (_eventContainsSecret(event)) return null;
+    if (_eventIsBenignControlFlow(event)) return null;
     return event;
+  }
+
+  static bool _eventIsBenignControlFlow(SentryEvent event) {
+    for (final e in event.exceptions ?? const <SentryException>[]) {
+      final type = e.type;
+      if (type == 'TdlibInteractiveLoginRequired') return true;
+      final value = e.value;
+      if (value != null && value.contains('Telegram session is not ready yet')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static bool _eventContainsSecret(SentryEvent event) {

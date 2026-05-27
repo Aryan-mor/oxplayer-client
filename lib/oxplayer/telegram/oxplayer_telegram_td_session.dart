@@ -111,10 +111,7 @@ final class OxplayerTelegramTdSession {
   Future<bool> trySilentRestore() async {
     await initClient();
     try {
-      await _td.ensureAuthorized().timeout(
-        _kSilentRestoreMaxWait,
-        onTimeout: () => throw TimeoutException('TDLib.ensureAuthorized', _kSilentRestoreMaxWait),
-      );
+      await awaitTdEnsureAuthorized(_td, timeout: _kSilentRestoreMaxWait);
       return true;
     } on TdlibInteractiveLoginRequired {
       return false;
@@ -128,13 +125,7 @@ final class OxplayerTelegramTdSession {
   Future<bool> trySilentRestoreWithRestart() async {
     await initClient();
     try {
-      await _td.ensureAuthorized().timeout(
-        _kSilentRestoreFirstAttemptWait,
-        onTimeout: () => throw TimeoutException(
-          'TDLib.ensureAuthorized first attempt',
-          _kSilentRestoreFirstAttemptWait,
-        ),
-      );
+      await awaitTdEnsureAuthorized(_td, timeout: _kSilentRestoreFirstAttemptWait);
       return true;
     } on TdlibInteractiveLoginRequired {
       return false;
@@ -417,7 +408,11 @@ final class OxplayerTelegramTdSession {
       );
     }
 
-    await _td.ensureAuthorized();
+    try {
+      await _td.ensureAuthorized();
+    } on TdlibInteractiveLoginRequired {
+      throw StateError('Telegram session is not ready; sign in again.');
+    }
     final botUser = OxplayerEnv.botUsername;
     if (botUser == null || botUser.isEmpty) {
       throw StateError('BOT_USERNAME (or OXPLAYER_BOT_USERNAME) is not configured.');

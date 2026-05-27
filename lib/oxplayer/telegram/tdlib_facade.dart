@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 class TdlibInteractiveLoginRequired implements Exception {
@@ -73,3 +75,29 @@ abstract class TdTelegramClient {
 
 /// Historical name; prefer [TdTelegramClient].
 typedef TdlibFacade = TdTelegramClient;
+
+/// Expected control-flow signal: TDLib needs QR / phone / 2FA (not a crash).
+bool isTdlibInteractiveLoginRequired(Object? error) =>
+    error is TdlibInteractiveLoginRequired;
+
+/// Awaits [TdTelegramClient.ensureAuthorized], optionally bounded by [timeout].
+///
+/// When [timeout] fires first, the underlying [ensureAuthorized] future is still
+/// active; late [TdlibInteractiveLoginRequired] errors are swallowed so they do
+/// not surface as unhandled async errors on [PlatformDispatcher.onError].
+Future<void> awaitTdEnsureAuthorized(
+  TdTelegramClient td, {
+  Duration? timeout,
+}) {
+  final auth = td.ensureAuthorized();
+  if (timeout == null) {
+    return auth;
+  }
+  return auth.timeout(
+    timeout,
+    onTimeout: () {
+      auth.catchError((_) {});
+      throw TimeoutException('TDLib.ensureAuthorized', timeout);
+    },
+  );
+}

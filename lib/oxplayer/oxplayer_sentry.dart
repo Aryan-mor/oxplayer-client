@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -141,17 +143,56 @@ abstract final class OxplayerSentry {
     return event;
   }
 
-  static bool _shouldDropError(Object? error) =>
-      isTdlibInteractiveLoginRequired(error);
+  static bool _shouldDropError(Object? error) {
+    if (isTdlibInteractiveLoginRequired(error)) return true;
+    return _isBenignNetworkError(error);
+  }
+
+  /// Offline DNS / GitHub release check failures are not app defects.
+  static bool _isBenignNetworkError(Object? error) {
+    if (error is SocketException) return true;
+    if (error is OSError && _textLooksLikeOfflineHost(error.message)) {
+      return true;
+    }
+    if (error is http.ClientException && _textLooksLikeGithubReleaseCheck(error.message)) {
+      return true;
+    }
+    return false;
+  }
 
   static bool _eventIsBenignControlFlow(SentryEvent event) {
     for (final e in event.exceptions ?? const <SentryException>[]) {
       if (_exceptionLooksLikeTdLoginRequired(e.type, e.value)) return true;
+      if (_exceptionLooksLikeBenignNetwork(e.type, e.value)) return true;
     }
     final message = event.message?.formatted;
-    if (message != null && _textLooksLikeTdLoginRequired(message)) return true;
+    if (message != null) {
+      if (_textLooksLikeTdLoginRequired(message)) return true;
+      if (_textLooksLikeGithubReleaseCheck(message) ||
+          _textLooksLikeOfflineHost(message)) {
+        return true;
+      }
+    }
     return false;
   }
+
+  static bool _exceptionLooksLikeBenignNetwork(String? type, String? value) {
+    if (type == 'SocketException' || type == 'ClientException') return true;
+    if (value != null &&
+        (_textLooksLikeGithubReleaseCheck(value) || _textLooksLikeOfflineHost(value))) {
+      return true;
+    }
+    return false;
+  }
+
+  static bool _textLooksLikeOfflineHost(String text) {
+    final lower = text.toLowerCase();
+    return lower.contains('no address associated with hostname') ||
+        lower.contains('failed host lookup');
+  }
+
+  static bool _textLooksLikeGithubReleaseCheck(String text) =>
+      text.contains('api.github.com') && text.contains('releases');
 
   static bool _exceptionLooksLikeTdLoginRequired(String? type, String? value) {
     if (type == 'TdlibInteractiveLoginRequired') return true;

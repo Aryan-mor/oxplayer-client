@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -76,10 +77,30 @@ class UpdateChecker {
     final currentVersion = info.version;
 
     final url = Uri.parse('https://api.github.com/repos/$owner/$repo/releases?per_page=$count');
-    final response = await http.get(url);
+    final http.Response response;
+    try {
+      response = await http.get(url);
+    } on SocketException catch (e) {
+      if (kDebugMode) {
+        debugPrint('UpdateChecker: offline or DNS failure: $e');
+      }
+      return [];
+    } on http.ClientException catch (e) {
+      if (kDebugMode) {
+        debugPrint('UpdateChecker: HTTP client error: $e');
+      }
+      return [];
+    } on OSError catch (e) {
+      if (kDebugMode) {
+        debugPrint('UpdateChecker: OS network error: $e');
+      }
+      return [];
+    }
 
     if (response.statusCode != 200) {
-      print('Failed to fetch releases: ${response.statusCode}');
+      if (kDebugMode) {
+        debugPrint('UpdateChecker: failed to fetch releases: ${response.statusCode}');
+      }
       return [];
     }
 

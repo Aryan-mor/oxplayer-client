@@ -20,6 +20,10 @@ void _tdlog(String message) {
 const _kDownloadConnectionsCount = 16;
 const _kMaxGetMeRetries = 2;
 
+/// Longer than the 1.0s [tdJsonClientReceive] poll in the receive isolate so destroy
+/// does not race in-flight native receive (Sentry OXPLAYER-CLIENT-E/G).
+const _kTdReceiveDestroySettleDelay = Duration(milliseconds: 1400);
+
 class TelegramTdlibFacade implements TdTelegramClient {
   static TelegramTdlibFacade? _nativeClientOwner;
   static Future<void> _globalInitSerial = Future.value();
@@ -142,27 +146,13 @@ class TelegramTdlibFacade implements TdTelegramClient {
     if (sibling == null || identical(sibling, caller)) return;
 
     final staleId = sibling._clientId;
-    sibling._receiveLoopRunning = false;
-    try {
-      await sibling._receiveSub?.cancel();
-    } catch (_) {}
-    sibling._receiveSub = null;
-    sibling._receiveIsolate?.kill(priority: Isolate.immediate);
-    sibling._receiveIsolate = null;
-    sibling._receiveMainPort?.close();
-    sibling._receiveMainPort = null;
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-
     if (staleId != null) {
       sibling._clientId = null;
       try {
         tdJsonClientSend(staleId, const td.Close());
       } catch (_) {}
       await Future<void>.delayed(const Duration(milliseconds: 400));
-      try {
-        tdJsonClientDestroy(staleId);
-      } catch (_) {}
-      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await sibling._stopReceiveThenDestroyNative(staleId);
     }
     _nativeClientOwner = null;
   }
@@ -263,43 +253,40 @@ class TelegramTdlibFacade implements TdTelegramClient {
     await _shutdownClient();
   }
 
-  /// Safely destroys the TDLib client after [LogOut] has already been sent.
-  /// Kills the receive isolate first (so it stops calling tdJsonClientReceive),
-  /// then waits for any in-progress 1-second receive poll to drain, and only
-  /// then calls tdJsonClientDestroy — preventing the native crash.
-  @override
-  Future<void> forceDestroyAfterLogOut() async {
-    final id = _clientId;
-    if (id == null) return;
-
-    // 1. Stop the receive loop and cancel the stream subscription.
+  /// Kills the receive isolate, waits for in-flight [tdJsonClientReceive], then destroys.
+  Future<void> _stopReceiveThenDestroyNative(int id) async {
     _receiveLoopRunning = false;
     try {
       await _receiveSub?.cancel();
     } catch (_) {}
     _receiveSub = null;
 
-    // 2. Kill the receive isolate immediately so tdJsonClientReceive stops.
     _receiveIsolate?.kill(priority: Isolate.immediate);
     _receiveIsolate = null;
     _receiveMainPort?.close();
     _receiveMainPort = null;
 
-    // 3. Wait longer than the 1.0s tdJsonClientReceive timeout to ensure
-    //    no native receive call is still in flight before we destroy.
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
+    await Future<void>.delayed(_kTdReceiveDestroySettleDelay);
 
-    // 4. Destroy the native client.
-    _clientId = null;
-    if (identical(_nativeClientOwner, this)) _nativeClientOwner = null;
     try {
       tdJsonClientDestroy(id);
     } catch (e) {
       _tdlog('TDLib destroy: $e');
     }
     await Future<void>.delayed(const Duration(milliseconds: 150));
+  }
 
-    // 5. Delete session files so trySilentRestore() returns false next launch.
+  /// Safely destroys the TDLib client after [LogOut] has already been sent.
+  @override
+  Future<void> forceDestroyAfterLogOut() async {
+    final id = _clientId;
+    if (id == null) return;
+
+    _clientId = null;
+    if (identical(_nativeClientOwner, this)) _nativeClientOwner = null;
+    await _stopReceiveThenDestroyNative(id);
+
+    // Delete session files so trySilentRestore() returns false next launch.
     try {
       await _deleteLocalSessionFiles();
     } catch (error) {
@@ -795,14 +782,6 @@ class TelegramTdlibFacade implements TdTelegramClient {
       await Future<void>.delayed(const Duration(milliseconds: 400));
     }
 
-    _receiveLoopRunning = false;
-    await _receiveSub?.cancel();
-    _receiveSub = null;
-    await _stopReceiveIsolate();
-    _receiveMainPort?.close();
-    _receiveMainPort = null;
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-
     _paramsSent = false;
     _transportTuningApplied = false;
     _awaitingGetMeAfterReady = false;
@@ -816,12 +795,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
     if (identical(_nativeClientOwner, this)) {
       _nativeClientOwner = null;
     }
-    try {
-      tdJsonClientDestroy(id);
-    } catch (error) {
-      _tdlog('TDLib destroy error: $error');
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await _stopReceiveThenDestroyNative(id);
   }
 
   Future<void> _stopReceiveIsolate({bool forceKill = false}) async {

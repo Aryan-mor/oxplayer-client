@@ -9,6 +9,8 @@ import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:fladder/models/error_log_model.dart';
+import 'package:fladder/oxplayer/oxplayer_sentry.dart';
+import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 
 final crashLogProvider = StateNotifierProvider<CrashLogNotifier, List<ErrorLogModel>>((ref) => CrashLogNotifier());
 
@@ -47,18 +49,23 @@ class CrashLogNotifier extends StateNotifier<List<ErrorLogModel>> {
     final prevFlutter = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
       prevFlutter?.call(details);
-      logFile(details);
+      if (!_isBenignPlatformError(details.exception)) {
+        logFile(details);
+      }
     };
 
     final prevPlatform = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
+      final benign = _isBenignPlatformError(error);
       final handled = prevPlatform?.call(error, stack) ?? false;
-      logFile(FlutterErrorDetails(
-        exception: error,
-        stack: stack,
-        library: 'Unhandled',
-      ));
-      return handled;
+      if (!benign) {
+        logFile(FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'Unhandled',
+        ));
+      }
+      return benign || handled;
     };
 
     if (!kIsWeb) {
@@ -130,6 +137,10 @@ class CrashLogNotifier extends StateNotifier<List<ErrorLogModel>> {
       }
     }
   }
+
+  static bool _isBenignPlatformError(Object? error) =>
+      isTdlibInteractiveLoginRequired(error) ||
+      OxplayerSentry.shouldDropPlatformError(error);
 
   void logFile(FlutterErrorDetails details) {
     logger.severe('Flutter error: ${details.exception}', details.exception, details.stack);

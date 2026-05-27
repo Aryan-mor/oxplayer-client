@@ -910,12 +910,11 @@ class _OxplayerTelegramLoginScreenState
             const SizedBox(height: 20),
             FocusTraversalOrder(
               order: const NumericFocusOrder(1),
-              child: TextField(
+              child: _OxLoginTextField(
                 focusNode: _phoneFocusNode,
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
-                autofocus: false,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Phone number',
@@ -976,12 +975,11 @@ class _OxplayerTelegramLoginScreenState
             const SizedBox(height: 20),
             FocusTraversalOrder(
               order: const NumericFocusOrder(1),
-              child: TextField(
+              child: _OxLoginTextField(
                 focusNode: _codeFocusNode,
                 controller: _codeController,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.done,
-                autofocus: false,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Login code',
@@ -1046,11 +1044,10 @@ class _OxplayerTelegramLoginScreenState
                 Expanded(
                   child: FocusTraversalOrder(
                     order: const NumericFocusOrder(1),
-                    child: TextField(
+                    child: _OxLoginTextField(
                       focusNode: _passwordFocusNode,
                       controller: _passwordController,
                       obscureText: _passwordObscured,
-                      autofocus: false,
                       keyboardType: TextInputType.visiblePassword,
                       textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
@@ -1277,6 +1274,44 @@ class _OxplayerTelegramLoginScreenState
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Login fields only: block accessibility SET_TEXT on a torn-down [TextInputConnection]
+/// (native SIGABRT — Sentry OXPLAYER-CLIENT-S).
+class _OxLoginTextField extends StatelessWidget {
+  const _OxLoginTextField({
+    required this.focusNode,
+    required this.controller,
+    required this.decoration,
+    this.keyboardType,
+    this.textInputAction,
+    this.obscureText = false,
+    this.onSubmitted,
+  });
+
+  final FocusNode focusNode;
+  final TextEditingController controller;
+  final InputDecoration decoration;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final bool obscureText;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: TextField(
+        focusNode: focusNode,
+        controller: controller,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        obscureText: obscureText,
+        autofocus: false,
+        decoration: decoration,
+        onSubmitted: onSubmitted,
       ),
     );
   }

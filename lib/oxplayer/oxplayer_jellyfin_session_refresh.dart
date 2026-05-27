@@ -14,6 +14,8 @@ import 'package:fladder/util/application_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+var _ox401RefreshTdRecoveryAttempted = false;
+
 /// On **401**: Telegram must be authorized; then try **POST /auth/refresh** if a refresh token exists,
 /// else exchange WebApp [initData] via TDLib (`POST /auth/telegram`).
 Future<bool> oxplayerTryRefreshJellyfinSessionAfter401(Ref ref) {
@@ -40,10 +42,12 @@ Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {
   try {
     final td = OxplayerTelegramTdSession();
     await td.initClient();
-    try {
-      await td.td.ensureAuthorized();
-    } on TdlibInteractiveLoginRequired catch (e, st) {
-      log('OX 401 refresh: Telegram re-login required', error: e, stackTrace: st);
+    var tdAuthorized = await _oxplayerTryEnsureTdAuthorized(td);
+    if (!tdAuthorized) {
+      tdAuthorized = await td.tryRecoverInteractiveLoginRequired();
+    }
+    if (!tdAuthorized) {
+      log('OX 401 refresh: Telegram session not ready after TDLib recovery');
       oxplayerScheduleSessionRecoveryNavigation(
         ref,
         telegramTdlibAuthorized: false,
@@ -85,7 +89,18 @@ Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {
     await authNotifier.applyOxplayerTelegramAuthResponse(exchanged);
     return true;
   } on TdlibInteractiveLoginRequired catch (e, st) {
-    log('OX 401 refresh: Telegram re-login required', error: e, stackTrace: st);
+    log('OX 401 refresh: Telegram re-login required after recovery', error: e, stackTrace: st);
+    if (!_ox401RefreshTdRecoveryAttempted) {
+      _ox401RefreshTdRecoveryAttempted = true;
+      try {
+        final recovered = await OxplayerTelegramTdSession().tryRecoverInteractiveLoginRequired();
+        if (recovered) {
+          return _oxplayerDoJellyfinSessionRefresh(ref);
+        }
+      } finally {
+        _ox401RefreshTdRecoveryAttempted = false;
+      }
+    }
     oxplayerScheduleSessionRecoveryNavigation(
       ref,
       telegramTdlibAuthorized: false,
@@ -104,6 +119,17 @@ Future<bool> _oxplayerDoJellyfinSessionRefresh(Ref ref) async {
       ref,
       telegramTdlibAuthorized: telegramTdlibSessionAuthorized,
     );
+    return false;
+  }
+}
+
+Future<bool> _oxplayerTryEnsureTdAuthorized(OxplayerTelegramTdSession td) async {
+  try {
+    await awaitTdEnsureAuthorized(td.td, timeout: const Duration(seconds: 25));
+    return true;
+  } on TdlibInteractiveLoginRequired {
+    return false;
+  } on TimeoutException {
     return false;
   }
 }

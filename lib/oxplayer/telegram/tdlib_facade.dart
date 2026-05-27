@@ -86,6 +86,15 @@ void detachFutureErrors(Future<dynamic> future) {
   unawaited(future.then<void>((_) {}, onError: (_, __) {}));
 }
 
+/// [TdTelegramClient.ensureAuthorized] completer with a permanent error sink so
+/// [TdlibInteractiveLoginRequired] never becomes an unhandled async error when
+/// no caller is awaiting (splash timeout, TDLib state machine, completer reset).
+Completer<void> createTdAuthCompleter() {
+  final completer = Completer<void>();
+  detachFutureErrors(completer.future);
+  return completer;
+}
+
 /// Awaits [future] up to [timeout]. On timeout, [onTimeout] runs and [future] is detached.
 Future<T> awaitFutureWithTimeout<T>(
   Future<T> future,

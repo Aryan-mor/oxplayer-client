@@ -122,6 +122,33 @@ final class OxplayerTelegramTdSession {
     }
   }
 
+  /// Best-effort TDLib restart when [ensureAuthorized] needs interactive login but a
+  /// on-disk session may still be valid (avoids forcing QR when the client wedged).
+  Future<bool> tryRecoverInteractiveLoginRequired() async {
+    await initClient();
+    try {
+      await _td.restartPreservingSession();
+    } catch (e) {
+      authDebugError('recoverInteractiveLogin: restart failed: $e');
+    }
+    _clientInited = false;
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await initClient();
+    try {
+      await awaitTdEnsureAuthorized(
+        _td,
+        timeout: const Duration(seconds: 20),
+      );
+      return true;
+    } on TdlibInteractiveLoginRequired {
+      return false;
+    } on TimeoutException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> trySilentRestoreWithRestart() async {
     await initClient();
     try {

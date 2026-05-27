@@ -136,7 +136,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
   final _authWaitPhoneNumber = StreamController<bool>.broadcast();
   final _authUserId = StreamController<int>.broadcast();
   final _functionErrors = StreamController<String?>.broadcast();
-  var _authCompleter = Completer<void>();
+  var _authCompleter = createTdAuthCompleter();
   Future<void> _finalizeChain = Future.value();
   Completer<void>? _closeHandshakeCompleter;
 
@@ -564,9 +564,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
     _transportTuningApplied = false;
     _awaitingGetMeAfterReady = false;
     _getMeRetryCount = 0;
-    if (_authCompleter.isCompleted) {
-      _authCompleter = Completer<void>();
-    }
+    _authCompleter = createTdAuthCompleter();
     _finalizeChain = Future.value();
 
     _registerDartPushHandler();
@@ -889,7 +887,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
     } else if (state is td.AuthorizationStateReady) {
       authDebugDedup('tdlib_auth_state', AuthDebugLevel.success, 'TDLib auth state: Ready. Requesting GetMe...');
       if (_authCompleter.isCompleted) {
-        _authCompleter = Completer<void>();
+        _authCompleter = createTdAuthCompleter();
       }
       if (!_cloudPassword.isClosed) {
         _cloudPassword.add(null);
@@ -986,6 +984,7 @@ class TelegramTdlibFacade implements TdTelegramClient {
   void _failEnsureAuthorizedIfPending(String reason) {
     if (_authCompleter.isCompleted) return;
     _tdlog('TDLib interactive login required: $reason');
+    detachFutureErrors(_authCompleter.future);
     _authCompleter.completeError(const TdlibInteractiveLoginRequired());
   }
 

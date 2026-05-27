@@ -59,7 +59,7 @@ abstract final class OxplayerSentry {
     final prevFlutter = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
       prevFlutter?.call(details);
-      if (!isActive || _shouldDropError(details.exception)) return;
+      if (!isActive || shouldDropPlatformError(details.exception)) return;
       unawaited(
         Sentry.captureException(
           details.exception,
@@ -71,7 +71,7 @@ abstract final class OxplayerSentry {
     final prevPlatform = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
       // Expected when splash silent-restore times out before TDLib needs login UI.
-      if (_shouldDropError(error)) {
+      if (shouldDropPlatformError(error)) {
         return true;
       }
       final handled = prevPlatform?.call(error, stack) ?? false;
@@ -144,15 +144,56 @@ abstract final class OxplayerSentry {
 
   static FutureOr<SentryEvent?> _beforeSend(SentryEvent event, Hint hint) {
     if (_eventContainsSecret(event)) return null;
-    if (_shouldDropError(event.throwable) || _eventIsBenignControlFlow(event)) {
+    if (shouldDropPlatformError(event.throwable) || _eventIsBenignControlFlow(event)) {
+      return null;
+    }
+    if (_eventIsBenignNativeNoise(event) || _eventIsFlutterSemanticsSetTextAbort(event)) {
       return null;
     }
     return event;
   }
 
-  static bool _shouldDropError(Object? error) {
+  /// Expected control-flow / offline noise — not sent to Sentry or local crash logs.
+  static bool shouldDropPlatformError(Object? error) {
     if (isTdlibInteractiveLoginRequired(error)) return true;
     return _isBenignNetworkError(error);
+  }
+
+  /// Engine abort when accessibility dispatches SET_TEXT on a disposed text input.
+  static bool _eventIsFlutterSemanticsSetTextAbort(SentryEvent event) {
+    if (event.platform != 'native') return false;
+    for (final frame in _eventStackFrames(event)) {
+      final symbol = frame.symbol ?? '';
+      if (symbol.contains('DispatchSemanticsAction') &&
+          symbol.contains('setEditingState')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static Iterable<SentryStackFrame> _eventStackFrames(SentryEvent event) sync* {
+    for (final e in event.exceptions ?? const <SentryException>[]) {
+      final frames = e.stackTrace?.frames;
+      if (frames == null) continue;
+      for (final frame in frames) {
+        yield frame;
+      }
+    }
+  }
+
+  /// Native aborts on the Sentry SDK background thread (symbol upload / init).
+  static bool _eventIsBenignNativeNoise(SentryEvent event) {
+    if (event.platform != 'native') return false;
+    final message = event.message?.formatted ?? '';
+    if (!message.toLowerCase().contains('sigabrt') && !message.contains('syscall')) {
+      return false;
+    }
+    for (final thread in event.threads ?? const <SentryThread>[]) {
+      final name = thread.name ?? '';
+      if (name.contains('SentryExecutor')) return true;
+    }
+    return false;
   }
 
   /// Offline DNS / GitHub release check failures are not app defects.

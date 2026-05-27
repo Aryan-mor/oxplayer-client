@@ -16,7 +16,9 @@ import 'package:fladder/providers/crash_log_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
+import 'package:auto_route/auto_route.dart' show AutoRouterDelegate;
 import 'package:fladder/routes/auto_router.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:fladder/theme.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/util/application_info.dart';
@@ -189,6 +191,10 @@ class _FladderApp extends ConsumerWidget {
             themeMode: themeMode,
             routerConfig: autoRouter.config(
               deepLinkBuilder: (deepLink) => deepLinkBuilder(deepLink.uri),
+              navigatorObservers: () => [
+                ...AutoRouterDelegate.defaultNavigatorObserversBuilder(),
+                if (OxplayerSentry.isActive) SentryNavigatorObserver(),
+              ],
             ),
           ),
         );

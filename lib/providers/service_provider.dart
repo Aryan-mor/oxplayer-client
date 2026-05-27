@@ -8,6 +8,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/fake/fake_jellyfin_open_api.dart';
 import 'package:fladder/jellyfin/enum_models.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as enums;
@@ -1122,7 +1124,7 @@ class JellyService {
     final uri = Uri.parse('$root/UserItems/HomeBannerDiscovery');
     try {
       final headers = acc.credentials.header(ref);
-      final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+      final res = await appHttpClient.get(uri, headers: headers).timeout(const Duration(seconds: 25));
       if (res.statusCode != 200) {
         log(
           'UserItems/HomeBannerDiscovery → HTTP ${res.statusCode}. '

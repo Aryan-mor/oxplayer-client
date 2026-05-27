@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 /// Successful `POST /auth/telegram` response (subset used by the client).
 class OxplayerTelegramAuthResponse {
   OxplayerTelegramAuthResponse({
@@ -40,7 +42,7 @@ final class OxplayerTelegramAuthClient {
         'deviceId': deviceId.trim(),
     };
 
-    final response = await http.post(
+    final response = await appHttpClient.post(
       _refreshAuthUri,
       headers: const {'Content-Type': 'application/json; charset=utf-8'},
       body: jsonEncode(payload),
@@ -71,7 +73,7 @@ final class OxplayerTelegramAuthClient {
         'deviceName': deviceName.trim(),
     };
 
-    final response = await http.post(
+    final response = await appHttpClient.post(
       Uri.parse('$apiBase/auth/google-play-review'),
       headers: const {'Content-Type': 'application/json; charset=utf-8'},
       body: jsonEncode(payload),
@@ -100,7 +102,7 @@ final class OxplayerTelegramAuthClient {
         'deviceName': deviceName.trim(),
     };
 
-    final response = await http.post(
+    final response = await appHttpClient.post(
       _telegramAuthUri,
       headers: const {'Content-Type': 'application/json; charset=utf-8'},
       body: jsonEncode(payload),

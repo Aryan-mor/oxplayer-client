@@ -6,6 +6,8 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 /// TDLib chat + message to load Telegram’s local video preview (from `GET /me/library/media/:id` → `files[0]`).
 class OxMediaTelegramRef {
   const OxMediaTelegramRef({required this.chatId, required this.messageId});
@@ -26,7 +28,7 @@ final oxMediaTelegramRefProvider = FutureProvider.family<OxMediaTelegramRef?, St
       return null;
     }
     final uri = Uri.parse(serverUrl).resolve('me/library/media/${Uri.encodeComponent(t)}');
-    final r = await http.get(uri, headers: creds.header(ref));
+    final r = await appHttpClient.get(uri, headers: creds.header(ref));
     if (r.statusCode != 200) return null;
     final d = jsonDecode(r.body);
     if (d is! Map) return null;

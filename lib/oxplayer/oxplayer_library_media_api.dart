@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart' show WidgetRef;
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/api_provider.dart';
@@ -83,7 +85,7 @@ Future<OxplayerLibraryReportResult> oxplayerPostLibraryMediaReport(WidgetRef ref
     'Content-Type': 'application/json',
   };
   try {
-    final res = await http.post(uri, headers: headers, body: '{}');
+    final res = await appHttpClient.post(uri, headers: headers, body: '{}');
     final status = res.statusCode;
     if (status != 200) {
       final snippet = res.body.length > 200 ? '${res.body.substring(0, 200)}…' : res.body;
@@ -147,7 +149,7 @@ Future<bool> oxplayerPostLibraryMediaLocatorHeal(
       'resolutionReason': resolutionReason.trim(),
   });
   try {
-    final res = await http.post(uri, headers: headers, body: body);
+    final res = await appHttpClient.post(uri, headers: headers, body: body);
     if (res.statusCode != 200) {
       if (kDebugMode) {
         _reportDebug('locator-heal HTTP ${res.statusCode} ${res.body}');
@@ -173,7 +175,7 @@ Future<bool> oxplayerDeleteLibraryMedia(WidgetRef ref, String mediaId) async {
 
   final uri = Uri.parse('$origin/me/library/media/$mediaId');
   try {
-    final res = await http.delete(uri, headers: creds.header(ref));
+    final res = await appHttpClient.delete(uri, headers: creds.header(ref));
     if (res.statusCode != 200) return false;
     final j = jsonDecode(res.body);
     return j is Map && j['ok'] == true;

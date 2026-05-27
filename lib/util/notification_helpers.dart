@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:chopper/chopper.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
+import 'package:fladder/util/app_http_client.dart';
 import 'package:fladder/models/last_seen_notifications_model.dart';
 import 'package:fladder/models/seerr_credentials_model.dart';
 import 'package:fladder/seerr/seerr_chopper_service.dart';
@@ -87,6 +88,7 @@ class NotificationHelpers {
 
       api = dto.JellyfinOpenApi.create(
         baseUrl: Uri.parse(trimmed),
+        httpClient: createAppHttpClient(),
         interceptors: [
           _WorkerAuthInterceptor(token),
         ],

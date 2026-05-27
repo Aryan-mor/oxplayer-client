@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:http/http.dart' as http;
+
+import 'package:fladder/util/app_http_client.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
@@ -175,7 +177,7 @@ class SeerrDetails extends _$SeerrDetails {
     final uri = Uri.parse('$base/tmdb/seerr-bundle')
         .replace(queryParameters: {'mediaType': mParam, 'tmdbId': '$tmdbId'});
 
-    final res = await http.get(uri, headers: credentials.header(ref));
+    final res = await appHttpClient.get(uri, headers: credentials.header(ref));
     if (res.statusCode != 200) return;
     final map = jsonDecode(res.body) as Map<String, dynamic>;
     if (map['isOxTmdbSource'] != true) return;
@@ -422,7 +424,7 @@ class SeerrDetails extends _$SeerrDetails {
       final uri = Uri.parse('$base/tmdb/tv/season-episodes').replace(
         queryParameters: {'tvId': '${poster.tmdbId}', 'seasonNumber': '$seasonNumber'},
       );
-      final res = await http.get(uri, headers: credentials.header(ref));
+      final res = await appHttpClient.get(uri, headers: credentials.header(ref));
       if (res.statusCode != 200) return;
       final map = jsonDecode(res.body) as Map<String, dynamic>;
       final raw = map['episodes'] as List? ?? const [];

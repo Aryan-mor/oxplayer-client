@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 
 /// Result of `POST /me/test-mode/activate`.
@@ -44,7 +46,7 @@ Future<OxplayerTestModeActivateResult> oxplayerPostTestModeActivate({
     ...authorizationHeaders,
   };
 
-  final response = await http.post(
+  final response = await appHttpClient.post(
     uri,
     headers: headers,
     body: jsonEncode(<String, dynamic>{}),

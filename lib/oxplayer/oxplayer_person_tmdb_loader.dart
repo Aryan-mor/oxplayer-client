@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/models/items/movie_model.dart';
 import 'package:fladder/models/items/person_model.dart';
@@ -31,7 +33,7 @@ abstract final class OxplayerPersonTmdbLoader {
     if (origin == null) return null;
     final uri = Uri.parse('$origin/$path').replace(queryParameters: query);
     final headers = ref.read(userProvider)?.credentials.header(ref) ?? const <String, String>{};
-    final res = await http.get(uri, headers: headers);
+    final res = await appHttpClient.get(uri, headers: headers);
     if (res.statusCode != 200) return null;
     final decoded = jsonDecode(res.body);
     if (decoded is! Map<String, dynamic>) return null;
@@ -106,7 +108,7 @@ abstract final class OxplayerPersonTmdbLoader {
         final origin = _mediaOrigin();
         if (origin != null) {
           final udUri = Uri.parse('$origin/Users/${user.id}/Items/$resolvedId');
-          final udRes = await http.get(udUri, headers: user.credentials.header(ref));
+          final udRes = await appHttpClient.get(udUri, headers: user.credentials.header(ref));
           if (udRes.statusCode == 200) {
             final udJson = jsonDecode(udRes.body);
             if (udJson is Map<String, dynamic> && udJson['UserData'] != null) {

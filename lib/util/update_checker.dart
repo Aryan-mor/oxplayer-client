@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:fladder/util/app_http_client.dart';
+
 class ReleaseInfo {
   final String version;
   final String changelog;
@@ -79,7 +81,7 @@ class UpdateChecker {
     final url = Uri.parse('https://api.github.com/repos/$owner/$repo/releases?per_page=$count');
     final http.Response response;
     try {
-      response = await http.get(url);
+      response = await appHttpClient.get(url);
     } on SocketException catch (e) {
       if (kDebugMode) {
         debugPrint('UpdateChecker: offline or DNS failure: $e');

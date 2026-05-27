@@ -6,6 +6,8 @@ import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+
+import 'package:fladder/util/app_http_client.dart';
 import 'package:web/web.dart';
 
 import 'package:fladder/td_api_generated/td_api.dart' as td;
@@ -150,7 +152,7 @@ Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(Ref ref, String globalId) 
   }
 
   final uri = Uri.parse(serverUrl).resolve('me/library/media/$globalId');
-  final response = await http.get(uri, headers: login.header(ref));
+  final response = await appHttpClient.get(uri, headers: login.header(ref));
   if (response.statusCode != 200) {
     _webPlayLog('detail', 'HTTP ${response.statusCode}');
     return null;

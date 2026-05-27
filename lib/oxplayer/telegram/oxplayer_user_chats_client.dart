@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -87,7 +89,7 @@ class OxplayerUserChatsClient {
     }
     late http.Response r;
     try {
-      r = await http.get(uri, headers: _jsonHeaders);
+      r = await appHttpClient.get(uri, headers: _jsonHeaders);
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint(
@@ -153,7 +155,7 @@ class OxplayerUserChatsClient {
       if (chatType == 'supergroup') 'isForum': isForum,
     };
     final uri = Uri.parse('$apiBase/me/chats/upsert');
-    final r = await http.post(uri, headers: _jsonHeaders, body: jsonEncode(body));
+    final r = await appHttpClient.post(uri, headers: _jsonHeaders, body: jsonEncode(body));
     if (r.statusCode == 401) throw const OxUserChatsUnauthorized();
     if (r.statusCode != 200) {
       throw StateError('POST /me/chats/upsert failed: ${r.statusCode} ${r.body}');
@@ -162,7 +164,7 @@ class OxplayerUserChatsClient {
 
   Future<int> patchUserChatsIndexed({required List<Map<String, dynamic>> items}) async {
     final uri = Uri.parse('$apiBase/me/chats/indexed');
-    final r = await http.patch(
+    final r = await appHttpClient.patch(
       uri,
       headers: _jsonHeaders,
       body: jsonEncode(<String, dynamic>{'items': items}),
@@ -191,7 +193,7 @@ class OxplayerUserChatsClient {
       body['lastIndexedMessageId'] = lastIndexedMessageId;
     }
     final uri = Uri.parse('$apiBase/me/chats/by-tdlib-id/$tdlibChatId/ingest');
-    final r = await http.post(uri, headers: _jsonHeaders, body: jsonEncode(body));
+    final r = await appHttpClient.post(uri, headers: _jsonHeaders, body: jsonEncode(body));
     if (r.statusCode == 401) throw const OxUserChatsUnauthorized();
     if (r.statusCode != 200) {
       throw StateError('POST /me/chats/.../ingest failed: ${r.statusCode} ${r.body}');
@@ -210,7 +212,7 @@ class OxplayerUserChatsClient {
 
   Future<int> patchUserChatsShowInVideo({required List<Map<String, dynamic>> items}) async {
     final uri = Uri.parse('$apiBase/me/chats/show-in-video');
-    final r = await http.patch(
+    final r = await appHttpClient.patch(
       uri,
       headers: _jsonHeaders,
       body: jsonEncode(<String, dynamic>{'items': items}),
@@ -244,7 +246,7 @@ class OxplayerUserChatsClient {
     }
     final uri = Uri.parse('$apiBase/me/chats/by-tdlib-id/$tdlibChatId/media')
         .replace(queryParameters: qp);
-    final r = await http.get(uri, headers: _jsonHeaders);
+    final r = await appHttpClient.get(uri, headers: _jsonHeaders);
     if (r.statusCode == 401) throw const OxUserChatsUnauthorized();
     if (r.statusCode != 200) {
       throw StateError('GET /me/chats/.../media failed: ${r.statusCode} ${r.body}');

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
@@ -46,7 +48,7 @@ Future<bool?> fetchStreamsPlayerVerified(Ref ref, String mediaId) async {
 
   final uri = Uri.parse('$origin/me/library/media/$mediaId/stream-manifest-status');
   try {
-    final res = await http.get(uri, headers: creds.header(ref));
+    final res = await appHttpClient.get(uri, headers: creds.header(ref));
     if (res.statusCode != 200) return null;
     final j = jsonDecode(res.body) as Map<String, dynamic>?;
     final v = j?['streamsPlayerVerified'];
@@ -127,7 +129,7 @@ Future<void> postVerifiedStreamsManifestIfNeeded(
     'verified HTTP: POST $uri audio=${audio.length} subtitles=${subtitles.length}',
   );
   try {
-    final res = await http.post(
+    final res = await appHttpClient.post(
       uri,
       headers: {
         ...creds.header(ref),

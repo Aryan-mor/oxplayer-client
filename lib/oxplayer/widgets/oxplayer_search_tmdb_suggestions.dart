@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 /// One TMDB search suggestion as returned by `GET /search/suggestions`.
 class _TmdbSuggestion {
   const _TmdbSuggestion({
@@ -83,7 +85,7 @@ final _oxplayerTmdbSuggestionsProvider = FutureProvider.autoDispose.family<List<
 
     try {
       final headers = credentials.header(ref);
-      final res = await http.get(uri, headers: headers);
+      final res = await appHttpClient.get(uri, headers: headers);
       if (kDebugMode) debugPrint('[OX_TMDB] <-- ${res.statusCode} (${res.body.length} bytes)');
 
       if (res.statusCode != 200) {
@@ -204,7 +206,7 @@ class _TmdbPosterTile extends ConsumerWidget {
 
     try {
       final openUri = Uri.parse('$base/tmdb/open');
-      await http.post(
+      await appHttpClient.post(
         openUri,
         headers: {
           ...credentials.header(ref),

@@ -418,10 +418,10 @@ abstract final class OxplayerEnv {
     return kDebugMode ? 'development' : 'production';
   }
 
-  /// Performance trace sample rate (0–1). Default `0.1` when DSN is set.
+  /// Performance trace sample rate (0–1). Default `1.0` in debug, `0.1` in release when unset.
   static double get sentryTracesSampleRate {
     final raw = _pick(['SENTRY_TRACES_SAMPLE_RATE'], _cSentryTracesSampleRate).trim();
-    if (raw.isEmpty) return 0.1;
+    if (raw.isEmpty) return kDebugMode ? 1.0 : 0.1;
     final parsed = double.tryParse(raw);
     if (parsed == null) return 0.1;
     return parsed.clamp(0.0, 1.0);

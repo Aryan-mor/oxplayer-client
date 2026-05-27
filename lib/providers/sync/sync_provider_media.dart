@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
+
+import 'package:fladder/util/app_http_client.dart';
 import 'package:path/path.dart' as path;
 
 import 'package:fladder/models/item_base_model.dart';
@@ -28,7 +30,7 @@ extension SyncMediaHelpers on SyncNotifier {
       final canDownload = element.isExternal || (element.supportsExternalStream && element.url != null);
       if (canDownload) {
         try {
-          final response = await http.get(Uri.parse(element.url!));
+          final response = await appHttpClient.get(Uri.parse(element.url!));
           if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
             final ext = subtitleExtension(element.codec);
             final file = File(path.joinAll([directory.path, "${element.displayTitle}.${element.language}.$ext"]));
@@ -69,7 +71,7 @@ extension SyncMediaHelpers on SyncNotifier {
     for (var index = 0; index < (trickPlayData?.body?.images.length ?? 0); index++) {
       final image = trickPlayData?.body?.images[index];
       if (image != null) {
-        final http.Response response = await http.get(Uri.parse(image));
+        final http.Response response = await appHttpClient.get(Uri.parse(image));
         File? newFile;
         final fileName = "tile_$index.jpg";
         if (response.statusCode == 200) {
@@ -117,7 +119,7 @@ extension SyncMediaHelpers on SyncNotifier {
       final fileName = '$safeName.jpg';
 
       try {
-        final response = await http.get(Uri.parse(event.imageUrl));
+        final response = await appHttpClient.get(Uri.parse(event.imageUrl));
         if (response.statusCode != 200 || response.bodyBytes.isEmpty) return event;
 
         final file = File(path.joinAll([saveDirectory.path, fileName]));
@@ -138,7 +140,7 @@ extension SyncMediaHelpers on SyncNotifier {
 
   Future<ImageData?> urlDataToFileData(ImageData? data, Directory directory, String fileName) async {
     if (data?.path == null) return null;
-    final response = await http.get(Uri.parse(data?.path ?? ""));
+    final response = await appHttpClient.get(Uri.parse(data?.path ?? ""));
 
     final file = File(path.joinAll([directory.path, fileName]));
     file.writeAsBytesSync(response.bodyBytes);

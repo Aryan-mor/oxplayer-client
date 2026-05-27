@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/api_provider.dart';
@@ -43,7 +45,7 @@ Future<OxplayerLibrarySharePayload?> oxplayerPostLibraryShare(WidgetRef ref, Str
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
-  final res = await http.post(
+  final res = await appHttpClient.post(
     uri,
     headers: headers,
     body: jsonEncode(<String, dynamic>{'itemId': itemId}),

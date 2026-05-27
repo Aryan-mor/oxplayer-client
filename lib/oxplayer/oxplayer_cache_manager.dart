@@ -1,6 +1,8 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:fladder/util/app_http_client.dart';
+
 /// OXPlayer-aware cache manager.
 ///
 /// Differs from [CustomCacheManager] in two ways:
@@ -22,7 +24,7 @@ class OxplayerCacheManager {
 
 /// HTTP client that injects the ngrok tunnel bypass header on ngrok hosts.
 class _OxHttpClient extends http.BaseClient {
-  final _inner = http.Client();
+  final _inner = createAppHttpClient();
 
   static const _ngrokHosts = ['ngrok-free.app', 'ngrok.io', 'ngrok.app'];
 

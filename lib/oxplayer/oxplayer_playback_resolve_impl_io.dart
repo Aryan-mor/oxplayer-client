@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+
+import 'package:fladder/util/app_http_client.dart';
 import 'package:fladder/td_api_generated/td_api.dart' as td;
 
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
@@ -214,7 +216,7 @@ Future<_OxLibraryDetailDto?> _fetchLibraryMediaDetail(
   if (serverUrl == null || serverUrl.isEmpty || login == null) return null;
 
   final uri = Uri.parse(serverUrl).resolve('me/library/media/$globalId');
-  final response = await http.get(uri, headers: login.header(ref));
+  final response = await appHttpClient.get(uri, headers: login.header(ref));
   if (response.statusCode != 200) {
     oxTelegramLocalStreamLog(
         'prep FAIL', 'library HTTP ${response.statusCode}');
@@ -239,7 +241,7 @@ Future<bool?> _postRecoverFromBackup(
   headers['Content-Type'] = 'application/json; charset=utf-8';
 
   try {
-    final response = await http.post(
+    final response = await appHttpClient.post(
       uri,
       headers: headers,
       body: jsonEncode(<String, dynamic>{

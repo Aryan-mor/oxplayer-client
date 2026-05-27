@@ -10,6 +10,7 @@ import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
+import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -115,9 +116,7 @@ class OxplayerBackgroundSessionRefresh {
 
     try {
       final result = await oxplayerWithExclusiveSessionRefresh(
-        () => _oxplayerRunSplashSessionGateImpl(ref).timeout(
-          kOxplayerSplashSessionGateMaxWait,
-        ),
+        () => _oxplayerSplashSessionGateWithTimeout(ref),
       );
       _oxplayerApplyBackgroundAuthGateResult(ref, result);
     } catch (e) {
@@ -188,17 +187,7 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
   }
 
   final result = await oxplayerWithExclusiveSessionRefresh(
-    () => _oxplayerRunSplashSessionGateImpl(ref).timeout(
-      kOxplayerSplashSessionGateMaxWait,
-      onTimeout: () {
-        if (kDebugMode) {
-          debugPrint(
-            '[OX] oxplayerRunSplashSessionGate: exceeded $kOxplayerSplashSessionGateMaxWait',
-          );
-        }
-        return OxplayerSplashGateResult.needTelegramLogin;
-      },
-    ),
+    () => _oxplayerSplashSessionGateWithTimeout(ref),
   );
 
   if (result == OxplayerSplashGateResult.proceedToDashboard) {
@@ -209,6 +198,21 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
   }
 
   return result;
+}
+
+Future<OxplayerSplashGateResult> _oxplayerSplashSessionGateWithTimeout(dynamic ref) {
+  return awaitFutureWithTimeout(
+    _oxplayerRunSplashSessionGateImpl(ref),
+    kOxplayerSplashSessionGateMaxWait,
+    onTimeout: () {
+      if (kDebugMode) {
+        debugPrint(
+          '[OX] oxplayerRunSplashSessionGate: exceeded $kOxplayerSplashSessionGateMaxWait',
+        );
+      }
+      return OxplayerSplashGateResult.needTelegramLogin;
+    },
+  );
 }
 
 /// Prefer **`POST /auth/refresh` first** so returning from the Android back stack does not block on

@@ -57,7 +57,7 @@ abstract final class OxplayerSentry {
     final prevFlutter = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
       prevFlutter?.call(details);
-      if (!isActive) return;
+      if (!isActive || _shouldDropError(details.exception)) return;
       unawaited(
         Sentry.captureException(
           details.exception,
@@ -69,7 +69,7 @@ abstract final class OxplayerSentry {
     final prevPlatform = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
       // Expected when splash silent-restore times out before TDLib needs login UI.
-      if (isTdlibInteractiveLoginRequired(error)) {
+      if (_shouldDropError(error)) {
         return true;
       }
       final handled = prevPlatform?.call(error, stack) ?? false;
@@ -133,23 +133,35 @@ abstract final class OxplayerSentry {
     return 'oxplayer-client@${packageInfo.version}+${packageInfo.buildNumber}';
   }
 
-  static FutureOr<SentryEvent?> _beforeSend(SentryEvent event, Hint _) {
+  static FutureOr<SentryEvent?> _beforeSend(SentryEvent event, Hint hint) {
     if (_eventContainsSecret(event)) return null;
-    if (_eventIsBenignControlFlow(event)) return null;
+    if (_shouldDropError(event.throwable) || _eventIsBenignControlFlow(event)) {
+      return null;
+    }
     return event;
   }
 
+  static bool _shouldDropError(Object? error) =>
+      isTdlibInteractiveLoginRequired(error);
+
   static bool _eventIsBenignControlFlow(SentryEvent event) {
     for (final e in event.exceptions ?? const <SentryException>[]) {
-      final type = e.type;
-      if (type == 'TdlibInteractiveLoginRequired') return true;
-      final value = e.value;
-      if (value != null && value.contains('Telegram session is not ready yet')) {
-        return true;
-      }
+      if (_exceptionLooksLikeTdLoginRequired(e.type, e.value)) return true;
     }
+    final message = event.message?.formatted;
+    if (message != null && _textLooksLikeTdLoginRequired(message)) return true;
     return false;
   }
+
+  static bool _exceptionLooksLikeTdLoginRequired(String? type, String? value) {
+    if (type == 'TdlibInteractiveLoginRequired') return true;
+    if (value != null && _textLooksLikeTdLoginRequired(value)) return true;
+    return false;
+  }
+
+  static bool _textLooksLikeTdLoginRequired(String text) =>
+      text.contains('Telegram session is not ready yet') ||
+      text.contains('TdlibInteractiveLoginRequired');
 
   static bool _eventContainsSecret(SentryEvent event) {
     final message = event.message?.formatted;

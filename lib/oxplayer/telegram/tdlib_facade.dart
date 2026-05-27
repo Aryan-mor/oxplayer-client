@@ -80,6 +80,27 @@ typedef TdlibFacade = TdTelegramClient;
 bool isTdlibInteractiveLoginRequired(Object? error) =>
     error is TdlibInteractiveLoginRequired;
 
+/// After a timeout or UI bail-out, the caller no longer awaits [future]; swallow
+/// late async errors (e.g. [TdlibInteractiveLoginRequired]) so they are not reported as crashes.
+void detachFutureErrors(Future<dynamic> future) {
+  unawaited(future.then<void>((_) {}, onError: (_, __) {}));
+}
+
+/// Awaits [future] up to [timeout]. On timeout, [onTimeout] runs and [future] is detached.
+Future<T> awaitFutureWithTimeout<T>(
+  Future<T> future,
+  Duration timeout, {
+  required T Function() onTimeout,
+}) {
+  return future.timeout(
+    timeout,
+    onTimeout: () {
+      detachFutureErrors(future);
+      return onTimeout();
+    },
+  );
+}
+
 /// Awaits [TdTelegramClient.ensureAuthorized], optionally bounded by [timeout].
 ///
 /// When [timeout] fires first, the underlying [ensureAuthorized] future is still
@@ -88,16 +109,16 @@ bool isTdlibInteractiveLoginRequired(Object? error) =>
 Future<void> awaitTdEnsureAuthorized(
   TdTelegramClient td, {
   Duration? timeout,
-}) {
+}) async {
   final auth = td.ensureAuthorized();
   if (timeout == null) {
-    return auth;
+    await auth;
+    return;
   }
-  return auth.timeout(
-    timeout,
-    onTimeout: () {
-      auth.catchError((_) {});
-      throw TimeoutException('TDLib.ensureAuthorized', timeout);
-    },
-  );
+  try {
+    await auth.timeout(timeout);
+  } on TimeoutException {
+    detachFutureErrors(auth);
+    rethrow;
+  }
 }

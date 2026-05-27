@@ -9,24 +9,36 @@ part 'seerr_user_provider.g.dart';
 class SeerrUser extends _$SeerrUser {
   @override
   SeerrUserModel? build() {
-    _fetchUser();
+    if (isSeerrServerConfigured(ref)) {
+      _fetchUser();
+    }
     return null;
   }
 
   Future<void> _fetchUser() async {
-    final api = ref.read(seerrApiProvider);
-    final response = await api.me();
-    if (response.isSuccessful && response.body is SeerrUserModel) {
-      state = response.body as SeerrUserModel;
+    if (!isSeerrServerConfigured(ref)) return;
+    try {
+      final api = ref.read(seerrApiProvider);
+      final response = await api.me();
+      if (response.isSuccessful && response.body is SeerrUserModel) {
+        state = response.body as SeerrUserModel;
+      }
+    } catch (_) {
+      // Optional integration — ignore when Seerr is unavailable.
     }
   }
 
   Future<SeerrUserModel?> refreshUser() async {
-    final api = ref.read(seerrApiProvider);
-    final response = await api.me();
-    if (response.isSuccessful && response.body is SeerrUserModel) {
-      state = response.body as SeerrUserModel;
-      return response.body as SeerrUserModel;
+    if (!isSeerrServerConfigured(ref)) return null;
+    try {
+      final api = ref.read(seerrApiProvider);
+      final response = await api.me();
+      if (response.isSuccessful && response.body is SeerrUserModel) {
+        state = response.body as SeerrUserModel;
+        return response.body as SeerrUserModel;
+      }
+    } catch (_) {
+      // Optional integration — ignore when Seerr is unavailable.
     }
     return null;
   }

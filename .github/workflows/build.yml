@@ -223,15 +223,27 @@ jobs:
         if: needs.fetch-info.outputs.build_type != 'development'
         run: |
           flutter build apk --release --split-per-abi \
+            --split-debug-info=build/debug-info \
             --flavor production \
             --build-name=${{ needs.fetch-info.outputs.version_name }} \
             --build-number=${{ github.run_number }} \
             --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
           flutter build appbundle --release \
+            --split-debug-info=build/debug-info \
             --flavor production \
             --build-name=${{ needs.fetch-info.outputs.version_name }} \
             --build-number=${{ github.run_number }} \
             --dart-define-from-file="$FLUTTER_BUILD_ENV_FILE"
+
+      - name: Upload debug symbols to Sentry
+        if: needs.fetch-info.outputs.build_type != 'development'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_RELEASE: oxplayer-client@${{ needs.fetch-info.outputs.version_name }}+${{ github.run_number }}
+          SENTRY_DIST: ${{ github.run_number }}
+        run: dart run sentry_dart_plugin
 
       - name: Verify native ABI parity (Play 64-bit / no x86)
         if: needs.fetch-info.outputs.build_type != 'development'

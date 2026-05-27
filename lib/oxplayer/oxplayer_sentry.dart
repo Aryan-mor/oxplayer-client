@@ -130,6 +130,7 @@ abstract final class OxplayerSentry {
     options.enableTimeToFullDisplayTracing = true;
     options.beforeSend = _beforeSend;
     options.release = _releaseName(packageInfo);
+    options.dist = packageInfo.buildNumber;
   }
 
   static String _releaseName(PackageInfo packageInfo) {

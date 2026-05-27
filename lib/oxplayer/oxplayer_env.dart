@@ -1,8 +1,7 @@
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
-
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_debug.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 
 /// Runtime + compile-time configuration for OXPlayer (Telegram, API, optional keys).
 ///
@@ -97,6 +96,10 @@ abstract final class OxplayerEnv {
     'SENTRY_TRACES_SAMPLE_RATE',
     defaultValue: '',
   );
+  static const String _cSentryProfilesSampleRate = String.fromEnvironment(
+    'SENTRY_PROFILES_SAMPLE_RATE',
+    defaultValue: '',
+  );
   static const String _cSentryDebug = String.fromEnvironment(
     'SENTRY_DEBUG',
     defaultValue: '',
@@ -180,14 +183,11 @@ abstract final class OxplayerEnv {
     final hashDef = _cTelegramApiHash.trim().isNotEmpty;
     final hashDot = OxplayerDotenv.get('TELEGRAM_API_HASH').trim().isNotEmpty;
     final shortDef = _cWebAppShortName.trim().isNotEmpty;
-    final shortDot =
-        OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME').trim().isNotEmpty;
-    final botDef =
-        _cBotUsername.trim().isNotEmpty || _cBotUsernameLegacy.trim().isNotEmpty;
+    final shortDot = OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEBAPP_SHORT_NAME').trim().isNotEmpty;
+    final botDef = _cBotUsername.trim().isNotEmpty || _cBotUsernameLegacy.trim().isNotEmpty;
     final botDot = OxplayerDotenv.get('BOT_USERNAME').trim().isNotEmpty ||
         OxplayerDotenv.get('OXPLAYER_BOT_USERNAME').trim().isNotEmpty;
-    final urlDef =
-        _cTelegramWebAppUrl.trim().isNotEmpty || _cTelegramWebAppUrlAlt.trim().isNotEmpty;
+    final urlDef = _cTelegramWebAppUrl.trim().isNotEmpty || _cTelegramWebAppUrlAlt.trim().isNotEmpty;
     final urlDot = OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEBAPP_URL').trim().isNotEmpty ||
         OxplayerDotenv.get('OXPLAYER_TELEGRAM_WEB_APP_URL').trim().isNotEmpty;
 
@@ -339,8 +339,7 @@ abstract final class OxplayerEnv {
   }
 
   static bool isGooglePlayReviewPhone(String phone) {
-    return normalizeReviewPhoneNumber(phone) ==
-        normalizeReviewPhoneNumber(googlePlayReviewPhone);
+    return normalizeReviewPhoneNumber(phone) == normalizeReviewPhoneNumber(googlePlayReviewPhone);
   }
 
   static bool isGooglePlayReviewCredentials(String phone, String code) {
@@ -364,8 +363,7 @@ abstract final class OxplayerEnv {
 
   static String? get providerBotUsername {
     if (!OxplayerConfig.isEnabled) return null;
-    var t = _pick(['PROVIDER_BOT_USERNAME'], _cProviderBotUsername)
-        .replaceFirst(RegExp(r'^@'), '');
+    var t = _pick(['PROVIDER_BOT_USERNAME'], _cProviderBotUsername).replaceFirst(RegExp(r'^@'), '');
     return t.isEmpty ? null : t;
   }
 
@@ -421,6 +419,16 @@ abstract final class OxplayerEnv {
   /// Performance trace sample rate (0–1). Default `1.0` in debug, `0.1` in release when unset.
   static double get sentryTracesSampleRate {
     final raw = _pick(['SENTRY_TRACES_SAMPLE_RATE'], _cSentryTracesSampleRate).trim();
+    if (raw.isEmpty) return kDebugMode ? 1.0 : 0.1;
+    final parsed = double.tryParse(raw);
+    if (parsed == null) return 0.1;
+    return parsed.clamp(0.0, 1.0);
+  }
+
+  /// CPU profile sample rate (0–1), relative to [sentryTracesSampleRate]. Native iOS/macOS only.
+  static double get sentryProfilesSampleRate {
+    final raw =
+        _pick(['SENTRY_PROFILES_SAMPLE_RATE'], _cSentryProfilesSampleRate).trim();
     if (raw.isEmpty) return kDebugMode ? 1.0 : 0.1;
     final parsed = double.tryParse(raw);
     if (parsed == null) return 0.1;

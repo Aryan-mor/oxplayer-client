@@ -115,15 +115,20 @@ abstract final class OxplayerSentry {
   static void _configure(SentryFlutterOptions options, PackageInfo packageInfo) {
     options.dsn = OxplayerEnv.sentryDsn;
     options.environment = OxplayerEnv.sentryEnvironment;
-    // Required for transactions, route TTID/TTFD, and HTTP child spans.
+    // Required for transactions, route TTID/TTFD, HTTP child spans, and profiling.
     options.tracesSampleRate = OxplayerEnv.sentryTracesSampleRate;
     if ((options.tracesSampleRate ?? 0) <= 0) {
       options.tracesSampleRate = kDebugMode ? 1.0 : 0.1;
     }
+    // CPU profiles for sampled transactions (native iOS/macOS; no-op on Android/web).
+    // ignore: experimental_member_use
+    options.profilesSampleRate = OxplayerEnv.sentryProfilesSampleRate;
     options.debug = OxplayerEnv.sentryDebug;
     options.enableLogs = OxplayerEnv.sentryDebug;
     options.attachStacktrace = true;
-    options.enableAutoSessionTracking = false;
+    // Release Health (crash-free sessions/users) — requires session events.
+    // Web: [SentryNavigatorObserver] in main.dart; routes must have names (auto_route).
+    options.enableAutoSessionTracking = true;
     options.recordHttpBreadcrumbs = false;
     options.captureNativeFailedRequests = false;
     options.enableAutoPerformanceTracing = true;

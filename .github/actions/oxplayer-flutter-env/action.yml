@@ -49,6 +49,9 @@ runs:
             keys["SENTRY_TRACES_SAMPLE_RATE"] = (
                 env_first("SENTRY_TRACES_SAMPLE_RATE") or "0.1"
             )
+            keys["SENTRY_PROFILES_SAMPLE_RATE"] = (
+                env_first("SENTRY_PROFILES_SAMPLE_RATE") or "0.1"
+            )
             keys["SENTRY_DEBUG"] = env_first("SENTRY_DEBUG") or "0"
 
         out = Path(os.environ["RUNNER_TEMP"]) / "flutter-build-env.json"

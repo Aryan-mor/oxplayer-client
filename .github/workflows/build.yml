@@ -133,6 +133,7 @@ jobs:
       SENTRY_DSN: ${{ secrets.SENTRY_DSN || vars.SENTRY_DSN }}
       SENTRY_ENVIRONMENT: ${{ secrets.SENTRY_ENVIRONMENT || vars.SENTRY_ENVIRONMENT }}
       SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE || vars.SENTRY_TRACES_SAMPLE_RATE }}
+      SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE || vars.SENTRY_PROFILES_SAMPLE_RATE }}
       SENTRY_DEBUG: ${{ secrets.SENTRY_DEBUG || vars.SENTRY_DEBUG }}
     steps:
       - uses: actions/checkout@v5

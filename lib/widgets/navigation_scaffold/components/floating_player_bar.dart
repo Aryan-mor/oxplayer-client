@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -41,22 +43,27 @@ class _CurrentlyPlayingBarState extends ConsumerState<FloatingPlayerBar> {
   Duration lastPosition = Duration.zero;
 
   Future<void> openFullScreenPlayer() async {
+    if (!mounted) return;
     setState(() => showExpandButton = false);
     ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(state: VideoPlayerState.fullScreen));
-    await Navigator.of(context, rootNavigator: true).push(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final exitDesktopFullscreen = AdaptiveLayout.of(context).isDesktop || kIsWeb;
+    await navigator.push(
       MaterialPageRoute(
         builder: (context) => const VideoPlayer(),
       ),
     );
-    if (AdaptiveLayout.of(context).isDesktop || kIsWeb) {
-      final fullScreen = await windowManager.isFullScreen();
-      if (fullScreen) {
-        await windowManager.setFullScreen(false);
-      }
+    if (!mounted) return;
+    if (exitDesktopFullscreen) {
+      try {
+        final fullScreen = await windowManager.isFullScreen();
+        if (fullScreen) {
+          await windowManager.setFullScreen(false);
+        }
+      } catch (_) {}
     }
-    if (context.mounted) {
-      await context.refreshData();
-    }
+    if (!mounted) return;
+    await context.refreshData();
   }
 
   Future<void> stopPlayer() async => ref.read(videoPlayerProvider).stop();
@@ -120,7 +127,11 @@ class _CurrentlyPlayingBarState extends ConsumerState<FloatingPlayerBar> {
         key: const Key("CurrentlyPlayingBar"),
         confirmDismiss: (direction) async {
           if (direction == DismissDirection.up) {
-            await openFullScreenPlayer();
+            // Defer until Dismissible finishes its resize animation; using context
+            // inside confirmDismiss after await races unmount (OXPLAYER-CLIENT-M).
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) unawaited(openFullScreenPlayer());
+            });
           } else {
             await stopPlayer();
           }

@@ -51,6 +51,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
         if (!isOffline) {
           final gateResult = await oxplayerRunSplashSessionGate(ref);
+          if (gateResult == OxplayerSplashGateResult.serverUnavailable) {
+            if (!context.mounted) return;
+            context.router.replace(const OxplayerServerUnavailableRoute());
+            return;
+          }
           if (gateResult != OxplayerSplashGateResult.proceedToDashboard) {
             await oxplayerClearIncompleteLoginSession(ref);
             if (!context.mounted) return;

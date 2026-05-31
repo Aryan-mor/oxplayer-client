@@ -2763,5 +2763,15 @@
   "oxplayerLoginBotQrTooltip": "Show bot QR code",
   "@oxplayerLoginBotQrTooltip": {},
   "oxplayerLoginBotQrShort": "QR",
-  "@oxplayerLoginBotQrShort": {}
+  "@oxplayerLoginBotQrShort": {},
+  "oxplayerServerUnavailableTitle": "Server unavailable",
+  "@oxplayerServerUnavailableTitle": {},
+  "oxplayerServerUnavailableBody": "We can't reach the OXPlayer server right now. Your sign-in is still saved. Follow our Telegram channel for news and status updates.",
+  "@oxplayerServerUnavailableBody": {},
+  "oxplayerServerUnavailableOpenChannelGeneric": "Open Telegram channel",
+  "@oxplayerServerUnavailableOpenChannelGeneric": {},
+  "oxplayerServerUnavailableRetry": "Try again",
+  "@oxplayerServerUnavailableRetry": {},
+  "oxplayerServerUnavailableOfflineDownloads": "Offline downloads",
+  "@oxplayerServerUnavailableOfflineDownloads": {}
 }

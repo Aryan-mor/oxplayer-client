@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fladder/oxplayer/oxplayer_api_reachability.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
@@ -127,6 +128,14 @@ final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
   final hasToken = oxplayerHasApiSessionToken(ref);
   final hasRefresh = oxplayerHasOxRefreshToken(ref);
   final networkOffline = ref.watch(connectivityStatusProvider) == ConnectionState.offline;
+  final apiReachable = ref.watch(oxplayerApiServerReachableProvider);
+
+  if (!apiReachable && (hasToken || hasRefresh)) {
+    return const OxplayerAppStatus(
+      kind: OxplayerAppStatusKind.error,
+      label: 'Server unavailable',
+    );
+  }
 
   // v2: api-v2 session is enough; do not show Offline when Jellyfin calls are working but
   // connectivity_plus flapped or [userProvider] is briefly empty after bootstrap.

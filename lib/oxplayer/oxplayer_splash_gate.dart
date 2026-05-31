@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fladder/models/account_model.dart';
+import 'package:fladder/oxplayer/oxplayer_api_reachability.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_device_identity.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
@@ -22,6 +23,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum OxplayerSplashGateResult {
   proceedToDashboard,
+  /// Saved session kept; oxplayer-be did not respond to `/health`.
+  serverUnavailable,
   needLogin,
 }
 
@@ -128,9 +131,12 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
 
   if (result == OxplayerSplashGateResult.proceedToDashboard) {
     oxplayerNoteSessionEstablished();
+    oxplayerSetApiServerReachable(ref, true);
     ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
     ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
         OxplayerBackgroundAuthStatus.online;
+  } else if (result == OxplayerSplashGateResult.serverUnavailable) {
+    oxplayerSetApiServerReachable(ref, false);
   }
 
   return result;
@@ -215,6 +221,7 @@ Future<bool> oxplayerSilentRefreshSession(
           exchanged,
           awaitServerInfo: false,
         );
+    r.read(oxplayerApiServerReachableProvider.notifier).state = true;
     r.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
     r.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
         OxplayerBackgroundAuthStatus.online;
@@ -224,6 +231,7 @@ Future<bool> oxplayerSilentRefreshSession(
       debugPrint('[OX] silent refresh auth failed: ${e.message}');
     }
     if (e.isNetworkUnreachable) {
+      r.read(oxplayerApiServerReachableProvider.notifier).state = false;
       final stillHaveToken =
           r.read(sharedUtilityProvider).getActiveAccount()?.credentials.token.trim().isNotEmpty == true;
       if (stillHaveToken) {
@@ -244,6 +252,7 @@ Future<bool> oxplayerSilentRefreshSession(
     final stillHaveToken =
         r.read(sharedUtilityProvider).getActiveAccount()?.credentials.token.trim().isNotEmpty == true;
     if (stillHaveToken) {
+      r.read(oxplayerApiServerReachableProvider.notifier).state = false;
       r.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
           OxplayerBackgroundAuthStatus.online;
       return true;
@@ -286,10 +295,18 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref
 
   if (!await oxplayerProbeApiReachable(api)) {
     if (kDebugMode) {
-      debugPrint('[OX] splash: API unreachable — skip refresh, go to login');
+      debugPrint('[OX] splash: API unreachable — keep session, server-unavailable UI');
+    }
+    if (token.isNotEmpty || refresh.isNotEmpty) {
+      _oxplayerResumeWithCachedSession(ref);
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.idle;
+      return OxplayerSplashGateResult.serverUnavailable;
     }
     return OxplayerSplashGateResult.needLogin;
   }
+
+  oxplayerSetApiServerReachable(ref, true);
 
   // Restore cached tokens first, then refresh without logging out on transient failures.
   if (token.isNotEmpty && refresh.isNotEmpty) {

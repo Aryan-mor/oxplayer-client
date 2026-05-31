@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fladder/oxplayer/oxplayer_api_reachability.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -110,6 +111,10 @@ final List<AutoRoute> _defaultRoutes = [
       page: OxplayerLoginRoute.page,
       path: '/ox-login',
       maintainState: false),
+  AutoRoute(
+      page: OxplayerServerUnavailableRoute.page,
+      path: '/server-unavailable',
+      maintainState: false),
 ];
 
 final List<AutoRoute> _settingsChildren = [
@@ -205,11 +210,24 @@ class AuthGuard extends AutoRouteGuard {
     final oxOffline = OxplayerConfig.isEnabled &&
         ref.read(effectiveOfflineModeProvider) &&
         ref.read(userProvider) != null;
+    final oxServerDown = OxplayerConfig.isEnabled &&
+        !ref.read(oxplayerApiServerReachableProvider) &&
+        ref.read(userProvider) != null;
     final offlineAllowedRoute = resolver.routeName == SyncedRoute.name ||
         resolver.routeName == SplashRoute().routeName ||
         resolver.routeName == const LockRoute().routeName ||
         resolver.routeName == LoginRoute().routeName ||
-        resolver.routeName == OxplayerLoginRoute.name;
+        resolver.routeName == OxplayerLoginRoute.name ||
+        resolver.routeName == OxplayerServerUnavailableRoute.name;
+    if (oxServerDown && !offlineAllowedRoute) {
+      if (kDebugMode) {
+        debugPrint(
+          '[OX AuthGuard] server down redirect -> OxplayerServerUnavailableRoute from ${resolver.routeName}',
+        );
+      }
+      await resolver.redirectUntil(const OxplayerServerUnavailableRoute());
+      return;
+    }
     if (oxOffline && !offlineAllowedRoute) {
       if (kDebugMode) {
         debugPrint('[OX AuthGuard] offline redirect -> SyncedRoute from ${resolver.routeName}');
@@ -224,7 +242,8 @@ class AuthGuard extends AutoRouteGuard {
         resolver.routeName == LoginRoute().routeName ||
         resolver.routeName == SplashRoute().routeName ||
         (OxplayerConfig.isEnabled &&
-            resolver.routeName == OxplayerLoginRoute.name)) {
+            (resolver.routeName == OxplayerLoginRoute.name ||
+                resolver.routeName == OxplayerServerUnavailableRoute.name))) {
       // We assume the last main focus is no longer active after navigating
       lastMainFocus = null;
       if (kDebugMode) {

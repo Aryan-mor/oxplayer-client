@@ -70,6 +70,10 @@ abstract final class OxplayerEnv {
     'PROVIDER_BOT_USERNAME',
     defaultValue: '',
   );
+  static const String _cTelegramNewsChannel = String.fromEnvironment(
+    'OXPLAYER_TELEGRAM_NEWS_CHANNEL',
+    defaultValue: '',
+  );
   static const String _cSubdlApiKey = String.fromEnvironment(
     'SUBDL_API_KEY',
     defaultValue: '',
@@ -269,6 +273,38 @@ abstract final class OxplayerEnv {
     ).replaceFirst(RegExp(r'^@'), '');
     t = compactTelegramWireUrl(t);
     return t.isEmpty ? null : t;
+  }
+
+  /// Public Telegram channel for status / news (`@channel` or `https://t.me/...`).
+  static String? get telegramNewsChannelRaw {
+    if (!OxplayerConfig.isEnabled) return null;
+    final t = _pick(['OXPLAYER_TELEGRAM_NEWS_CHANNEL'], _cTelegramNewsChannel).trim();
+    return t.isEmpty ? null : t;
+  }
+
+  /// `https://t.me/<channel>` for [telegramNewsChannelRaw].
+  static String? get telegramNewsChannelLink {
+    final raw = telegramNewsChannelRaw;
+    if (raw == null) return null;
+    final t = compactTelegramWireUrl(raw);
+    if (t.isEmpty) return null;
+    if (t.startsWith('http://') || t.startsWith('https://')) return t;
+    final handle = t.replaceFirst(RegExp(r'^@'), '');
+    if (handle.isEmpty) return null;
+    return 'https://t.me/$handle';
+  }
+
+  /// Display label for the news channel button (without `@`).
+  static String? get telegramNewsChannelLabel {
+    final raw = telegramNewsChannelRaw;
+    if (raw == null) return null;
+    var t = raw.trim();
+    if (t.startsWith('http://') || t.startsWith('https://')) {
+      final uri = Uri.tryParse(t);
+      final seg = uri?.pathSegments.where((s) => s.isNotEmpty).firstOrNull;
+      if (seg != null) return seg;
+    }
+    return t.replaceFirst(RegExp(r'^@'), '');
   }
 
   /// `https://t.me/<bot>` when [botUsername] is set.

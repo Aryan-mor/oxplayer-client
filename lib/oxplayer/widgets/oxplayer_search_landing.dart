@@ -1,6 +1,7 @@
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_help_content.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/oxplayer/providers/ox_home_banner_discovery_cache.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
@@ -166,7 +167,7 @@ class OxplayerSearchLanding extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (data) {
         if (!data.hasAny) {
-          return const SizedBox.shrink();
+          return const OxplayerHelpContent(embedded: true);
         }
         return PosterRow(
           posters: data.mixedPosters,

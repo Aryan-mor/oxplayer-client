@@ -6,7 +6,9 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/models/login_screen_model.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/auth_provider.dart';
+import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/login/login_edit_user.dart';
 import 'package:fladder/screens/login/login_screen_credentials.dart';
 import 'package:fladder/screens/login/login_user_grid.dart';
@@ -45,6 +47,10 @@ class _LoginPageState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (OxplayerConfig.isEnabled) {
+        context.router.replace(const OxplayerLoginRoute());
+        return;
+      }
       ref.read(authProvider.notifier).initModel();
       if (widget.authLink != null) {
         final data = AuthLinkData.parse(widget.authLink!);

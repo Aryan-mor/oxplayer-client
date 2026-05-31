@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
+import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -89,44 +90,66 @@ class OxplayerTelegramSessionReadyNotifier extends Notifier<bool> {
   }
 }
 
-final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
-  final networkOffline = ref.watch(connectivityStatusProvider) == ConnectionState.offline;
-  if (networkOffline) {
-    return const OxplayerAppStatus(
-      kind: OxplayerAppStatusKind.offline,
-      label: 'Offline',
-    );
-  }
+/// Jellyfin access token from [userProvider] or OX auth bootstrap [authProvider] temp creds.
+bool oxplayerHasApiSessionToken(Ref ref) {
+  final fromUser = ref.watch(userProvider.select((u) => u?.credentials.token.trim() ?? ''));
+  if (fromUser.isNotEmpty) return true;
+  final fromAuth = ref.watch(
+    authProvider.select((s) => s.serverLoginModel?.tempCredentials.token.trim() ?? ''),
+  );
+  return fromAuth.isNotEmpty;
+}
 
+bool oxplayerHasOxRefreshToken(Ref ref) {
+  final fromUser =
+      ref.watch(userProvider.select((u) => u?.credentials.oxRefreshToken.trim() ?? ''));
+  if (fromUser.isNotEmpty) return true;
+  return ref.watch(
+        authProvider.select((s) => s.serverLoginModel?.tempCredentials.oxRefreshToken.trim() ?? ''),
+      ).isNotEmpty;
+}
+
+final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
   if (!OxplayerConfig.isEnabled) {
+    final networkOffline = ref.watch(connectivityStatusProvider) == ConnectionState.offline;
+    if (networkOffline) {
+      return const OxplayerAppStatus(
+        kind: OxplayerAppStatusKind.offline,
+        label: 'Offline',
+      );
+    }
     return const OxplayerAppStatus(
       kind: OxplayerAppStatusKind.online,
       label: 'Online',
     );
   }
 
-  final user = ref.watch(userProvider);
-  final hasToken = user != null && user.credentials.token.trim().isNotEmpty;
-  if (!hasToken) {
+  final hasToken = oxplayerHasApiSessionToken(ref);
+  final hasRefresh = oxplayerHasOxRefreshToken(ref);
+  final networkOffline = ref.watch(connectivityStatusProvider) == ConnectionState.offline;
+
+  // v2: api-v2 session is enough; do not show Offline when Jellyfin calls are working but
+  // connectivity_plus flapped or [userProvider] is briefly empty after bootstrap.
+  if (!hasToken && !hasRefresh) {
     return const OxplayerAppStatus(
       kind: OxplayerAppStatusKind.offline,
       label: 'Offline',
       message: 'No saved session',
     );
   }
+  if (networkOffline && !hasToken) {
+    return const OxplayerAppStatus(
+      kind: OxplayerAppStatusKind.offline,
+      label: 'Offline',
+    );
+  }
 
   final authStatus = ref.watch(oxplayerBackgroundAuthStatusProvider);
-  if (authStatus == OxplayerBackgroundAuthStatus.error) {
+  if (authStatus == OxplayerBackgroundAuthStatus.error && !hasToken) {
     return OxplayerAppStatus(
       kind: OxplayerAppStatusKind.error,
       label: 'Connection issue',
       message: ref.watch(oxplayerBackgroundAuthErrorProvider)?.toString(),
-    );
-  }
-  if (authStatus == OxplayerBackgroundAuthStatus.connecting) {
-    return const OxplayerAppStatus(
-      kind: OxplayerAppStatusKind.connecting,
-      label: 'Connecting',
     );
   }
   if (authStatus == OxplayerBackgroundAuthStatus.refreshing) {
@@ -135,16 +158,23 @@ final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
       label: 'Refreshing session',
     );
   }
+  if (authStatus == OxplayerBackgroundAuthStatus.connecting) {
+    return const OxplayerAppStatus(
+      kind: OxplayerAppStatusKind.connecting,
+      label: 'Connecting',
+    );
+  }
 
-  final tgReady = kIsWeb ? true : ref.watch(oxplayerTelegramSessionReadyProvider);
+  // TDLib optional (My Telegram only); never block "Online" for claim-code + api-v2.
+  if (!kIsWeb && hasToken) {
+    return const OxplayerAppStatus(
+      kind: OxplayerAppStatusKind.online,
+      label: 'Online',
+    );
+  }
+
+  final tgReady = ref.watch(oxplayerTelegramSessionReadyProvider);
   if (!tgReady && authStatus != OxplayerBackgroundAuthStatus.online) {
-    // After interactive login the Jellyfin token is valid; TDLib may still be catching up.
-    if (hasToken && authStatus == OxplayerBackgroundAuthStatus.idle) {
-      return const OxplayerAppStatus(
-        kind: OxplayerAppStatusKind.online,
-        label: 'Online',
-      );
-    }
     return const OxplayerAppStatus(
       kind: OxplayerAppStatusKind.connecting,
       label: 'Connecting Telegram',
@@ -161,17 +191,12 @@ final oxplayerAppStatusProvider = Provider<OxplayerAppStatus>((ref) {
 /// OX = real network loss or no saved Jellyfin token. Telegram reconnection is
 /// represented as "connecting" so saved users can continue using cached UI.
 final effectiveOfflineModeProvider = Provider<bool>((ref) {
-  final networkOffline = ref.watch(connectivityStatusProvider) == ConnectionState.offline;
   if (!OxplayerConfig.isEnabled) {
-    return networkOffline;
+    return ref.watch(connectivityStatusProvider) == ConnectionState.offline;
   }
-  if (networkOffline) {
+  if (!oxplayerHasApiSessionToken(ref) && !oxplayerHasOxRefreshToken(ref)) {
     return true;
   }
-  final user = ref.watch(userProvider);
-  final hasToken = user != null && user.credentials.token.trim().isNotEmpty;
-  if (!hasToken) {
-    return true;
-  }
+  // OX: cached session + LAN api-v2 — not "offline mode" when the radio says offline but HTTP works.
   return false;
 });

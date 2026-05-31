@@ -101,27 +101,15 @@ String buildAuthUrl(AuthLinkData data) {
   return 'oxplayer:///login?authLink=$payload';
 }
 
-String? _tgWebAppDataFromUri(Uri payload) {
-  final direct = payload.queryParameters['tgWebAppData'];
-  if (direct != null && direct.isNotEmpty) return direct;
-  if (!payload.hasFragment) return null;
-  try {
-    return Uri.splitQueryString(payload.fragment)['tgWebAppData'];
-  } catch (_) {
-    return null;
-  }
-}
-
 PageRouteInfo? payloadToRoute(Uri? payload) {
   if (payload == null) return null;
 
-  if (payload.path.contains('ox-login')) {
-    return OxplayerTelegramLoginRoute(tgWebAppData: _tgWebAppDataFromUri(payload));
-  }
-
-  if (payload.path.contains('/login')) {
+  if (payload.path.contains('ox-login') || payload.path.contains('/login')) {
     if (OxplayerConfig.isEnabled) {
-      return OxplayerTelegramLoginRoute(tgWebAppData: _tgWebAppDataFromUri(payload));
+      return const OxplayerLoginRoute();
+    }
+    if (!payload.path.contains('/login')) {
+      return null;
     }
     final authLink = payload.queryParameters['authLink'];
     if (authLink != null && authLink.isNotEmpty) {
@@ -146,19 +134,13 @@ PageRouteInfo? payloadToRoute(Uri? payload) {
   return null;
 }
 
-String _oxLoginPath(OxplayerTelegramLoginRouteArgs? args) {
-  final tg = args?.tgWebAppData;
-  if (tg == null || tg.isEmpty) return '/ox-login';
-  return '/ox-login?tgWebAppData=${Uri.encodeQueryComponent(tg)}';
-}
-
 String pageRouteInfoToPath(PageRouteInfo route) {
   try {
     return switch (route) {
       DetailsRoute() => '/details?id=${route.queryParams.get('id')}',
       SeerrDetailsRoute() =>
         '/seerr?mediaType=${route.queryParams.get('mediaType')}&tmdbId=${route.queryParams.get('tmdbId')}',
-      OxplayerTelegramLoginRoute(:final args) => _oxLoginPath(args),
+      OxplayerLoginRoute() => '/ox-login',
       LoginRoute() => '/login?authLink=${route.queryParams.get('authLink')}',
       _ => '/',
     };

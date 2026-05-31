@@ -107,7 +107,7 @@ final List<AutoRoute> _defaultRoutes = [
   AutoRoute(page: SplashRoute.page, path: '/splash'),
   AutoRoute(page: LoginRoute.page, path: '/login', maintainState: false),
   AutoRoute(
-      page: OxplayerTelegramLoginRoute.page,
+      page: OxplayerLoginRoute.page,
       path: '/ox-login',
       maintainState: false),
 ];
@@ -196,9 +196,9 @@ class AuthGuard extends AutoRouteGuard {
     if (OxplayerConfig.isEnabled &&
         resolver.routeName == LoginRoute().routeName) {
       if (kDebugMode) {
-        debugPrint('[OX AuthGuard] redirect Login -> OxplayerTelegramLoginRoute');
+        debugPrint('[OX AuthGuard] redirect Login -> OxplayerLoginRoute');
       }
-      await resolver.redirectUntil(OxplayerTelegramLoginRoute());
+      await resolver.redirectUntil(const OxplayerLoginRoute());
       return;
     }
 
@@ -209,7 +209,7 @@ class AuthGuard extends AutoRouteGuard {
         resolver.routeName == SplashRoute().routeName ||
         resolver.routeName == const LockRoute().routeName ||
         resolver.routeName == LoginRoute().routeName ||
-        resolver.routeName == OxplayerTelegramLoginRoute.name;
+        resolver.routeName == OxplayerLoginRoute.name;
     if (oxOffline && !offlineAllowedRoute) {
       if (kDebugMode) {
         debugPrint('[OX AuthGuard] offline redirect -> SyncedRoute from ${resolver.routeName}');
@@ -224,7 +224,7 @@ class AuthGuard extends AutoRouteGuard {
         resolver.routeName == LoginRoute().routeName ||
         resolver.routeName == SplashRoute().routeName ||
         (OxplayerConfig.isEnabled &&
-            resolver.routeName == OxplayerTelegramLoginRoute.name)) {
+            resolver.routeName == OxplayerLoginRoute.name)) {
       // We assume the last main focus is no longer active after navigating
       lastMainFocus = null;
       if (kDebugMode) {
@@ -241,7 +241,7 @@ class AuthGuard extends AutoRouteGuard {
         resolver.next(true);
       } else {
         if (OxplayerConfig.isEnabled) {
-          router.replace(OxplayerTelegramLoginRoute());
+          router.replace(const OxplayerLoginRoute());
         } else {
           router.replace(LoginRoute());
         }

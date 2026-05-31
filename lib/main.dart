@@ -44,7 +44,6 @@ Future<void> _runApp(List<String> args) async {
   await OxplayerDotenv.ensureLoaded();
   if (kDebugMode) {
     OxplayerEnv.debugLogApiResolution();
-    OxplayerEnv.debugLogTelegramReadiness();
     debugPrint(
       '[OX main] dotenv loaded=${OxplayerDotenv.isLoaded} '
       'OxplayerConfig.isEnabled=${OxplayerConfig.isEnabled} '

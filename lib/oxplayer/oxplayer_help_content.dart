@@ -71,7 +71,11 @@ class OxplayerHelpContent extends StatelessWidget {
           const SizedBox(height: 20),
         ],
         Text(
-          context.localized.oxplayerHelpBody,
+          link != null && bot != null
+              ? '${context.localized.oxplayerHelpBody}\n\n'
+                  'In Telegram, open @$bot and send /login to sign in. '
+                  'Forward media to the bot to add it to your library.'
+              : context.localized.oxplayerHelpBody,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyLarge,
         ),
@@ -82,6 +86,15 @@ class OxplayerHelpContent extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Set OXPLAYER_BOT_USERNAME in assets/env/default.env '
+            '(or run pnpm dev:server from oxplayer to sync from TELEGRAM_MAIN_BOT_USERNAME).',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],

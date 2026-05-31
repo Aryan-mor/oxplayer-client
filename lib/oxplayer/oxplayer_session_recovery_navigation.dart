@@ -1,37 +1,31 @@
 import 'dart:async';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_riverpod_ref.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/routes/auto_router.dart' as fladder_stack;
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Root stack router from [BaseAppWrapperState] ([fladder_stack.AutoRouter]), for navigation without a [BuildContext].
-final oxplayerRegisteredAppRouterProvider = StateProvider<fladder_stack.AutoRouter?>((ref) => null);
+final oxplayerRegisteredAppRouterProvider =
+    StateProvider<fladder_stack.AutoRouter?>((ref) => null);
 
 bool _oxSessionRecoveryNavigationScheduled = false;
 
-/// After an irrecoverable OX auth failure (e.g. `POST /auth/refresh` **401**), clear the Jellyfin
-/// session and send the user to re-login.
-///
-/// [telegramTdlibAuthorized] is **true** when TDLib already has an interactive session (user is
-/// "logged in" in Telegram); they are sent to [OxplayerTelegramLoginRoute] to re-establish the
-/// OX/Jellyfin session. When **false**, they are sent to [LoginRoute] (on OX builds [AuthGuard]
-/// redirects that to [OxplayerTelegramLoginRoute]).
-void oxplayerScheduleSessionRecoveryNavigation(
-  Ref ref, {
-  required bool telegramTdlibAuthorized,
-}) {
+/// After an irrecoverable auth failure, clear the session and open claim-code login.
+void oxplayerScheduleSessionRecoveryNavigation(dynamic ref) {
   if (kIsWeb || !OxplayerConfig.isEnabled) return;
   if (_oxSessionRecoveryNavigationScheduled) return;
   _oxSessionRecoveryNavigationScheduled = true;
 
+  final r = oxplayerCoerceRef(ref);
+
   scheduleMicrotask(() async {
     try {
-      ref.read(authProvider.notifier).clearAllProviders();
+      r.read(authProvider.notifier).clearAllProviders();
 
-      final router = ref.read(oxplayerRegisteredAppRouterProvider);
+      final router = r.read(oxplayerRegisteredAppRouterProvider);
       if (router == null) {
         if (kDebugMode) {
           debugPrint('[OX] session recovery: no app router registered yet');
@@ -39,19 +33,13 @@ void oxplayerScheduleSessionRecoveryNavigation(
         return;
       }
 
-      if (telegramTdlibAuthorized) {
-        await router.replaceAll([OxplayerTelegramLoginRoute()]);
-      } else {
-        await router.replaceAll([LoginRoute()]);
-      }
+      await router.replaceAll([const OxplayerLoginRoute()]);
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('[OX] session recovery navigation failed: $e\n$st');
       }
     } finally {
-      Future.delayed(const Duration(seconds: 2), () {
-        _oxSessionRecoveryNavigationScheduled = false;
-      });
+      _oxSessionRecoveryNavigationScheduled = false;
     }
   });
 }

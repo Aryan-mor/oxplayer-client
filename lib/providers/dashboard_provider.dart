@@ -5,10 +5,8 @@ import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/home_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/channel_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_resume_watching_dedupe.dart';
-import 'package:fladder/oxplayer/providers/ox_home_banner_discovery_cache.dart';
 import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/live_tv_provider.dart';
@@ -23,16 +21,13 @@ final dashboardProvider = StateNotifierProvider<DashboardNotifier, HomeModel>((r
 });
 
 class DashboardNotifier extends StateNotifier<HomeModel> {
-  DashboardNotifier(this.ref) : super(HomeModel()) {
-    unawaited(_hydrateBannerFromDiskCache());
-  }
+  DashboardNotifier(this.ref) : super(HomeModel());
 
   final Ref ref;
 
   late final JellyService api = ref.read(jellyApiProvider);
 
   Future<void>? _fetchDashboardInFlight;
-  Future<void>? _fetchBannerInFlight;
 
   /// Fladder-style: resume / next up / live TV only (no hero discovery).
   Future<void> fetchNextUpAndResume({bool force = false}) async {
@@ -66,84 +61,6 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
     }
   }
 
-  /// OX hero extras (curated / trending / custom). Same schedule as Fladder home refresh:
-  /// only from [fetchNextUpAndResume] (pull-to-refresh, 120s timer) — not tab switches or resume-only updates.
-  Future<void> refreshHomeBannerDiscovery({bool force = false}) async {
-    if (!OxplayerConfig.isEnabled) return;
-    if (ref.read(effectiveOfflineModeProvider) && !force) return;
-
-    if (!force) {
-      final cached = await OxHomeBannerDiscoveryCache.read(ref);
-      if (cached != null) {
-        _applyBannerDiscovery(
-          curated: cached.curated,
-          globalLatest: cached.globalLatest,
-          customSlider: cached.customSlider,
-          trendingTop10: cached.trendingTop10,
-        );
-        return;
-      }
-    }
-
-    if (_fetchBannerInFlight != null) {
-      return _fetchBannerInFlight!;
-    }
-    final run = _fetchBannerFromNetwork();
-    _fetchBannerInFlight = run;
-    try {
-      await run;
-    } finally {
-      if (identical(_fetchBannerInFlight, run)) {
-        _fetchBannerInFlight = null;
-      }
-    }
-  }
-
-  Future<void> _hydrateBannerFromDiskCache() async {
-    if (!OxplayerConfig.isEnabled) return;
-    final cached = await OxHomeBannerDiscoveryCache.read(ref);
-    if (cached != null) {
-      _applyBannerDiscovery(
-        curated: cached.curated,
-        globalLatest: cached.globalLatest,
-        customSlider: cached.customSlider,
-        trendingTop10: cached.trendingTop10,
-      );
-    }
-  }
-
-  Future<void> _fetchBannerFromNetwork() async {
-    final disc = await api.userItemsHomeBannerDiscoveryGet();
-    if (disc == null) return;
-    await OxHomeBannerDiscoveryCache.write(
-      ref,
-      curated: disc.curated,
-      globalLatest: disc.globalLatest,
-      customSlider: disc.customSlider,
-      trendingTop10: disc.trendingTop10,
-    );
-    _applyBannerDiscovery(
-      curated: disc.curated,
-      globalLatest: disc.globalLatest,
-      customSlider: disc.customSlider,
-      trendingTop10: disc.trendingTop10,
-    );
-  }
-
-  void _applyBannerDiscovery({
-    required List<BaseItemDto> curated,
-    required List<BaseItemDto> globalLatest,
-    required List<BaseItemDto> customSlider,
-    required List<BaseItemDto> trendingTop10,
-  }) {
-    state = state.copyWith(
-      bannerCurated: curated.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList(),
-      bannerGlobalLatest: globalLatest.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList(),
-      bannerCustom: customSlider.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList(),
-      bannerTrendingTop10: trendingTop10.map((e) => ItemBaseModel.fromBaseDto(e, ref)).toList(),
-    );
-  }
-
   Future<void> _runFetchNextUpAndResume() async {
     state = state.copyWith(loading: true);
     try {
@@ -151,10 +68,6 @@ class DashboardNotifier extends StateNotifier<HomeModel> {
         await _fetchResumeAndNextUpOnly(includeLiveTv: true);
         state = state.copyWith(loading: false);
       });
-      // Fladder refreshes hero inputs inside the same home pull; OX discovery is async and non-blocking.
-      if (OxplayerConfig.isEnabled) {
-        unawaited(refreshHomeBannerDiscovery(force: true));
-      }
     } catch (e, st) {
       log('[DEBUG_WL] fetchNextUpAndResume failed: $e\n$st', name: 'continue_watching');
       state = state.copyWith(loading: false);

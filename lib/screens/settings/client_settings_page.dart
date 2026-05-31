@@ -72,20 +72,6 @@ class _ClientSettingsPageState extends ConsumerState<ClientSettingsPage> {
           const SizedBox(height: 12),
           ...buildClientSettingsShortCuts(context, ref),
         ],
-        if (OxplayerConfig.isEnabled) ...[
-          const SizedBox(height: 12),
-          ...settingsListGroup(
-            context,
-            SettingsLabelDivider(label: context.localized.myTelegramTitle),
-            [
-              SettingsListTile(
-                label: Text(context.localized.myTelegramTitle),
-                subLabel: Text(context.localized.myTelegramConfigureChats),
-                onTap: () => context.router.push(const MyTelegramHubRoute()),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 12),
         ...buildClientSettingsDashboard(context, ref),
         const SizedBox(height: 12),

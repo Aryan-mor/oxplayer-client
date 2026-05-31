@@ -46,6 +46,9 @@ abstract final class OxplayerPersonTmdbLoader {
     if (str.startsWith('tmdb-person-')) {
       return int.tryParse(str.substring('tmdb-person-'.length));
     }
+    if (str.startsWith('tmdb-')) {
+      return int.tryParse(str.substring('tmdb-'.length));
+    }
     return int.tryParse(str);
   }
 

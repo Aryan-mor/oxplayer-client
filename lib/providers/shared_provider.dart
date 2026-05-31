@@ -163,7 +163,15 @@ class SharedHelper {
         return (element.lastUsed.compareTo(lastLoggedIn.lastUsed)) > 0 ? element : lastLoggedIn;
       });
 
-      if (recentUsedAccount.authMethod == Authentication.autoLogin) return recentUsedAccount;
+      if (recentUsedAccount.authMethod == Authentication.autoLogin) {
+        return recentUsedAccount;
+      }
+      // Claim-code / refresh sessions saved before authMethod was set still restore on cold start.
+      final token = recentUsedAccount.credentials.token.trim();
+      final refresh = recentUsedAccount.credentials.oxRefreshToken.trim();
+      if (token.isNotEmpty && refresh.isNotEmpty) {
+        return recentUsedAccount.copyWith(authMethod: Authentication.autoLogin);
+      }
       return null;
     } catch (e) {
       log(e.toString());

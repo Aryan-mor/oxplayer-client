@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' show log;
 
 import 'package:auto_route/auto_route.dart';
 import 'package:collection/collection.dart';
@@ -14,10 +13,6 @@ import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/home_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_help_content.dart';
-import 'package:fladder/oxplayer/oxplayer_home_banner_carousel.dart';
-import 'package:fladder/oxplayer/oxplayer_home_dashboard_has_content.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/dashboard/home_banner_widget.dart';
 import 'package:fladder/screens/home_screen.dart';
@@ -54,9 +49,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final textController = TextEditingController();
 
   final selectedPoster = ValueNotifier<ItemBaseModel?>(null);
-
-  /// Debug: dedupe empty-banner logs when async inputs change.
-  String? _lastOxEmptyBannerLogKey;
 
   @override
   void initState() {
@@ -96,59 +88,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     final allResume = [...resumeVideo, ...resumeAudio, ...resumeBooks].toList();
 
-    final homeCarouselItems = OxplayerConfig.isEnabled
-        ? buildOxplayerHomeCarouselItems(
-            mode: homeSettings.carouselSettings,
-            allResume: allResume,
-            resumeVideo: resumeVideo,
-            nextUp: dashboardData.nextUp,
-            dashboardViews: views.dashboardViews,
-            bannerCurated: dashboardData.bannerCurated,
-            bannerGlobalLatest: dashboardData.bannerGlobalLatest,
-            bannerCustom: dashboardData.bannerCustom,
-            bannerTrendingTop10: dashboardData.bannerTrendingTop10,
-          )
-        : switch (homeSettings.carouselSettings) {
-            HomeCarouselSettings.nextUp => dashboardData.nextUp,
-            HomeCarouselSettings.combined => [...allResume, ...dashboardData.nextUp],
-            HomeCarouselSettings.cont => allResume,
-          };
-
-    if (kDebugMode &&
-        OxplayerConfig.isEnabled &&
-        homeBanner &&
-        homeCarouselItems.isEmpty) {
-      final key =
-          'mode=${homeSettings.carouselSettings.name}|vL=${views.loading}|dL=${dashboardData.loading}|dv=${views.dashboardViews.length}|rv=${resumeVideo.length}|nu=${dashboardData.nextUp.length}';
-      if (_lastOxEmptyBannerLogKey != key) {
-        _lastOxEmptyBannerLogKey = key;
-        log(
-          'Banner slot expected but carousel posters empty. $key — '
-          'If mode should be "combined", check ox_home_carousel log for jellyType stats; '
-          'otherwise Settings → Dashboard carousel mode may be nextUp/cont with empty lists.',
-          name: 'ox_home_carousel',
-        );
-      }
-    }
+    final homeCarouselItems = switch (homeSettings.carouselSettings) {
+      HomeCarouselSettings.nextUp => dashboardData.nextUp,
+      HomeCarouselSettings.combined => [...allResume, ...dashboardData.nextUp],
+      HomeCarouselSettings.cont => allResume,
+    };
 
     final viewSize = AdaptiveLayout.viewSizeOf(context);
 
     final useTVExpandedLayout = ref.watch(clientSettingsProvider.select((value) => value.useTVExpandedLayout));
-
-    final showOxEmbeddedHelp = OxplayerConfig.isEnabled &&
-        !dashboardData.loading &&
-        !views.loading &&
-        !oxplayerHomeDashboardHasVisibleContent(
-          homeBanner: homeBanner,
-          homeCarouselItems: homeCarouselItems,
-          tvChannels: tvChannels,
-          resumeVideo: resumeVideo,
-          resumeAudio: resumeAudio,
-          resumeBooks: resumeBooks,
-          nextUp: dashboardData.nextUp,
-          nextUpSetting: homeSettings.nextUp,
-          dashboardViews: views.dashboardViews,
-        );
 
     return NestedScaffold(
       background: ValueListenableBuilder<ItemBaseModel?>(
@@ -208,10 +156,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       PosterSizeWidget(),
                     ],
                   ),
-                ),
-              if (showOxEmbeddedHelp)
-                const SliverToBoxAdapter(
-                  child: OxplayerHelpContent(embedded: true),
                 ),
               ...[
                 if (tvChannels.isNotEmpty)

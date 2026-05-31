@@ -16,9 +16,8 @@ import 'package:fladder/oxplayer/oxplayer_post_auth_warmup.dart';
 import 'package:fladder/oxplayer/oxplayer_session_refresh_coordinator.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:flutter/foundation.dart';
-import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_session.dart';
-import 'package:fladder/oxplayer/telegram/oxplayer_telegram_td_runtime.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/favourites_provider.dart';
@@ -76,6 +75,10 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
   }
 
   Future<void> _fetchServerInfo(String url) async {
+    if (OxplayerConfig.isEnabled) {
+      await _fetchServerInfoOx(url);
+      return;
+    }
     try {
       final newCredentials =
           CredentialsModel.createNewCredentials().copyWith(url: url);
@@ -114,6 +117,56 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
         loading: false,
       );
       FladderSnack.show(localContext?.localized.unableToConnectHost ?? "");
+    }
+  }
+
+  /// Ensures [serverLoginModel] exists for claim-code / refresh login (OX API as Jellyfin).
+  Future<void> ensureOxplayerServerLoginModel() async {
+    if (oxplayerServerLoginModel != null) return;
+    final url = FladderConfig.baseUrl ?? OxplayerEnv.effectiveMediaServerUrl;
+    if (url == null || url.trim().isEmpty) {
+      throw StateError(
+        'API URL is not configured (OXPLAYER_API_BASE_URL in default.env).',
+      );
+    }
+    if (FladderConfig.baseUrl == null || FladderConfig.baseUrl!.trim().isEmpty) {
+      FladderConfig.baseUrl = url;
+    }
+    state = state.copyWith(hasBaseUrl: true);
+    await _fetchServerInfoOx(url.trim());
+    if (oxplayerServerLoginModel == null) {
+      throw StateError(state.errorMessage ?? 'Could not reach the API');
+    }
+  }
+
+  /// OX v2: skip Jellyfin public-user / quick-connect probes on every cold start.
+  Future<void> _fetchServerInfoOx(String url) async {
+    try {
+      final newCredentials =
+          CredentialsModel.createNewCredentials().copyWith(url: url);
+      final saved = ref.read(sharedUtilityProvider).getActiveAccount();
+      final merged = saved != null
+          ? newCredentials.copyWith(
+              token: saved.credentials.token,
+              serverId: saved.credentials.serverId,
+              serverName: saved.credentials.serverName,
+              oxRefreshToken: saved.credentials.oxRefreshToken,
+            )
+          : newCredentials;
+      state = state.copyWith(
+        errorMessage: null,
+        loading: false,
+        serverLoginModel: ServerLoginModel(
+          tempCredentials: merged,
+          accounts: const [],
+          hasQuickConnect: false,
+        ),
+      );
+    } catch (e) {
+      state = state.copyWith(
+        errorMessage: localContext?.localized.invalidUrl,
+        loading: false,
+      );
     }
   }
 
@@ -209,20 +262,6 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
     await ref.read(sharedUtilityProvider).removeAccount(currentUser);
     getSavedAccounts();
 
-    // Sign out from Telegram to revoke the device session server-side and
-    // wipe local TDLib database files so trySilentRestore() returns false.
-    if (OxplayerConfig.isEnabled && !kIsWeb) {
-      try {
-        final session = OxplayerTelegramTdSession(
-          tdlib: OxplayerTelegramTdRuntime.facade,
-        );
-        await session.signOut();
-      } catch (e) {
-        // Non-fatal: log the error but continue the logout flow.
-        if (kDebugMode) debugPrint('[OX logout] Telegram signOut error: $e');
-      }
-    }
-
     try {
       await ref.read(seerrApiProvider).logout();
     } catch (e) {
@@ -280,9 +319,13 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
   }
 
   /// Applies a full OX `POST /auth/telegram` or `POST /auth/refresh` payload (Jellyfin-shaped + refresh).
+  ///
+  /// When [awaitServerInfo] is false (background refresh on cold start), tokens are persisted
+  /// immediately and server metadata is fetched without blocking navigation.
   Future<void> applyOxplayerTelegramAuthResponse(
-    OxplayerTelegramAuthResponse exchanged,
-  ) async {
+    OxplayerTelegramAuthResponse exchanged, {
+    bool awaitServerInfo = true,
+  }) async {
     clearJellyfinDataCachesOnly();
 
     final ar = exchanged.jellyfin;
@@ -293,7 +336,7 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
       throw StateError('Missing access token');
     }
     if (oxplayerServerLoginModel == null) {
-      throw StateError('Server is not configured; connect to Jellyfin first');
+      await ensureOxplayerServerLoginModel();
     }
 
     oxplayerAttachSessionToken(
@@ -319,20 +362,23 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
       avatar: imageUrl,
       credentials: credsWithToken,
       lastUsed: DateTime.now(),
+      authMethod: Authentication.autoLogin,
     );
     ref.read(userProvider.notifier).userState = newUser;
-
-    final serverResponse = await api.systemInfoPublicGet();
-    final creds = credsWithToken.copyWith(
-      serverName: serverResponse.body?.serverName ?? credsWithToken.serverName,
-    );
-    final persistedUser = newUser.copyWith(credentials: creds);
-
-    await ref.read(sharedUtilityProvider).addAccount(persistedUser);
-    ref.read(userProvider.notifier).userState = persistedUser;
+    await ref.read(sharedUtilityProvider).addAccount(newUser);
     ref.read(oxplayerAccountDeleteDisabledProvider.notifier).state =
         exchanged.accountDeleteDisabled;
     getSavedAccounts();
+
+    if (awaitServerInfo) {
+      final serverResponse = await api.systemInfoPublicGet();
+      final creds = credsWithToken.copyWith(
+        serverName: serverResponse.body?.serverName ?? credsWithToken.serverName,
+      );
+      final persistedUser = newUser.copyWith(credentials: creds);
+      await ref.read(sharedUtilityProvider).addAccount(persistedUser);
+      ref.read(userProvider.notifier).userState = persistedUser;
+    }
 
     // Do not block navigation on home prefetch; [NavigationScaffold] fetches views on mount.
     unawaited(oxplayerWarmupHomeLibraryAfterAuth(ref));

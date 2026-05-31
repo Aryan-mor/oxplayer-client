@@ -16,7 +16,7 @@ import 'package:fladder/util/fladder_config.dart';
 
 /// OX-specific startup — avoids scattering `OXPLAYER` checks across upstream files.
 ///
-/// All native-only code (TDLib warm-up, path_provider-backed operations) lives in
+/// Native-only bootstrap hooks live in
 /// `lib/oxplayer/bootstrap/oxplayer_bootstrap_native.dart` and is selected via the
 /// conditional import above.  The web compiler never sees that file, eliminating
 /// the `MissingPluginException` that arose when DDC built the metadata graph for
@@ -43,10 +43,6 @@ abstract final class OxplayerBootstrap {
     // SharedPreferences + normalize_url only — no api_provider / Riverpod graph,
     // so web boot never pulls path_provider through this call.
     await OxplayerPersistedUrlSync.syncAccountsIfNeeded(bootstrap.sharedPreferences);
-    // Delegates to no-op on web, TDLib warm-up on native.
     await platform_boot.executePlatformSpecificBoot(bootstrap);
-    if (kDebugMode) {
-      OxplayerEnv.debugLogTelegramReadiness();
-    }
   }
 }

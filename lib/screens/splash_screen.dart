@@ -31,14 +31,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((value) async {
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (!OxplayerConfig.isEnabled) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
       final AccountModel? lastUsedAccount =
           ref.read(sharedUtilityProvider).getActiveAccount();
       final newWindow = ref.read(argumentsStateProvider).newWindow == true;
 
       if (!context.mounted) return;
 
-      // OX: validate Telegram + API session on splash before opening the home stack.
+      // OX: refresh API session on splash before opening the home stack.
       if (OxplayerConfig.isEnabled &&
           lastUsedAccount != null &&
           lastUsedAccount.authMethod == Authentication.autoLogin &&
@@ -60,9 +62,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         final activeAccount =
             ref.read(sharedUtilityProvider).getActiveAccount() ?? lastUsedAccount;
         ref.read(userProvider.notifier).updateUser(activeAccount);
-        if (!isOffline) {
-          unawaited(ref.read(oxplayerBackgroundSessionRefreshProvider).start());
-        }
         if (widget.loggedIn == null) {
           if (isOffline) {
             context.router.replaceAll([
@@ -103,7 +102,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         context.router.replace(const DashboardRoute());
       } else {
         if (OxplayerConfig.isEnabled) {
-          context.router.replace(OxplayerTelegramLoginRoute());
+          context.router.replace(const OxplayerLoginRoute());
         } else {
           context.router.replace(LoginRoute());
         }

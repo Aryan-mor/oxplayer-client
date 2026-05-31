@@ -29,7 +29,7 @@ import 'package:fladder/oxplayer/my_telegram/my_telegram_hub_screen.dart'
 import 'package:fladder/oxplayer/my_telegram/my_telegram_video_detail_screen.dart'
     as _i25;
 import 'package:fladder/oxplayer/oxplayer_help_screen.dart' as _i26;
-import 'package:fladder/oxplayer/oxplayer_telegram_login_screen.dart' as _i27;
+import 'package:fladder/oxplayer/oxplayer_login_screen.dart' as _i27;
 import 'package:fladder/routes/nested_details_screen.dart' as _i13;
 import 'package:fladder/screens/control_panel/control_active_tasks_page.dart'
     as _i3;
@@ -1035,63 +1035,19 @@ class OxplayerHelpRoute extends _i38.PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [_i27.OxplayerTelegramLoginScreen]
-class OxplayerTelegramLoginRoute
-    extends _i38.PageRouteInfo<OxplayerTelegramLoginRouteArgs> {
-  OxplayerTelegramLoginRoute({
-    String? tgWebAppData,
-    _i41.Key? key,
-    List<_i38.PageRouteInfo>? children,
-  }) : super(
-          OxplayerTelegramLoginRoute.name,
-          args: OxplayerTelegramLoginRouteArgs(
-            tgWebAppData: tgWebAppData,
-            key: key,
-          ),
-          rawQueryParams: {'tgWebAppData': tgWebAppData},
-          initialChildren: children,
-        );
+/// [_i27.OxplayerLoginScreen]
+class OxplayerLoginRoute extends _i38.PageRouteInfo<void> {
+  const OxplayerLoginRoute({List<_i38.PageRouteInfo>? children})
+      : super(OxplayerLoginRoute.name, initialChildren: children);
 
-  static const String name = 'OxplayerTelegramLoginRoute';
+  static const String name = 'OxplayerLoginRoute';
 
   static _i38.PageInfo page = _i38.PageInfo(
     name,
     builder: (data) {
-      final queryParams = data.queryParams;
-      final args = data.argsAs<OxplayerTelegramLoginRouteArgs>(
-        orElse: () => OxplayerTelegramLoginRouteArgs(
-          tgWebAppData: queryParams.optString('tgWebAppData'),
-        ),
-      );
-      return _i27.OxplayerTelegramLoginScreen(
-        tgWebAppData: args.tgWebAppData,
-        key: args.key,
-      );
+      return const _i27.OxplayerLoginScreen();
     },
   );
-}
-
-class OxplayerTelegramLoginRouteArgs {
-  const OxplayerTelegramLoginRouteArgs({this.tgWebAppData, this.key});
-
-  final String? tgWebAppData;
-
-  final _i41.Key? key;
-
-  @override
-  String toString() {
-    return 'OxplayerTelegramLoginRouteArgs{tgWebAppData: $tgWebAppData, key: $key}';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    if (other is! OxplayerTelegramLoginRouteArgs) return false;
-    return tgWebAppData == other.tgWebAppData && key == other.key;
-  }
-
-  @override
-  int get hashCode => tgWebAppData.hashCode ^ key.hashCode;
 }
 
 /// generated route for
@@ -1101,7 +1057,7 @@ class PhotoViewerRoute extends _i38.PageRouteInfo<PhotoViewerRouteArgs> {
     List<_i44.PhotoModel>? items,
     String? selected,
     _i45.Future<List<_i44.PhotoModel>>? loadingItems,
-    _i39.Key? key,
+    _i41.Key? key,
     List<_i38.PageRouteInfo>? children,
   }) : super(
           PhotoViewerRoute.name,
@@ -1149,7 +1105,7 @@ class PhotoViewerRouteArgs {
 
   final _i45.Future<List<_i44.PhotoModel>>? loadingItems;
 
-  final _i39.Key? key;
+  final _i41.Key? key;
 
   @override
   String toString() {

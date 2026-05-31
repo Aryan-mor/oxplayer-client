@@ -3,22 +3,16 @@ import 'package:fladder/oxplayer/oxplayer_debug.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 
-/// Runtime + compile-time configuration for OXPlayer (Telegram, API, optional keys).
+/// Runtime + compile-time configuration for OXPlayer (API URL, main-bot claim-code login).
 ///
 /// Values are read in this order:
 /// 1. **`--dart-define=…` / `--dart-define-from-file=…`** (compile-time; refreshed on each `flutter run`)
-/// 2. **Android / Gradle:** `android/build.gradle` also injects defines from `assets/env/default.env`
-///    and `dart_defines.ngrok.json` (written by `pnpm dev:ngrok`) so Android Studio does not need
-///    `--dart-define-from-file`.
+/// 2. **Android / Gradle:** `android/build.gradle` injects defines from `assets/env/default.env`
+///    and optional `dart_defines.dev.json`.
 /// 3. **`assets/env/default.env`** via [OxplayerDotenv] (bundled in the APK — needs rebuild to change)
 ///
-/// Telegram **sign-in** uses TDLib: native builds use `libtdjson`; **Flutter web** uses the
-/// official `tdweb` WASM bundle (see `web/tdweb/README.md`). `TELEGRAM_API_ID` / `TELEGRAM_API_HASH`
-/// are required in all cases. Mini App URLs are still used **after** TDLib login to fetch signed
-/// `initData` for `POST /auth/telegram` (same as oxplayer-android).
-///
-/// For Web / iOS, optional: `--dart-define-from-file=dart_defines.dev.json` (after `pnpm docker:dev`)
-/// or `dart_defines.ngrok.json` (after `pnpm dev:ngrok`).
+/// Set `OXPLAYER_API_BASE_URL` to your api-v2 origin (`http://LAN_IP:3004`). Login uses the main bot
+/// `/login` code only (no TDLib / ngrok for sign-in).
 abstract final class OxplayerEnv {
   static const String _cApiBase = String.fromEnvironment(
     'OXPLAYER_API_BASE',
@@ -136,6 +130,9 @@ abstract final class OxplayerEnv {
     }
     return t.replaceAll(RegExp(r'\s+'), '');
   }
+
+  /// Bot `/login` code + `POST /auth/claim-code` (always when OX is enabled).
+  static bool get useClaimCodeAuthOnly => OxplayerConfig.isEnabled;
 
   /// Normalized API origin (no trailing slash), or null when unset / blank.
   static String? get apiBaseUrl {
@@ -262,7 +259,11 @@ abstract final class OxplayerEnv {
   static String? get botUsername {
     if (!OxplayerConfig.isEnabled) return null;
     var t = _pick(
-      ['OXPLAYER_BOT_USERNAME', 'BOT_USERNAME'],
+      [
+        'OXPLAYER_BOT_USERNAME',
+        'BOT_USERNAME',
+        'TELEGRAM_MAIN_BOT_USERNAME',
+      ],
       _cBotUsername,
       _cBotUsernameLegacy,
     ).replaceFirst(RegExp(r'^@'), '');
@@ -275,6 +276,18 @@ abstract final class OxplayerEnv {
     final b = botUsername;
     if (b == null || b.isEmpty) return null;
     return compactTelegramWireUrl('https://t.me/$b');
+  }
+
+  /// Deep link from login screen: opens bot and runs `/start login` → login code.
+  static const String telegramBotLoginStartPayload = 'login';
+
+  /// `https://t.me/<bot>?start=login` for the claim-code login flow.
+  static String? get telegramBotLoginLink {
+    final b = botUsername;
+    if (b == null || b.isEmpty) return null;
+    return compactTelegramWireUrl(
+      'https://t.me/$b?start=$telegramBotLoginStartPayload',
+    );
   }
 
   /// Mini App short name for `https://t.me/<bot>/<shortName>`, optional.

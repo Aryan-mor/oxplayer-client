@@ -31,6 +31,15 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
   late final providerID = personDetailsProvider(widget.person.id);
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(providerID.notifier).fetchPerson(widget.person);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final details = ref.watch(providerID);
     return DetailScaffold(

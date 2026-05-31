@@ -53242,7 +53242,6 @@ class UserDto {
     this.configuration,
     this.policy,
     this.primaryImageAspectRatio,
-    this.oxUserRole,
   });
 
   factory UserDto.fromJson(Map<String, dynamic> json) =>
@@ -53280,8 +53279,6 @@ class UserDto {
   final UserPolicy? policy;
   @JsonKey(name: 'PrimaryImageAspectRatio', includeIfNull: false)
   final double? primaryImageAspectRatio;
-  @JsonKey(name: 'OxUserRole', includeIfNull: false)
-  final String? oxUserRole;
   static const fromJsonFactory = _$UserDtoFromJson;
 
   @override
@@ -53354,11 +53351,6 @@ class UserDto {
                 const DeepCollectionEquality().equals(
                   other.primaryImageAspectRatio,
                   primaryImageAspectRatio,
-                )) &&
-            (identical(other.oxUserRole, oxUserRole) ||
-                const DeepCollectionEquality().equals(
-                  other.oxUserRole,
-                  oxUserRole,
                 )));
   }
 
@@ -53381,7 +53373,6 @@ class UserDto {
       const DeepCollectionEquality().hash(configuration) ^
       const DeepCollectionEquality().hash(policy) ^
       const DeepCollectionEquality().hash(primaryImageAspectRatio) ^
-      const DeepCollectionEquality().hash(oxUserRole) ^
       runtimeType.hashCode;
 }
 
@@ -53401,7 +53392,6 @@ extension $UserDtoExtension on UserDto {
     UserConfiguration? configuration,
     UserPolicy? policy,
     double? primaryImageAspectRatio,
-    String? oxUserRole,
   }) {
     return UserDto(
       name: name ?? this.name,
@@ -53421,7 +53411,6 @@ extension $UserDtoExtension on UserDto {
       policy: policy ?? this.policy,
       primaryImageAspectRatio:
           primaryImageAspectRatio ?? this.primaryImageAspectRatio,
-      oxUserRole: oxUserRole ?? this.oxUserRole,
     );
   }
 
@@ -53440,7 +53429,6 @@ extension $UserDtoExtension on UserDto {
     Wrapped<UserConfiguration?>? configuration,
     Wrapped<UserPolicy?>? policy,
     Wrapped<double?>? primaryImageAspectRatio,
-    Wrapped<String?>? oxUserRole,
   }) {
     return UserDto(
       name: (name != null ? name.value : this.name),
@@ -53473,7 +53461,6 @@ extension $UserDtoExtension on UserDto {
       primaryImageAspectRatio: (primaryImageAspectRatio != null
           ? primaryImageAspectRatio.value
           : this.primaryImageAspectRatio),
-      oxUserRole: (oxUserRole != null ? oxUserRole.value : this.oxUserRole),
     );
   }
 }

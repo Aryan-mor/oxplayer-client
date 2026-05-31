@@ -6,7 +6,7 @@ import 'package:fladder/routes/auto_router.gr.dart';
 /// Stack to open after sign-out / switch user (no Fladder server login when OX is on).
 List<PageRouteInfo<dynamic>> oxplayerSignOutRouteList() {
   if (OxplayerConfig.isEnabled) {
-    return <PageRouteInfo<dynamic>>[OxplayerTelegramLoginRoute()];
+    return const <PageRouteInfo<dynamic>>[OxplayerLoginRoute()];
   }
   return <PageRouteInfo<dynamic>>[LoginRoute()];
 }
@@ -14,7 +14,7 @@ List<PageRouteInfo<dynamic>> oxplayerSignOutRouteList() {
 /// Route to push when user adds another account from settings.
 PageRouteInfo<dynamic> oxplayerAddAccountRoute() {
   if (OxplayerConfig.isEnabled) {
-    return OxplayerTelegramLoginRoute();
+    return const OxplayerLoginRoute();
   }
   return LoginRoute();
 }

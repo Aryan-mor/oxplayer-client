@@ -11,6 +11,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/oxplayer/oxplayer_jellyfin_401_interceptor_delegate.dart';
+import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -130,6 +131,14 @@ class JellyRequest implements Interceptor {
             if (refreshed) {
               break;
             }
+          }
+
+          if (OxplayerConfig.isEnabled &&
+              response.statusCode >= 200 &&
+              response.statusCode < 300) {
+            ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+                OxplayerBackgroundAuthStatus.online;
+            ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
           }
 
           connectivityNotifier.checkConnectivity();

@@ -67,7 +67,7 @@ void onSignOut() {
 
 // ❌ BAD — upstream code replaced or deleted
 void onSignOut() {
-  context.router.replaceAll([OxplayerTelegramLoginRoute()]);
+  context.router.replaceAll([OxplayerLoginRoute()]);
 }
 ```
 

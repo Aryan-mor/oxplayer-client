@@ -51,11 +51,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
         if (!isOffline) {
           final gateResult = await oxplayerRunSplashSessionGate(ref);
-          if (gateResult == OxplayerSplashGateResult.serverUnavailable) {
-            if (!context.mounted) return;
-            context.router.replace(const OxplayerServerUnavailableRoute());
-            return;
-          }
           if (gateResult != OxplayerSplashGateResult.proceedToDashboard) {
             await oxplayerClearIncompleteLoginSession(ref);
             if (!context.mounted) return;
@@ -68,6 +63,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             ref.read(sharedUtilityProvider).getActiveAccount() ?? lastUsedAccount;
         ref.read(userProvider.notifier).updateUser(activeAccount);
         if (widget.loggedIn == null) {
+          // No network: Fladder OX offline mode (Synced tab only).
+          // Server down but Wi‑Fi up: open the normal home stack so bottom nav works.
           if (isOffline) {
             context.router.replaceAll([
               const HomeRoute(children: [SyncedRoute()]),

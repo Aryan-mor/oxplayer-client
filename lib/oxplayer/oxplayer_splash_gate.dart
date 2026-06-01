@@ -23,8 +23,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum OxplayerSplashGateResult {
   proceedToDashboard,
-  /// Saved session kept; oxplayer-be did not respond to `/health`.
-  serverUnavailable,
   needLogin,
 }
 
@@ -131,12 +129,11 @@ Future<OxplayerSplashGateResult> oxplayerRunSplashSessionGate(WidgetRef ref) asy
 
   if (result == OxplayerSplashGateResult.proceedToDashboard) {
     oxplayerNoteSessionEstablished();
-    oxplayerSetApiServerReachable(ref, true);
-    ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
-    ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
-        OxplayerBackgroundAuthStatus.online;
-  } else if (result == OxplayerSplashGateResult.serverUnavailable) {
-    oxplayerSetApiServerReachable(ref, false);
+    if (ref.read(oxplayerApiServerReachableProvider)) {
+      ref.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
+      ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
+          OxplayerBackgroundAuthStatus.online;
+    }
   }
 
   return result;
@@ -295,13 +292,14 @@ Future<OxplayerSplashGateResult> _oxplayerRunSplashSessionGateImpl(WidgetRef ref
 
   if (!await oxplayerProbeApiReachable(api)) {
     if (kDebugMode) {
-      debugPrint('[OX] splash: API unreachable — keep session, server-unavailable UI');
+      debugPrint('[OX] splash: API unreachable — keep session, open cached library');
     }
     if (token.isNotEmpty || refresh.isNotEmpty) {
       _oxplayerResumeWithCachedSession(ref);
+      oxplayerSetApiServerReachable(ref, false);
       ref.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
           OxplayerBackgroundAuthStatus.idle;
-      return OxplayerSplashGateResult.serverUnavailable;
+      return OxplayerSplashGateResult.proceedToDashboard;
     }
     return OxplayerSplashGateResult.needLogin;
   }

@@ -185,6 +185,19 @@ final class _OxplayerPlaybackMuxedCoordinator {
     if (updated == null) return;
     ref.read(playBackModel.notifier).state = updated;
     oxMuxedStreamsLog('muxed hooks: merged streams into playBackModel');
+    unawaited(_applyDefaultSubtitleToPlayer(ref, updated));
+  }
+}
+
+/// After mux merge, apply the default embedded subtitle to the active player (Exo/mpv).
+Future<void> _applyDefaultSubtitleToPlayer(Ref ref, PlaybackModel model) async {
+  final def = model.defaultSubStream;
+  if (def == null || def.index == SubStreamModel.no().index) return;
+  try {
+    await ref.read(videoPlayerProvider).setSubtitleTrack(def, model);
+    oxMuxedStreamsLog('muxed hooks: applied default subtitle index=${def.index}');
+  } catch (e) {
+    oxMuxedStreamsLog('muxed hooks: setSubtitleTrack failed: $e');
   }
 }
 

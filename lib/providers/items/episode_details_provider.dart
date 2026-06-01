@@ -3,15 +3,12 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/item_base_model.dart';
-import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/series_model.dart';
-import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
-import 'package:fladder/providers/items/persisted_media_stream_prefs.dart';
 
 class EpisodeDetailModel {
   final SeriesModel? series;
@@ -60,30 +57,11 @@ class EpisodeDetailsProvider extends StateNotifier<EpisodeDetailModel> {
 
       if (episodes.body == null) return null;
 
-      final rawEpisodes = EpisodeModel.episodesFromDto(episodes.bodyOrThrow.items, ref);
-      final mergedEpisodes = mergeOxDuplicateEpisodes(rawEpisodes, preferEpisodeId: item.id);
-      final episodeRaw = (await api.usersUserIdItemsItemIdGet(itemId: item.id)).bodyOrThrow as EpisodeModel;
-      final mergedRow = mergedEpisodes.firstWhereOrNull((e) => e.id == item.id) ??
-          mergedEpisodes.firstWhereOrNull((e) => e.oxLinkedEpisodeIds.contains(item.id));
-      var episode = mergedRow != null
-          ? episodeRaw.copyWith(
-              userData: mergedRow.userData,
-              oxLinkedEpisodeIds: mergedRow.oxLinkedEpisodeIds,
-            )
-          : episodeRaw;
-      final previousStreams =
-          state.episode?.id == item.id ? state.episode?.mediaStreams : null;
-      episode = episode.copyWith(
-        mediaStreams: mergeMediaStreamsFromSources(
-          episode.mediaStreams,
-          memoryPrev: previousStreams,
-          persisted: ref.read(persistedMediaStreamPrefsProvider).readIndexes(item.id),
-        ),
-      );
+      final episode = (await api.usersUserIdItemsItemIdGet(itemId: item.id)).bodyOrThrow as EpisodeModel;
 
       state = state.copyWith(
         series: seriesResponse.bodyOrThrow as SeriesModel,
-        episodes: mergedEpisodes,
+        episodes: EpisodeModel.episodesFromDto(episodes.bodyOrThrow.items, ref),
         episode: episode,
       );
 
@@ -116,6 +94,5 @@ class EpisodeDetailsProvider extends StateNotifier<EpisodeDetailModel> {
 
   void updateEpisode(EpisodeModel episode) {
     state = state.copyWith(episode: episode);
-    ref.read(persistedMediaStreamPrefsProvider).writeForItem(episode.id, episode.mediaStreams);
   }
 }

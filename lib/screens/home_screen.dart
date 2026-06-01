@@ -7,8 +7,6 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:fladder/models/settings/client_settings_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -71,16 +69,12 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canDownload = ref.watch(showSyncButtonProvider);
-    final oxOffline = OxplayerConfig.isEnabled && ref.watch(effectiveOfflineModeProvider);
+    final canDownload = ref.watch(showSyncButtonProviderProvider);
     final seerrAuthenticated = ref.watch(
       userProvider.select((user) => user?.seerrCredentials?.isConfigured ?? false),
     );
     final destinations = HomeTabs.values
         .map((e) {
-          if (oxOffline && e != HomeTabs.sync) {
-            return null;
-          }
           switch (e) {
             case HomeTabs.dashboard:
               return DestinationModel(
@@ -132,7 +126,7 @@ class HomeScreen extends ConsumerWidget {
                 );
               }
             case HomeTabs.sync:
-              if ((canDownload || oxOffline) && !kIsWeb) {
+              if (canDownload && !kIsWeb) {
                 return DestinationModel(
                   label: context.localized.navigationSync,
                   icon: Icon(e.icon),

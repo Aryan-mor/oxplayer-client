@@ -196,12 +196,11 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
       'NativePlayer.sendPlaybackDataToNative start itemId=${model.item.id} name=${model.item.name} '
       'startMs=${startPosition.inMilliseconds} ${oxNativePlaybackUrlHint(model.media?.url)}',
     );
-    final audioIdx = effectiveDefaultAudioStreamForPlayback(model).index;
     final playableData = PlayableData(
       currentItem: model.item.toSimpleItem(context),
       startPosition: startPosition.inMilliseconds,
       description: model.item.overview.summary,
-      defaultAudioTrack: audioIdx >= 0 ? audioIdx : (model.mediaStreams?.defaultAudioStreamIndex ?? 1),
+      defaultAudioTrack: model.mediaStreams?.defaultAudioStreamIndex ?? 1,
       nextVideo: model.nextVideo?.toSimpleItem(context),
       previousVideo: model.previousVideo?.toSimpleItem(context),
       audioTracks: model.audioStreams

@@ -1,14 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/models/settings/key_combinations.dart';
-import 'package:fladder/models/settings/video_player_settings.dart';
-import 'package:fladder/oxplayer/oxplayer_hotkey_layout.dart';
-import 'package:fladder/providers/settings/video_player_settings_provider.dart';
 import 'package:fladder/screens/settings/widgets/key_listener.dart';
 import 'package:fladder/util/focus_helper.dart';
 
@@ -143,10 +138,7 @@ class _InputHandlerState<T> extends ConsumerState<InputHandler<T>> {
   }) {
     if (changingShortCut) return KeyEventResult.ignored;
 
-    _activateAndroidTvRemoteStyleFromKey(logicalKey);
-
-    final effectiveKey = _androidTvRemoteCenterAlias(logicalKey);
-    final keyMap = _effectiveKeyMap()?.entries.nonNulls.toList() ?? [];
+    final keyMap = widget.keyMap?.entries.nonNulls.toList() ?? [];
     if (isDown || isRepeat) {
       if (KeyCombination.modifierKeys.contains(logicalKey)) {
         pressedModifier = logicalKey;
@@ -156,10 +148,10 @@ class _InputHandlerState<T> extends ConsumerState<InputHandler<T>> {
         final hotKey = entry.key;
         final keyCombination = entry.value;
 
-        bool isMainKeyPressed = effectiveKey == keyCombination.key;
+        bool isMainKeyPressed = logicalKey == keyCombination.key;
         bool isModifierKeyPressed = KeyCombination.modifierMatches(pressedModifier, keyCombination.modifier);
 
-        bool isAltKeyPressed = effectiveKey == keyCombination.altKey;
+        bool isAltKeyPressed = logicalKey == keyCombination.altKey;
 
         bool isAltModifierKeyPressed = KeyCombination.modifierMatches(pressedModifier, keyCombination.altModifier);
 
@@ -178,44 +170,4 @@ class _InputHandlerState<T> extends ConsumerState<InputHandler<T>> {
     }
     return KeyEventResult.ignored;
   }
-
-  Map<T, KeyCombination>? _effectiveKeyMap() {
-    final map = widget.keyMap;
-    if (map is Map<VideoHotKeys, KeyCombination>) {
-      return ref.read(videoPlayerSettingsProvider).currentShortcuts as Map<T, KeyCombination>?;
-    }
-    return map;
-  }
-
-  void _activateAndroidTvRemoteStyleFromKey(LogicalKeyboardKey logicalKey) {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android || androidTvRemoteStyleShortcuts) {
-      return;
-    }
-    final activators = <LogicalKeyboardKey>{
-      LogicalKeyboardKey.arrowUp,
-      LogicalKeyboardKey.arrowDown,
-      LogicalKeyboardKey.arrowLeft,
-      LogicalKeyboardKey.arrowRight,
-      LogicalKeyboardKey.select,
-      LogicalKeyboardKey.enter,
-      LogicalKeyboardKey.numpadEnter,
-    };
-    if (activators.contains(logicalKey)) {
-      androidTvRemoteStyleShortcuts = true;
-      ref.read(hotkeyLayoutEpochProvider.notifier).state = ref.read(hotkeyLayoutEpochProvider) + 1;
-    }
-  }
-}
-
-LogicalKeyboardKey _androidTvRemoteCenterAlias(LogicalKeyboardKey logicalKey) {
-  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-    return logicalKey;
-  }
-  if (!(leanBackMode || androidTvRemoteStyleShortcuts)) {
-    return logicalKey;
-  }
-  if (logicalKey == LogicalKeyboardKey.enter || logicalKey == LogicalKeyboardKey.numpadEnter) {
-    return LogicalKeyboardKey.select;
-  }
-  return logicalKey;
 }

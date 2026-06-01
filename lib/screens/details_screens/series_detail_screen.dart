@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/item_base_model.dart';
-import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/providers/items/series_details_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -31,8 +30,6 @@ import 'package:fladder/widgets/shared/ensure_visible.dart';
 import 'package:fladder/widgets/shared/item_actions.dart';
 import 'package:fladder/widgets/shared/modal_bottom_sheet.dart';
 import 'package:fladder/widgets/shared/selectable_icon_button.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_watch_later_provider.dart';
 
 class SeriesDetailScreen extends ConsumerStatefulWidget {
   final ItemBaseModel item;
@@ -65,9 +62,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           ItemActions.playFromStart,
           ItemActions.details,
         },
-        onDeleteSuccesFully: (item) async {
+        onDeleteSuccesFully: (item) {
           if (context.mounted) {
-            await context.router.popBack();
+            context.router.popBack();
           }
         },
       ),
@@ -129,19 +126,6 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           selectedIcon: IconsaxPlusBold.tick_circle,
                           icon: IconsaxPlusLinear.tick_circle,
                         ),
-                        if (OxplayerConfig.isEnabled)
-                          Consumer(builder: (context, ref, child) {
-                            final watchLaterState = ref.watch(oxplayerWatchLaterProvider);
-                            final isWatchLater = watchLaterState.itemsMap.containsKey(details.id);
-                            return SelectableIconButton(
-                              onPressed: () async {
-                                await ref.read(oxplayerWatchLaterProvider.notifier).toggleWatchLater(details);
-                              },
-                              selected: isWatchLater,
-                              selectedIcon: IconsaxPlusBold.clock,
-                              icon: IconsaxPlusLinear.clock,
-                            );
-                          }),
                         SelectableIconButton(
                           onPressed: () {
                             showBottomSheetPill(
@@ -219,10 +203,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                           );
                           ref.read(providerId.notifier).fetchDetails(widget.item);
                         },
-                        episodes: dedupeOxEpisodesForPosters(
-                          details.availableEpisodes ?? [],
-                          preferEpisodeId: currentEpisode?.id,
-                        ),
+                        episodes: details.availableEpisodes ?? [],
                       );
                     }),
                   if (details.seasons?.isNotEmpty ?? false)

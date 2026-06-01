@@ -5,8 +5,6 @@ import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/favourites_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/view_model.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
 import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
@@ -24,19 +22,11 @@ class FavouritesNotifier extends StateNotifier<FavouritesModel> {
 
   Future<void> fetchFavourites() async {
     if (state.loading) return;
-    if (ref.read(effectiveOfflineModeProvider)) return;
 
     state = state.copyWith(loading: true);
-    try {
-      await oxplayerTrackSwrRequest(ref, () async {
-        await _fetchMoviesAndSeries();
-        await _fetchPeople();
-      });
-    } catch (_) {
-      // Keep stale favourites visible when refresh fails.
-    } finally {
-      state = state.copyWith(loading: false);
-    }
+    await _fetchMoviesAndSeries();
+    await _fetchPeople();
+    state = state.copyWith(loading: false);
   }
 
   Future<void> _fetchMoviesAndSeries() async {

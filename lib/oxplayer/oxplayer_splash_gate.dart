@@ -4,19 +4,17 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/oxplayer/oxplayer_api_reachability.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_device_identity.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_jellyfin_auth.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/oxplayer/oxplayer_riverpod_ref.dart';
 import 'package:fladder/oxplayer/oxplayer_session_refresh_coordinator.dart';
 import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
-import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/screens/login/lock_screen.dart';
 import 'package:fladder/util/app_http_client.dart';
-import 'package:fladder/util/application_info.dart';
 import 'package:fladder/util/fladder_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -191,10 +189,7 @@ Future<bool> oxplayerProbeApiReachable(String apiBase) async {
 }
 
 /// Returns false when the server rejects the refresh token (user must log in again).
-Future<bool> oxplayerSilentRefreshSession(
-  dynamic ref, {
-  Duration httpTimeout = kOxAuthHttpTimeoutSplash,
-}) async {
+Future<bool> oxplayerSilentRefreshSession(dynamic ref) async {
   if (!OxplayerConfig.isEnabled) return true;
 
   final r = oxplayerCoerceRef(ref);
@@ -206,41 +201,14 @@ Future<bool> oxplayerSilentRefreshSession(
   if (refresh.isEmpty) return false;
 
   try {
-    final app = r.read(applicationInfoProvider);
-    final deviceName = '${app.name} / ${defaultTargetPlatform.name}';
-    final identity = await oxplayerResolveDeviceIdentity(defaultDeviceName: deviceName);
-    final exchanged = await OxplayerTelegramAuthClient(apiBase: api).refreshAccessToken(
-      refreshToken: refresh,
-      deviceId: identity.deviceId,
-      httpTimeout: httpTimeout,
-    );
-    await r.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(
-          exchanged,
-          awaitServerInfo: false,
-        );
+    if (!await oxplayerRefreshSessionViaJellyfin(r)) {
+      return false;
+    }
     r.read(oxplayerApiServerReachableProvider.notifier).state = true;
     r.read(oxplayerBackgroundAuthErrorProvider.notifier).state = null;
     r.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
         OxplayerBackgroundAuthStatus.online;
     return true;
-  } on OxplayerTelegramAuthException catch (e) {
-    if (kDebugMode) {
-      debugPrint('[OX] silent refresh auth failed: ${e.message}');
-    }
-    if (e.isNetworkUnreachable) {
-      r.read(oxplayerApiServerReachableProvider.notifier).state = false;
-      final stillHaveToken =
-          r.read(sharedUtilityProvider).getActiveAccount()?.credentials.token.trim().isNotEmpty == true;
-      if (stillHaveToken) {
-        r.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
-            OxplayerBackgroundAuthStatus.online;
-        return true;
-      }
-    }
-    r.read(oxplayerBackgroundAuthErrorProvider.notifier).state = e.message;
-    r.read(oxplayerBackgroundAuthStatusProvider.notifier).state =
-        OxplayerBackgroundAuthStatus.error;
-    return false;
   } catch (e) {
     // Network / timeout: keep the saved session so cold start does not force re-login.
     if (kDebugMode) {

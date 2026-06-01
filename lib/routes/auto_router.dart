@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/login/lock_screen.dart';
@@ -95,11 +94,6 @@ final List<AutoRoute> detailsRoutes = [
   AutoRoute(page: LiveTvRoute.page, path: 'live-tv'),
   AutoRoute(page: SeerrSearchRoute.page, path: 'seerr-search'),
   AutoRoute(page: SeerrDetailsRoute.page, path: 'seerr/:mediaType/:tmdbId'),
-  AutoRoute(page: MyTelegramHubRoute.page, path: 'my-telegram'),
-  AutoRoute(page: MyTelegramConfigRoute.page, path: 'my-telegram/config'),
-  AutoRoute(page: MyTelegramChatMediaRoute.page, path: 'my-telegram/chat'),
-  AutoRoute(page: MyTelegramVideoDetailRoute.page, path: 'my-telegram/video'),
-  AutoRoute(page: MyTelegramForumTopicsRoute.page, path: 'my-telegram/forum'),
   AutoRoute(page: OxplayerHelpRoute.page, path: 'help'),
 ];
 
@@ -199,24 +193,6 @@ class AuthGuard extends AutoRouteGuard {
         debugPrint('[OX AuthGuard] redirect Login -> OxplayerLoginRoute');
       }
       await resolver.redirectUntil(const OxplayerLoginRoute());
-      return;
-    }
-
-    final oxOffline = OxplayerConfig.isEnabled &&
-        ref.read(effectiveOfflineModeProvider) &&
-        ref.read(userProvider) != null;
-    final offlineAllowedRoute = resolver.routeName == SyncedRoute.name ||
-        resolver.routeName == SplashRoute().routeName ||
-        resolver.routeName == const LockRoute().routeName ||
-        resolver.routeName == LoginRoute().routeName ||
-        resolver.routeName == OxplayerLoginRoute.name;
-    if (oxOffline && !offlineAllowedRoute) {
-      if (kDebugMode) {
-        debugPrint('[OX AuthGuard] offline redirect -> SyncedRoute from ${resolver.routeName}');
-      }
-      await resolver.redirectUntil(
-        const HomeRoute(children: [SyncedRoute()]),
-      );
       return;
     }
 

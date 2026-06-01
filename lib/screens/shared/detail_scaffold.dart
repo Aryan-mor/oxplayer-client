@@ -18,10 +18,7 @@ import 'package:fladder/screens/syncing/sync_item_details.dart';
 import 'package:fladder/shaders/fade_edges.dart';
 import 'package:fladder/theme.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/widgets/ox_general_video_artwork.dart';
 import 'package:fladder/util/fladder_image.dart';
-import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/refresh_state.dart';
 import 'package:fladder/util/router_extension.dart';
@@ -133,17 +130,13 @@ class _DetailScaffoldState extends ConsumerState<DetailScaffold> {
     final provider = newImage.imageProvider;
     _lastRequestedImage = provider;
 
-    try {
-      final newColor = await getDominantColor(provider);
+    final newColor = await getDominantColor(provider);
 
-      if (!mounted || !identical(_lastRequestedImage, provider)) return;
+    if (!mounted || !identical(_lastRequestedImage, provider)) return;
 
-      setState(() {
-        dominantColor = newColor;
-      });
-    } catch (_) {
-      // Optional UX: `/Images/Logo` can hang or 404 (e.g. OX API / dev). Do not surface as unhandled.
-    }
+    setState(() {
+      dominantColor = newColor;
+    });
   }
 
   @override
@@ -226,9 +219,6 @@ class _DetailScaffoldState extends ConsumerState<DetailScaffold> {
                         child: FladderImage(
                           image: backgroundImage,
                           blurOnly: !widget.posterFillsContent,
-                          oxMediaId: OxplayerConfig.isEnabled
-                              ? widget.item?.oxMediaIdForGeneralVideoThumb
-                              : null,
                         ),
                       ),
                       if (backgroundImage != null && !widget.posterFillsContent)
@@ -261,16 +251,6 @@ class _DetailScaffoldState extends ConsumerState<DetailScaffold> {
                                     alignment: Alignment.topCenter,
                                     placeholderFit: BoxFit.cover,
                                     excludeFromSemantics: true,
-                                    imageErrorBuilder: (context, error, stack) {
-                                      final id = widget.item?.oxMediaIdForGeneralVideoThumb;
-                                      if (id != null && OxplayerConfig.isEnabled) {
-                                        return OxGeneralVideoArtwork(
-                                          mediaId: id,
-                                          fit: BoxFit.cover,
-                                        );
-                                      }
-                                      return const SizedBox.shrink();
-                                    },
                                     image: ResizeImage(
                                       backgroundImage!.imageProvider,
                                       height: maxHeight ~/ 1.5,

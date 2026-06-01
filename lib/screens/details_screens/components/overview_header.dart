@@ -9,7 +9,6 @@ import 'package:fladder/models/items/images_models.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/watched_state.dart';
-import 'package:fladder/oxplayer/oxplayer_media_source_caption.dart';
 import 'package:fladder/screens/details_screens/components/media_stream_information.dart';
 import 'package:fladder/screens/shared/media/components/media_header.dart';
 import 'package:fladder/screens/shared/media/components/small_detail_widgets.dart';
@@ -19,7 +18,6 @@ import 'package:fladder/util/humanize_duration.dart';
 import 'package:fladder/util/list_padding.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/position_provider.dart';
-import 'package:fladder/util/single_line_ellipsis_text.dart';
 import 'package:fladder/widgets/shared/ensure_visible.dart';
 import 'package:fladder/widgets/shared/enum_selection.dart';
 import 'package:fladder/widgets/shared/focus_row.dart';
@@ -90,125 +88,113 @@ class OverviewHeader extends ConsumerWidget {
 
     final streamHeight = 43.0;
 
-    final ms = mediaStreamHelper?.mediaStream;
-    final showVersion = ms != null && ms.versionStreams.length > 1;
-    final showAudio = ms != null && ms.audioStreams.isNotEmpty;
-    final showSubs = ms != null && ms.subStreams.isNotEmpty;
-
-    final streamOptionWidgets = <Widget>[
-      if (showVersion)
-        SizedBox(
-          height: streamHeight,
-          child: EnumBox(
-            onFocusChanged: (focused) {
-              if (focused) {
-                context.ensureVisible(alignment: 1.0);
-              }
-            },
-            currentWidget: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 8,
-              children: [
-                Icon(
-                  IconsaxPlusLinear.video_square,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                Flexible(
-                  child: oxVersionStreamChipContent(context, ms.currentVersionStream),
-                ),
-              ],
-            ),
-            itemBuilder: (context) => ms.versionStreams
-                .mapIndexed((index, e) => ItemActionButton(
-                      selected: (ms.versionStreamIndex ?? 0) == e.index,
-                      label: oxVersionQualityAndCaptionLabel(context, e),
-                      action: () {
-                        final newItem = ms.copyWith(
-                          versionStreamIndex: e.index,
-                        );
-                        mediaStreamHelper!.onItemChanged?.call(newItem);
-                      },
-                    ))
-                .toList(),
+    final streamOptionsButtons = [
+      SizedBox(
+        height: streamHeight,
+        child: EnumBox(
+          onFocusChanged: (focused) {
+            if (focused) {
+              context.ensureVisible(alignment: 1.0);
+            }
+          },
+          currentWidget: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [
+              Icon(
+                IconsaxPlusLinear.video_square,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+              Text(
+                mediaStreamHelper?.mediaStream.currentVersionStream?.detailedResolutionLabel ?? "",
+              ),
+            ],
           ),
+          itemBuilder: (context) => mediaStreamHelper!.mediaStream.versionStreams
+              .mapIndexed((index, e) => ItemActionButton(
+                    selected: mediaStreamHelper!.mediaStream.currentVersionStream == e,
+                    label: Text(e.name),
+                    action: () {
+                      final newItem = mediaStreamHelper!.mediaStream.copyWith(
+                        versionStreamIndex: e.index,
+                      );
+                      mediaStreamHelper!.onItemChanged?.call(newItem);
+                    },
+                  ))
+              .toList(),
         ),
-      if (showAudio)
-        SizedBox(
-          height: streamHeight,
-          child: EnumBox(
-            onFocusChanged: (focused) {
-              if (focused) {
-                context.ensureVisible(alignment: 1.0);
-              }
-            },
-            currentWidget: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 8,
-              children: [
-                Icon(
-                  IconsaxPlusLinear.audio_square,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                Flexible(
-                  child: singleLineEllipsisText(ms.currentAudioStream?.shortTitle ?? ""),
-                ),
-              ],
-            ),
-            itemBuilder: (context) => [AudioStreamModel.no(), ...ms.audioStreams]
-                .mapIndexed((index, e) => ItemActionButton(
-                      selected: ms.currentAudioStream == e,
-                      label: singleLineEllipsisText(e.displayTitle),
-                      action: () {
-                        final newItem = ms.copyWith(
-                          defaultAudioStreamIndex: e.index,
-                        );
-                        mediaStreamHelper!.onItemChanged?.call(newItem);
-                      },
-                    ))
-                .toList(),
+      ),
+      SizedBox(
+        height: streamHeight,
+        child: EnumBox(
+          onFocusChanged: (focused) {
+            if (focused) {
+              context.ensureVisible(alignment: 1.0);
+            }
+          },
+          currentWidget: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [
+              Icon(
+                IconsaxPlusLinear.audio_square,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+              Text(
+                mediaStreamHelper?.mediaStream.currentAudioStream?.shortTitle ?? "",
+              ),
+            ],
           ),
+          itemBuilder: (context) => [AudioStreamModel.no(), ...mediaStreamHelper!.mediaStream.audioStreams]
+              .mapIndexed((index, e) => ItemActionButton(
+                    selected: mediaStreamHelper!.mediaStream.currentAudioStream == e,
+                    label: Text(e.displayTitle),
+                    action: () {
+                      final newItem = mediaStreamHelper!.mediaStream.copyWith(
+                        defaultAudioStreamIndex: e.index,
+                      );
+                      mediaStreamHelper!.onItemChanged?.call(newItem);
+                    },
+                  ))
+              .toList(),
         ),
-      if (showSubs)
-        SizedBox(
-          height: streamHeight,
-          child: EnumBox(
-            onFocusChanged: (focused) {
-              if (focused) {
-                context.ensureVisible(alignment: 1.0);
-              }
-            },
-            currentWidget: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 8,
-              children: [
-                Icon(
-                  IconsaxPlusLinear.subtitle,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                Flexible(
-                  child: singleLineEllipsisText(
-                    (ms.currentSubStream?.shortTitle ?? context.localized.off).toUpperCase(),
-                  ),
-                ),
-              ],
-            ),
-            itemBuilder: (context) => [SubStreamModel.no(), ...ms.subStreams]
-                .mapIndexed((index, e) => ItemActionButton(
-                      selected: ms.currentSubStream == e,
-                      label: singleLineEllipsisText(e.displayTitle),
-                      action: () {
-                        final newItem = ms.copyWith(
-                          defaultSubStreamIndex: e.index,
-                        );
-                        mediaStreamHelper!.onItemChanged?.call(newItem);
-                      },
-                    ))
-                .toList(),
+      ),
+      SizedBox(
+        height: streamHeight,
+        child: EnumBox(
+          onFocusChanged: (focused) {
+            if (focused) {
+              context.ensureVisible(alignment: 1.0);
+            }
+          },
+          currentWidget: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [
+              Icon(
+                IconsaxPlusLinear.subtitle,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+              Text(
+                (mediaStreamHelper?.mediaStream.currentSubStream?.shortTitle ?? context.localized.off).toUpperCase(),
+              ),
+            ],
           ),
+          itemBuilder: (context) => [SubStreamModel.no(), ...mediaStreamHelper!.mediaStream.subStreams]
+              .mapIndexed((index, e) => ItemActionButton(
+                    selected: mediaStreamHelper!.mediaStream.currentSubStream == e,
+                    label: Text(e.displayTitle),
+                    action: () {
+                      final newItem = mediaStreamHelper!.mediaStream.copyWith(
+                        defaultSubStreamIndex: e.index,
+                      );
+                      mediaStreamHelper!.onItemChanged?.call(newItem);
+                    },
+                  ))
+              .toList(),
         ),
-    ];
-
-    final streamOptionsButtons = streamOptionWidgets.withPositionProvider(context: context);
+      )
+    ].withPositionProvider(context: context);
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -319,7 +305,7 @@ class OverviewHeader extends ConsumerWidget {
                 spacing: 6,
                 children: [
                   if (mainButton != null) mainButton!,
-                  if (streamOptionWidgets.isNotEmpty)
+                  if (mediaStreamHelper != null)
                     Center(
                       child: FittedBox(
                         child: Row(
@@ -353,7 +339,7 @@ class OverviewHeader extends ConsumerWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       mainButton,
-                      if (streamOptionWidgets.isNotEmpty)
+                      if (mediaStreamHelper != null)
                         Row(
                           spacing: 4,
                           mainAxisSize: MainAxisSize.min,

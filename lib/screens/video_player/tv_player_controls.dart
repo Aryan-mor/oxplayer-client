@@ -16,14 +16,12 @@ import 'package:fladder/models/media_playback_model.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/models/playback/tv_playback_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
-import 'package:fladder/oxplayer/oxplayer_hotkey_layout.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/settings/video_player_settings_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/screens/shared/default_title_bar.dart';
 import 'package:fladder/screens/shared/media/components/item_logo.dart';
-import 'package:fladder/screens/video_player/components/playback_source_detail_dialog.dart';
 import 'package:fladder/screens/video_player/components/video_playback_information.dart';
 import 'package:fladder/screens/video_player/components/video_player_options_sheet.dart';
 import 'package:fladder/screens/video_player/components/video_player_quality_controls.dart';
@@ -77,7 +75,6 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(hotkeyLayoutEpochProvider);
     final player = ref.watch(videoPlayerProvider);
     return Listener(
       onPointerSignal: setVolume,
@@ -208,7 +205,7 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                           ],
                         ),
                       ),
-                    if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.touch)
+                    if (initInputDevice == InputDevice.touch)
                       Align(
                         alignment: Alignment.centerRight,
                         child: Tooltip(
@@ -296,8 +293,7 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       spacing: 8,
                       children: [
-                        if (AdaptiveLayout.inputDeviceOf(context) == InputDevice.pointer ||
-                            AdaptiveLayout.of(context).isDesktop)
+                        if (initInputDevice == InputDevice.pointer || AdaptiveLayout.of(context).isDesktop)
                           Tooltip(
                             message: context.localized.stop,
                             child: IconButton(
@@ -317,8 +313,7 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                               ),
                             ),
                         },
-                        if ((AdaptiveLayout.inputDeviceOf(context) == InputDevice.pointer ||
-                                AdaptiveLayout.of(context).isDesktop) &&
+                        if ((initInputDevice == InputDevice.pointer || AdaptiveLayout.of(context).isDesktop) &&
                             AdaptiveLayout.viewSizeOf(context) > ViewSize.phone) ...[
                           VideoVolumeSlider(
                             onChanged: () => resetTimer(),
@@ -345,8 +340,6 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
         final currentProgram = tvChannel?.playingProgram;
         final playbackModel = ref.watch(playBackModel);
         final item = playbackModel?.item;
-        final playbackStreams = mediaStreamsForPlayback(playbackModel);
-        final qualityLabel = playbackFileQualityLabel(playbackStreams);
         final subLabel = currentProgram?.subLabel(context.localized);
 
         // Calculate duration and position based on program times if available
@@ -407,18 +400,16 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
                       ),
                     ),
                   ),
-                if (qualityLabel != null)
-                  InkWell(
-                    onTap: () => showPlaybackSourceDetailDialog(context, playbackStreams),
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(
-                          qualityLabel,
-                        ),
+                if (item?.streamModel?.mediaInfoTag != null) ...{
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Text(
+                        item?.streamModel?.mediaInfoTag ?? "",
                       ),
                     ),
                   ),
+                },
               ],
             ),
             SizedBox(
@@ -652,7 +643,7 @@ class _TvPlayerControlsState extends ConsumerState<TvPlayerControls> {
 
   Future<void> clearOverlaySettings() async {
     toggleOverlay(value: true);
-    if (AdaptiveLayout.inputDeviceOf(context) != InputDevice.pointer) {
+    if (initInputDevice != InputDevice.pointer) {
       ScreenBrightness().resetApplicationScreenBrightness();
     } else {
       disableFullScreen();

@@ -1,7 +1,6 @@
 import 'package:chopper/chopper.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/enum_models.dart';
@@ -10,19 +9,24 @@ import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/models/api_result.dart';
 import 'package:fladder/models/item_base_model.dart';
-import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/library_filters_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/models/seerr_credentials_model.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/image_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
+import 'package:fladder/providers/sync_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 
 part 'user_provider.g.dart';
+
+@riverpod
+bool showSyncButtonProvider(Ref ref) {
+  final userCanSync = ref.watch(userProvider.select((value) => value?.canDownload ?? false));
+  final hasSyncedItems = ref.watch(syncProvider.select((value) => value.items.isNotEmpty));
+  return userCanSync || hasSyncedItems;
+}
 
 @Riverpod(keepAlive: true)
 class User extends _$User {
@@ -39,51 +43,33 @@ class User extends _$User {
 
   Future<Response<AccountModel>?> updateInformation() async {
     if (state == null) return null;
-    // Do not ref.read [effectiveOfflineModeProvider] or [connectivityStatusProvider] here:
-    // both are linked to [userProvider] in the graph and cause CircularDependencyError when
-    // called from this notifier (e.g. pull-to-refresh). Use the platform API only for network.
-    try {
-      final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity.contains(ConnectivityResult.none)) return null;
-    } catch (_) {}
-    if (OxplayerConfig.isEnabled && state!.credentials.token.trim().isEmpty) {
-      return null;
+    var response = await api.usersMeGet();
+    var quickConnectStatus = await api.quickConnectEnabled();
+    var systemConfiguration = await api.systemConfigurationGet();
+
+    final customConfig = await api.getCustomConfig();
+
+    var imageUrl = ref.read(imageUtilityProvider).getUserImageUrl(response.body?.id ?? "");
+
+    final user = response.body;
+    if (user == null) return null;
+
+    if (response.isSuccessful && response.body != null) {
+      userState = state?.copyWith(
+        name: user.name ?? state?.name ?? "",
+        policy: user.policy,
+        avatar: imageUrl,
+        serverConfiguration: systemConfiguration.body,
+        userConfiguration: user.configuration,
+        quickConnectState: quickConnectStatus.body ?? false,
+        latestItemsExcludes: user.configuration?.latestItemsExcludes ?? [],
+        userSettings: customConfig.body,
+        hasConfiguredPassword: user.hasConfiguredPassword ?? false,
+        hasPassword: user.hasPassword ?? false,
+      );
+      return response.copyWith(body: state);
     }
-    return oxplayerTrackSwrRequest(ref, () async {
-      var response = await api.usersMeGet();
-      var quickConnectStatus = await api.quickConnectEnabled();
-      var systemConfiguration = await api.systemConfigurationGet();
-
-      final customConfig = await api.getCustomConfig();
-
-      final account = state;
-      if (account == null) return null;
-
-      // Only generate Jellyfin image URL if avatar is not already set (e.g., from Telegram photoUrl)
-      var imageUrl = account.avatar.isNotEmpty
-          ? account.avatar
-          : ref.read(imageUtilityProvider).getUserImageUrl(response.body?.id ?? "");
-
-      final user = response.body;
-      if (user == null) return null;
-
-      if (response.isSuccessful && response.body != null) {
-        userState = state?.copyWith(
-          name: user.name ?? state?.name ?? "",
-          policy: user.policy,
-          avatar: imageUrl,
-          serverConfiguration: systemConfiguration.body,
-          userConfiguration: user.configuration,
-          quickConnectState: quickConnectStatus.body ?? false,
-          latestItemsExcludes: user.configuration?.latestItemsExcludes ?? [],
-          userSettings: customConfig.body,
-          hasConfiguredPassword: user.hasConfiguredPassword ?? false,
-          hasPassword: user.hasPassword ?? false,
-        );
-        return response.copyWith(body: state);
-      }
-      return null;
-    });
+    return null;
   }
 
   void setRememberAudioSelections() async {
@@ -196,37 +182,7 @@ class User extends _$User {
         : api.usersUserIdPlayedItemsItemIdDelete(
             itemId: itemId,
           ));
-    if (kDebugMode) {
-      debugPrint(
-        '[DEBUG_WATCHED] markAsPlayed enable=$enable itemId=$itemId status=${response.base.statusCode} bodyEmpty=${response.body == null}',
-      );
-    }
     return Response(response.base, UserData.fromDto(response.body));
-  }
-
-  /// Same as [markAsPlayed] but when [item] is an Ox-merged episode with duplicate files, updates every linked id.
-  Future<Response<UserData>?> markAsPlayedOxAware(bool enable, ItemBaseModel item) async {
-    final Iterable<String> ids;
-    if (OxplayerConfig.isEnabled && item is EpisodeModel && item.oxLinkedEpisodeIds.isNotEmpty) {
-      ids = item.oxLinkedEpisodeIds;
-    } else {
-      ids = [item.id];
-    }
-    if (kDebugMode) {
-      debugPrint(
-        '[DEBUG_WATCHED] markAsPlayedOxAware start enable=$enable itemType=${item.runtimeType} id=${item.id} idCount=${ids.length}',
-      );
-    }
-    Response<UserData>? last;
-    for (final itemId in ids) {
-      last = await markAsPlayed(enable, itemId);
-    }
-    if (kDebugMode) {
-      debugPrint(
-        '[DEBUG_WATCHED] markAsPlayedOxAware end lastStatus=${last?.base.statusCode} lastHasBody=${last?.body != null}',
-      );
-    }
-    return last;
   }
 
   void clear() => userState = null;

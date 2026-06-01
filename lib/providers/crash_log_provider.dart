@@ -9,8 +9,6 @@ import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:fladder/models/error_log_model.dart';
-import 'package:fladder/oxplayer/oxplayer_sentry.dart';
-import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
 
 final crashLogProvider = StateNotifierProvider<CrashLogNotifier, List<ErrorLogModel>>((ref) => CrashLogNotifier());
 
@@ -25,47 +23,20 @@ class CrashLogNotifier extends StateNotifier<List<ErrorLogModel>> {
   Timer? _debounceTimer;
   static const _debounceDuration = Duration(milliseconds: 500);
 
-  final Completer<void> _ready = Completer<void>();
-
-  /// Completes when [init] has installed error handlers (so Sentry can chain after).
-  Future<void> get ready => _ready.future;
-
   void init() async {
-    if (_ready.isCompleted) return;
-    try {
-      await _initBody();
-    } finally {
-      if (!_ready.isCompleted) {
-        _ready.complete();
-      }
-    }
-  }
-
-  Future<void> _initBody() async {
     logger = Logger.root;
     logger.level = Level.ALL;
     logger.onRecord.listen(logPrint);
 
-    final prevFlutter = FlutterError.onError;
-    FlutterError.onError = (FlutterErrorDetails details) {
-      prevFlutter?.call(details);
-      if (!_isBenignPlatformError(details.exception)) {
-        logFile(details);
-      }
-    };
+    FlutterError.onError = (FlutterErrorDetails details) => logFile(details);
 
-    final prevPlatform = PlatformDispatcher.instance.onError;
     PlatformDispatcher.instance.onError = (error, stack) {
-      final benign = _isBenignPlatformError(error);
-      final handled = prevPlatform?.call(error, stack) ?? false;
-      if (!benign) {
-        logFile(FlutterErrorDetails(
-          exception: error,
-          stack: stack,
-          library: 'Unhandled',
-        ));
-      }
-      return benign || handled;
+      logFile(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'Unhandled',
+      ));
+      return false;
     };
 
     if (!kIsWeb) {
@@ -137,10 +108,6 @@ class CrashLogNotifier extends StateNotifier<List<ErrorLogModel>> {
       }
     }
   }
-
-  static bool _isBenignPlatformError(Object? error) =>
-      isTdlibInteractiveLoginRequired(error) ||
-      OxplayerSentry.shouldDropPlatformError(error);
 
   void logFile(FlutterErrorDetails details) {
     logger.severe('Flutter error: ${details.exception}', details.exception, details.stack);

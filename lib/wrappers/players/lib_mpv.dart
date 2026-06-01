@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -15,27 +16,9 @@ import 'package:fladder/models/settings/subtitle_settings_model.dart';
 import 'package:fladder/models/settings/video_player_settings.dart';
 import 'package:fladder/providers/settings/subtitle_settings_provider.dart';
 import 'package:fladder/screens/video_player/video_player.dart' as video_screen;
-import 'package:fladder/oxplayer/oxplayer_muxed_streams_log.dart';
-import 'package:fladder/util/muxed_audio_from_player.dart';
-import 'package:fladder/util/muxed_subtitle_from_player.dart';
 import 'package:fladder/util/subtitle_position_calculator.dart';
 import 'package:fladder/wrappers/players/base_player.dart';
 import 'package:fladder/wrappers/players/player_states.dart';
-
-void _oxPlaybackWebLog(String message) {
-  if (kDebugMode && kIsWeb) {
-    debugPrint('[OX_PLAYBACK_WEB] $message');
-  }
-}
-
-String _oxPlaybackUrlHint(String url) {
-  if (url.isEmpty) return 'empty';
-  final uri = Uri.tryParse(url);
-  if (uri == null) return 'unparseable len=${url.length}';
-  final host = uri.host.isEmpty ? 'none' : uri.host;
-  return 'scheme=${uri.scheme.isEmpty ? "none" : uri.scheme} host=$host '
-      'pathLen=${uri.path.length} queryKeys=${uri.queryParameters.keys.take(8).join(",")}';
-}
 
 class LibMPV extends BasePlayer {
   mpv.Player? _player;
@@ -54,68 +37,20 @@ class LibMPV extends BasePlayer {
   final Duration _currentRetryDuration = const Duration(seconds: 5);
   Completer<void>? _loadCompleter;
 
-  StreamController<List<SubStreamModel>>? _muxedSubtitleTracksController;
-  StreamController<List<AudioStreamModel>>? _muxedAudioTracksController;
-  StreamSubscription<mpv.Tracks>? _muxedTracksSubscription;
-
-  @override
-  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream =>
-      _muxedSubtitleTracksController?.stream;
-
-  @override
-  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream =>
-      _muxedAudioTracksController?.stream;
-
-  void _emitMuxedTracks(mpv.Tracks tracks) {
-    final audioMuxed = audioStreamsFromMpvMuxedTracks(tracks.audio);
-    // Align with Jellyfin indices: video=0, muxed audio starts at 1 (no fake server audio row).
-    final firstSubIdx = 1 + audioMuxed.length;
-    final subMuxed = subStreamsFromMpvMuxedTracks(tracks.subtitle, firstJellyfinIndex: firstSubIdx);
-
-    oxMuxedStreamsLog(
-      'MPV tracks: raw audio=${tracks.audio.length} sub=${tracks.subtitle.length} '
-      '→ muxed audio=${audioMuxed.length} sub=${subMuxed.length} firstSubJellyIdx=$firstSubIdx',
-    );
-    if (tracks.subtitle.isNotEmpty && subMuxed.isEmpty) {
-      for (var i = 0; i < tracks.subtitle.length && i < 6; i++) {
-        final t = tracks.subtitle[i];
-        oxMuxedStreamsLog(
-          'MPV sub[$i] id=${t.id} uri=${t.uri} data=${t.data} codec=${t.codec} lang=${t.language}',
-        );
-      }
-    }
-
-    final ac = _muxedAudioTracksController;
-    if (ac != null && !ac.isClosed && audioMuxed.isNotEmpty) {
-      ac.add(audioMuxed);
-    }
-
-    final sc = _muxedSubtitleTracksController;
-    if (sc != null && !sc.isClosed && subMuxed.isNotEmpty) {
-      sc.add(subMuxed);
-    }
-  }
-
   @override
   Future<void> init(VideoPlayerSettingsModel settings) async {
-    _oxPlaybackWebLog(
-      'libMPV.init start useLibass=${settings.useLibass} '
-      'bufferSizeMb=${settings.bufferSize} hwAccel=${settings.hardwareAccel}',
-    );
-    await dispose();
+    dispose();
 
     mpv.MediaKit.ensureInitialized();
-    _oxPlaybackWebLog('libMPV.init mediaKit ensured');
 
     _player = mpv.Player(
       configuration: mpv.PlayerConfiguration(
-        title: "de.aryanmo.oxplayer",
+        title: "nl.jknaapen.fladder",
         libassAndroidFont: libassFallbackFont,
         libass: !kIsWeb && settings.useLibass,
         bufferSize: settings.bufferSize * 1024 * 1024, // MPV uses buffer size in bytes
       ),
     );
-    _oxPlaybackWebLog('libMPV.init player created platform=${_player?.platform.runtimeType}');
 
     if (_player != null) {
       _controller = VideoController(
@@ -132,24 +67,6 @@ class LibMPV extends BasePlayer {
       _player!.stream.volume.listen((value) => setState(lastState.update(volume: value)));
       _player!.stream.rate.listen((value) => setState(lastState.update(rate: value)));
       _player!.stream.buffer.listen((value) => setState(lastState.update(buffer: value)));
-      _player!.stream.error.listen((value) {
-        _oxPlaybackWebLog('libMPV.stream.error $value');
-        final err = value.toString().toLowerCase();
-        if (err.contains('format error') ||
-            err.contains('demuxer_error') ||
-            err.contains('no supported source')) {
-          _oxPlaybackWebLog(
-            'libMPV.stream.error hint: web uses Chrome <video> (not full MPV). '
-            'Check [OX_TG_WEB_STREAM] for webPlaybackRisk=ac3|moov_not_found|fragmented_mp4. '
-            'Large Telegram MP4s often need Android (TDLib+MPV) or server transcode.',
-          );
-        }
-      });
-
-      _muxedSubtitleTracksController = StreamController<List<SubStreamModel>>.broadcast();
-      _muxedAudioTracksController = StreamController<List<AudioStreamModel>>.broadcast();
-      _muxedTracksSubscription = _player!.stream.tracks.listen(_emitMuxedTracks);
-      _emitMuxedTracks(_player!.state.tracks);
     }
 
     if (_player?.platform is mpv.NativePlayer) {
@@ -157,21 +74,14 @@ class LibMPV extends BasePlayer {
       await nativePlayer.setProperty('force-seekable', 'yes');
 
       if (defaultTargetPlatform == TargetPlatform.android) {
+        // Use audiotrack as it is generally more stable on modern Android
         await nativePlayer.setProperty('ao', 'audiotrack');
       }
     }
-    _oxPlaybackWebLog('libMPV.init done');
   }
 
   @override
   Future<void> dispose() async {
-    _oxPlaybackWebLog('libMPV.dispose start hasPlayer=${_player != null}');
-    await _muxedTracksSubscription?.cancel();
-    _muxedTracksSubscription = null;
-    await _muxedSubtitleTracksController?.close();
-    _muxedSubtitleTracksController = null;
-    await _muxedAudioTracksController?.close();
-    _muxedAudioTracksController = null;
     _onCompleted?.cancel();
     _onCompleted = null;
     _player?.stop();
@@ -179,7 +89,6 @@ class LibMPV extends BasePlayer {
     _player = null;
     _retryTimer?.cancel();
     _retryTimer = null;
-    _oxPlaybackWebLog('libMPV.dispose done');
   }
 
   void setState(PlayerState state) {
@@ -189,23 +98,12 @@ class LibMPV extends BasePlayer {
 
   @override
   Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero}) async {
-    _oxPlaybackWebLog(
-      'libMPV.loadVideo start play=$play startMs=${startPosition.inMilliseconds} '
-      '${_oxPlaybackUrlHint(url)}',
-    );
     _loadCompleter = Completer<void>();
     _firstLoadAttempt = DateTime.now();
 
-    try {
-      await setStartPosition(startPosition);
-      _oxPlaybackWebLog('libMPV.loadVideo setStartPosition ok');
+    await setStartPosition(startPosition);
 
-      await _player?.open(mpv.Media(url), play: play);
-      _oxPlaybackWebLog('libMPV.loadVideo open returned');
-    } catch (error, stackTrace) {
-      _oxPlaybackWebLog('libMPV.loadVideo ERROR $error\n$stackTrace');
-      rethrow;
-    }
+    await _player?.open(mpv.Media(url), play: play);
 
     _retryTimer?.cancel();
     _retryTimer = null;
@@ -220,14 +118,8 @@ class LibMPV extends BasePlayer {
           _retryTimer = null;
         } else {
           log("Retrying to load video $url");
-          _oxPlaybackWebLog('libMPV.retry opening ${_oxPlaybackUrlHint(url)}');
-          try {
-            await setStartPosition(startPosition);
-            await _player?.open(mpv.Media(url), play: play);
-            _oxPlaybackWebLog('libMPV.retry open returned');
-          } catch (error, stackTrace) {
-            _oxPlaybackWebLog('libMPV.retry ERROR $error\n$stackTrace');
-          }
+          await setStartPosition(startPosition);
+          await _player?.open(mpv.Media(url), play: play);
           _retryTimer?.reset();
         }
       },
@@ -245,11 +137,8 @@ class LibMPV extends BasePlayer {
         subDuration?.cancel();
       }
 
-      // Do not require duration>0: loopback/HTTP (e.g. Ox Telegram range server) can report
-      // buffering==false before MPV has probed duration, which left load stuck and retried
-      // [open] every 5s.
       subBuffering = _player?.stream.buffering.listen((event) {
-        if (event == false) {
+        if (event == false && (_player?.state.duration ?? Duration.zero) > Duration.zero) {
           onReady();
         }
       });
@@ -311,27 +200,11 @@ class LibMPV extends BasePlayer {
 
   @override
   Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel) async {
-    final embedded =
-        (playbackModel.audioStreams ?? []).where((s) => !s.isExternal && s.index >= 0).toList();
-    var wantedAudioStream = model ?? effectiveDefaultAudioStreamForPlayback(playbackModel);
-    if (wantedAudioStream.index == AudioStreamModel.no().index && embedded.isNotEmpty) {
-      wantedAudioStream = embedded.first;
-    }
-    final hasAdvertisedAudio = (playbackModel.mediaStreams?.audioStreams ?? []).isNotEmpty;
+    final wantedAudioStream = model ?? playbackModel.defaultAudioStream;
+    if (wantedAudioStream == null) return -1;
     if (wantedAudioStream.index == AudioStreamModel.no().index) {
-      if (!hasAdvertisedAudio) {
-        return -1;
-      }
       await _player?.setAudioTrack(mpv.AudioTrack.no());
     } else {
-      final id = wantedAudioStream.demuxerTrackId;
-      if (id != null && id.isNotEmpty) {
-        final match = audioTracks.firstWhereOrNull((t) => t.id == id && !t.uri);
-        if (match != null) {
-          await _player?.setAudioTrack(match);
-          return wantedAudioStream.index;
-        }
-      }
       final internalTracks = audioTracks.getRange(2, audioTracks.length).toList();
       final audioTrack =
           internalTracks.elementAtOrNull((playbackModel.audioStreams?.indexOf(wantedAudioStream) ?? -1) - 1);
@@ -350,29 +223,16 @@ class LibMPV extends BasePlayer {
     if (_player == null) return -1;
     final wantedSubtitle = model ?? playbackModel.defaultSubStream;
     if (wantedSubtitle == null || wantedSubtitle.index == SubStreamModel.no().index) {
-      final hasAdvertisedSubs = (playbackModel.mediaStreams?.subStreams ?? []).isNotEmpty;
-      if (!hasAdvertisedSubs) {
-        return -1;
-      }
       await _player?.setSubtitleTrack(mpv.SubtitleTrack.no());
       return -1;
     }
     _currentSubtitleCodec = wantedSubtitle.codec;
-    if (wantedSubtitle.isExternal && wantedSubtitle.url != null) {
-      await _player?.setSubtitleTrack(mpv.SubtitleTrack.uri(wantedSubtitle.url!));
-      return wantedSubtitle.index;
-    }
-    final match = subTracks.firstWhereOrNull(
-      (t) => t.id == wantedSubtitle.id && !t.uri,
-    );
-    if (match != null) {
-      await _player?.setSubtitleTrack(match);
-      return wantedSubtitle.index;
-    }
     final internalTrack = subTracks.getRange(2, subTracks.length).toList();
     final index = playbackModel.subStreams?.sublist(1).indexWhere((element) => element.id == wantedSubtitle.id);
     final subTrack = internalTrack.elementAtOrNull(index ?? -1);
-    if (subTrack != null) {
+    if (wantedSubtitle.isExternal && wantedSubtitle.url != null && subTrack == null) {
+      await _player?.setSubtitleTrack(mpv.SubtitleTrack.uri(wantedSubtitle.url!));
+    } else if (subTrack != null) {
       await _player?.setSubtitleTrack(subTrack);
     }
     return wantedSubtitle.index;

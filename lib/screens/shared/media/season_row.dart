@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/items/season_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/providers/sync/sync_provider_helpers.dart';
 import 'package:fladder/screens/syncing/sync_button.dart';
 import 'package:fladder/theme.dart';
@@ -58,7 +56,7 @@ class SeasonPoster extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myKey = key ?? UniqueKey();
-    Widget seasonNamePlaceholderCard() {
+    Padding placeHolder(String title) {
       return Padding(
         padding: const EdgeInsets.all(4),
         child: Container(
@@ -67,7 +65,7 @@ class SeasonPoster extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
               child: Text(
-                season.name,
+                title,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
@@ -75,13 +73,6 @@ class SeasonPoster extends ConsumerWidget {
           ),
         ),
       );
-    }
-
-    Widget seasonImagePlaceholder() {
-      if (OxplayerConfig.isEnabled) {
-        return const OxplayerTmdbEmptyImagePlaceholder();
-      }
-      return seasonNamePlaceholderCard();
     }
 
     return AspectRatio(
@@ -103,7 +94,7 @@ class SeasonPoster extends ConsumerWidget {
                     image: season.getPosters?.primary ??
                         season.parentImages?.backDrop?.firstOrNull ??
                         season.parentImages?.primary,
-                    placeHolder: seasonImagePlaceholder(),
+                    placeHolder: placeHolder(season.name),
                   ),
                 ),
                 onSecondaryTapDown: (details) async {
@@ -133,10 +124,10 @@ class SeasonPoster extends ConsumerWidget {
                       }
                     : null,
                 overlays: [
-                  if (season.images?.primary == null && !OxplayerConfig.isEnabled)
+                  if (season.images?.primary == null)
                     Align(
                       alignment: Alignment.topLeft,
-                      child: seasonNamePlaceholderCard(),
+                      child: placeHolder(season.name),
                     ),
                   Align(
                     alignment: Alignment.topRight,

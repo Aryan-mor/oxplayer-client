@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/settings/client_settings_model.dart';
-import 'package:fladder/oxplayer/telegram/oxplayer_user_chats_models.dart';
 import 'package:fladder/models/settings/key_combinations.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
@@ -114,9 +113,4 @@ class ClientSettingsNotifier extends StateNotifier<ClientSettingsModel> {
   void setBlurEffects(bool value) => state = state.copyWith(enableBlurEffects: value);
 
   void toggleSideBar() => state = state.copyWith(expandSideBar: !state.expandSideBar);
-
-  void setMyTelegramVisibleBuckets(Set<String> buckets) {
-    final ordered = oxUserChatBucketApiValues.where(buckets.contains).toList();
-    state = state.copyWith(myTelegramVisibleBuckets: ordered);
-  }
 }

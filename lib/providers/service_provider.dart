@@ -8,8 +8,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:fladder/util/app_http_client.dart';
-
 import 'package:fladder/fake/fake_jellyfin_open_api.dart';
 import 'package:fladder/jellyfin/enum_models.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as enums;
@@ -22,7 +20,6 @@ import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/items/photos_model.dart';
 import 'package:fladder/models/items/trick_play_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/image_provider.dart';
@@ -31,7 +28,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/util/jellyfin_extension.dart';
 
 const _userSettings = "usersettings";
-const _client = "OXPlayer";
+const _client = "fladder";
 
 class ServerQueryResult {
   final List<BaseItemDto> original;
@@ -1097,99 +1094,6 @@ class JellyService {
         playlistId: playlistId,
         entryIds: entryIds,
       );
-
-  /// OX-only `GET /UserItems/HomeBannerDiscovery`. Returns null when the server denies the request (e.g. 403), on network or parse errors.
-  Future<
-      ({
-        List<BaseItemDto> curated,
-        List<BaseItemDto> globalLatest,
-        List<BaseItemDto> customSlider,
-        List<BaseItemDto> trendingTop10,
-      })?> userItemsHomeBannerDiscoveryGet() async {
-    if (!OxplayerConfig.isEnabled) return null;
-    final base = ref.read(serverUrlProvider);
-    final acc = account;
-    if (base == null || base.isEmpty || acc == null) return null;
-    final authServer = ref.read(authProvider).serverLoginModel?.tempCredentials.url ?? '';
-    final currentServer = acc.credentials.url;
-    if ((authServer.isNotEmpty ? authServer : currentServer) == FakeHelper.fakeTestServerUrl) {
-      return (
-        curated: <BaseItemDto>[],
-        globalLatest: <BaseItemDto>[],
-        customSlider: <BaseItemDto>[],
-        trendingTop10: <BaseItemDto>[],
-      );
-    }
-    final root = base.replaceAll(RegExp(r'/+$'), '');
-    final uri = Uri.parse('$root/UserItems/HomeBannerDiscovery');
-    try {
-      final headers = acc.credentials.header(ref);
-      final res = await appHttpClient.get(uri, headers: headers).timeout(const Duration(seconds: 25));
-      if (res.statusCode != 200) {
-        log(
-          'UserItems/HomeBannerDiscovery → HTTP ${res.statusCode}. '
-          '${res.statusCode == 403 ? "Server did not return discovery payload for this session." : res.statusCode == 401 ? "Auth failed." : "Check API logs if unexpected."}',
-          name: 'ox_home_banner_discovery',
-        );
-        return null;
-      }
-      final map = jsonDecode(res.body) as Map<String, dynamic>?;
-      if (map == null) return null;
-      final curRaw = map['Curated'];
-      final globRaw = map['GlobalLatest'];
-      final customRaw = map['CustomSlider'];
-      final trendRaw = map['TrendingTop10'];
-      final curated = <BaseItemDto>[];
-      final globalLatest = <BaseItemDto>[];
-      final customSlider = <BaseItemDto>[];
-      final trendingTop10 = <BaseItemDto>[];
-      if (curRaw is List) {
-        for (final e in curRaw) {
-          if (e is Map<String, dynamic>) {
-            try {
-              curated.add(BaseItemDto.fromJson(e));
-            } catch (_) {}
-          }
-        }
-      }
-      if (globRaw is List) {
-        for (final e in globRaw) {
-          if (e is Map<String, dynamic>) {
-            try {
-              globalLatest.add(BaseItemDto.fromJson(e));
-            } catch (_) {}
-          }
-        }
-      }
-      if (customRaw is List) {
-        for (final e in customRaw) {
-          if (e is Map<String, dynamic>) {
-            try {
-              customSlider.add(BaseItemDto.fromJson(e));
-            } catch (_) {}
-          }
-        }
-      }
-      if (trendRaw is List) {
-        for (final e in trendRaw) {
-          if (e is Map<String, dynamic>) {
-            try {
-              trendingTop10.add(BaseItemDto.fromJson(e));
-            } catch (_) {}
-          }
-        }
-      }
-      return (
-        curated: curated,
-        globalLatest: globalLatest,
-        customSlider: customSlider,
-        trendingTop10: trendingTop10,
-      );
-    } catch (e, st) {
-      log('userItemsHomeBannerDiscoveryGet failed: $e\n$st');
-      return null;
-    }
-  }
 
   Future<Response<UserDto>> usersMeGet() => api.usersMeGet();
 

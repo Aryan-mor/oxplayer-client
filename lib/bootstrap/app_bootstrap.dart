@@ -44,7 +44,6 @@ class AppBootstrapResult {
 
 Future<AppBootstrapResult> bootstrapApplication(List<String> args) async {
   final crashProvider = CrashLogNotifier();
-  await crashProvider.ready;
 
   if (kIsWeb) {
     final configString = await rootBundle.loadString('config/config.json');

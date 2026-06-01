@@ -1,27 +1,24 @@
 import 'dart:developer';
 
 import 'package:chopper/chopper.dart';
-import 'package:collection/collection.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart' as logging;
+
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
-import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/season_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/models/items/special_feature_model.dart';
 import 'package:fladder/models/seerr/seerr_dashboard_model.dart';
-import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/api_provider.dart';
-import 'package:fladder/providers/items/persisted_media_stream_prefs.dart';
 import 'package:fladder/providers/related_provider.dart';
 import 'package:fladder/providers/seerr_api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/seerr/seerr_models.dart';
 import 'package:fladder/util/item_base_model/item_base_model_extensions.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logging/logging.dart' as logging;
 
 final seriesDetailsProvider =
     StateNotifierProvider.autoDispose.family<SeriesDetailViewNotifier, SeriesModel?, String>((ref, id) {
@@ -70,25 +67,10 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
         ],
       );
 
-      final newEpisodes = mergeOxDuplicateEpisodes(
-        EpisodeModel.episodesFromDto(
-          episodes.body?.items,
-          ref,
-        ),
+      final newEpisodes = EpisodeModel.episodesFromDto(
+        episodes.body?.items,
+        ref,
       );
-
-      final previousEpisodes = state?.availableEpisodes;
-      final prefs = ref.read(persistedMediaStreamPrefsProvider);
-      final mergedEpisodes = newEpisodes.map((e) {
-        final prev = previousEpisodes?.firstWhereOrNull((p) => p.id == e.id);
-        return e.copyWith(
-          mediaStreams: mergeMediaStreamsFromSources(
-            e.mediaStreams,
-            memoryPrev: prev?.mediaStreams,
-            persisted: prefs.readIndexes(e.id),
-          ),
-        );
-      }).toList();
 
       List<BaseItemDto> specialFeatures;
       try {
@@ -99,12 +81,12 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
             level: logging.Level.WARNING.value, error: e, stackTrace: s);
       }
 
-      final episodesCanDownload = mergedEpisodes.any((episode) => episode.canDownload == true);
+      final episodesCanDownload = newEpisodes.any((episode) => episode.canDownload == true);
 
       newState = newState.copyWith(
           seasons: SeasonModel.seasonsFromDto(seasons.body?.items, ref).map(
             (element) {
-              final unPlayedCount = mergedEpisodes
+              final unPlayedCount = newEpisodes
                   .where((episode) =>
                       episode.season == element.season &&
                       episode.status == EpisodeStatus.available &&
@@ -112,7 +94,7 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
                   .length;
               return element.copyWith(
                 canDownload: true,
-                episodes: mergedEpisodes.where((episode) => episode.season == element.season).toList(),
+                episodes: newEpisodes.where((episode) => episode.season == element.season).toList(),
                 userData: UserData(
                   unPlayedItemCount: unPlayedCount,
                   played: unPlayedCount == 0,
@@ -124,7 +106,7 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
 
       newState = newState.copyWith(
         canDownload: episodesCanDownload,
-        availableEpisodes: mergedEpisodes,
+        availableEpisodes: newEpisodes,
       );
 
       final related = await ref.read(relatedUtilityProvider).relatedContent(seriesModel.id);
@@ -177,7 +159,6 @@ class SeriesDetailViewNotifier extends StateNotifier<SeriesModel?> {
       state = state?.copyWith(
         availableEpisodes: newList,
       );
-      ref.read(persistedMediaStreamPrefsProvider).writeForItem(episode.id, episode.mediaStreams);
     }
   }
 

@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fladder/oxplayer/oxplayer_device_identity.dart';
+import 'package:fladder/oxplayer/oxplayer_jellyfin_auth.dart';
 import 'package:fladder/oxplayer/oxplayer_login_bot_actions.dart';
-import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
-import 'package:fladder/oxplayer/oxplayer_env.dart';
 
 /// Six-character code entry (main-bot `/login`) for api-v2 auth.
 class OxplayerClaimCodeLoginPanel extends ConsumerStatefulWidget {
@@ -14,7 +12,8 @@ class OxplayerClaimCodeLoginPanel extends ConsumerStatefulWidget {
     super.key,
   });
 
-  final void Function(OxplayerTelegramAuthResponse response) onSuccess;
+  /// Called after Fladder [AuthNotifier.authenticateByName] succeeds.
+  final Future<void> Function() onSuccess;
 
   @override
   ConsumerState<OxplayerClaimCodeLoginPanel> createState() =>
@@ -44,24 +43,17 @@ class _OxplayerClaimCodeLoginPanelState
       _error = null;
     });
     try {
-      final apiBase = OxplayerEnv.apiBaseUrl;
-      if (apiBase == null || apiBase.isEmpty) {
-        setState(() => _error = 'API base URL is not configured.');
+      final response =
+          await oxplayerAuthenticateWithClaimCode(ref, code);
+      if (!mounted) return;
+      if (response?.isSuccessful != true || response?.body == null) {
+        final status = response?.base.statusCode;
+        setState(() => _error = status != null
+            ? 'Login failed ($status). Check the code and try again.'
+            : 'Login failed. Check the code and try again.');
         return;
       }
-      final client = OxplayerTelegramAuthClient(apiBase: apiBase);
-      final identity = await oxplayerResolveDeviceIdentity(
-        defaultDeviceName: 'OXPlayer',
-      );
-      final res = await client.claimLoginCode(
-        code: code,
-        deviceId: identity.deviceId,
-      );
-      if (!mounted) return;
-      widget.onSuccess(res);
-    } on OxplayerTelegramAuthException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.message);
+      await widget.onSuccess();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());

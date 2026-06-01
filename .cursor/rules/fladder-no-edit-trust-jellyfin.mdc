@@ -1,0 +1,45 @@
+---
+description: Do not edit upstream Fladder code; Jellyfin UI bugs are fixed in oxplayer-be, not the client
+alwaysApply: true
+---
+
+# Trust Fladder + Jellyfin — fix the server, not Fladder
+
+**Fladder** (DonutWare/fladder) ships against **real Jellyfin** in production and is treated as **correct client behavior**. This repo (`oxplayer-client`) is a Fladder fork: almost everything under `lib/` outside `lib/oxplayer/` is upstream Fladder, not OX product code.
+
+## Golden rule
+
+> **Do not edit Fladder files to fix catalog, home, library, search, playback, or Jellyfin API behavior.**  
+> If the UI is empty, wrong, or unlike Jellyfin, **fix `oxplayer-be`** so responses match what Jellyfin would return for the same request.
+
+Companion rules: `oxplayer-override-strategy.mdc`, `fladder-upstream-sync.mdc`.
+
+## What counts as “Fladder” (avoid edits)
+
+| OK to change | Do not change for product/bugfix |
+|--------------|----------------------------------|
+| `lib/oxplayer/**` | `lib/providers/**`, `lib/screens/**`, `lib/models/**`, `lib/widgets/**`, `lib/jellyfin/**` (except regen from spec) |
+| Thin hooks in `main.dart` / bootstrap behind `OxplayerConfig` | `views_provider`, `dashboard_provider`, `library_screen_provider`, DTO models, etc. |
+| `assets/env/`, branding, routes under `lib/oxplayer/` | Workarounds for missing/wrong JSON fields |
+
+**Exception (rare):** a one-line `OxplayerConfig.isEnabled` hook at an entry point already listed in `oxplayer-override-strategy.mdc` — never rewrite Fladder fetch/state logic.
+
+## Debugging workflow (home / library empty)
+
+1. **Confirm the client actually calls Jellyfin routes** (log: `Users/{id}/Views`, `Items/Latest`, `UserItems/Resume`, `Shows/NextUp`).
+2. **Reproduce with curl** against `OXPLAYER_API_BASE_URL` using the same `Authorization` header as the app.
+3. **Compare JSON** to [Jellyfin API](https://api.jellyfin.org/) / a real Jellyfin instance — shape, field names, array vs object wrappers, `ChildCount`, `CollectionType`, image tags.
+4. **Change `oxplayer-be`** (`apps/api/internal/server/`, `internal/jellyfin/`) until Fladder parses and renders without client patches.
+5. **Do not** change `loading` defaults, providers, or models in `lib/` to paper over server gaps.
+
+## When the local tree diverges from upstream Fladder
+
+Prefer **re-sync from `refs/Fladder` or upstream** (`fladder-upstream-sync.mdc`) instead of “fixing” Fladder in place. OX-only behavior belongs in **`lib/oxplayer/`**.
+
+## Mental model
+
+```
+Fladder  →  speaks Jellyfin HTTP  →  oxplayer-be must be a faithful Jellyfin shim
+```
+
+If Fladder works on Jellyfin and fails on OXPlayer, the bug is **almost always the shim**, not Fladder.

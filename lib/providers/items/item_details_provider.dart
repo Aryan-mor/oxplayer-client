@@ -1,13 +1,9 @@
 import 'package:fladder/models/item_base_model.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final itemDetailsProvider =
-    StateNotifierProvider.autoDispose<ItemDetailsNotifier, ItemBaseModel?>(
-        (ref) {
+final itemDetailsProvider = StateNotifierProvider.autoDispose<ItemDetailsNotifier, ItemBaseModel?>((ref) {
   return ItemDetailsNotifier(ref);
 });
 
@@ -19,19 +15,8 @@ class ItemDetailsNotifier extends StateNotifier<ItemBaseModel?> {
   late final JellyService api = ref.read(jellyApiProvider);
 
   Future<ItemBaseModel?> fetchDetails(String itemId) async {
-    if (!mounted) return null;
-    if (ref.read(effectiveOfflineModeProvider)) return state;
-    try {
-      final item = await oxplayerTrackSwrRequest(ref, () async {
-        final response = await api.usersUserIdItemsItemIdGet(itemId: itemId);
-        if (response.body == null) return null;
-        return response.bodyOrThrow;
-      });
-      if (!mounted) return item;
-      state = item;
-      return item;
-    } catch (_) {
-      return mounted ? state : null;
-    }
+    final response = await api.usersUserIdItemsItemIdGet(itemId: itemId);
+    if (response.body == null) return null;
+    return response.bodyOrThrow;
   }
 }

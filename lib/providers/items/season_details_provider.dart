@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/season_model.dart';
-import 'package:fladder/oxplayer/oxplayer_episode_dedupe.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:logging/logging.dart' as logging;
@@ -52,7 +51,7 @@ class SeasonDetailsNotifier extends StateNotifier<SeasonModel?> {
     }
 
     newState = newState?.copyWith(
-        episodes: mergeOxDuplicateEpisodes(EpisodeModel.episodesFromDto(episodes.body?.items, ref).toList()),
+        episodes: EpisodeModel.episodesFromDto(episodes.body?.items, ref).toList(),
         specialFeatures: SpecialFeatureModel.specialFeaturesFromDto(specialFeatures, ref).toList());
     state = newState;
     return season;

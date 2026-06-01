@@ -12,7 +12,6 @@ import 'package:fladder/models/credentials_model.dart';
 import 'package:fladder/models/login_screen_model.dart';
 import 'package:fladder/oxplayer/oxplayer_account_flags.dart';
 import 'package:fladder/oxplayer/oxplayer_online_status.dart';
-import 'package:fladder/oxplayer/oxplayer_post_auth_warmup.dart';
 import 'package:fladder/oxplayer/oxplayer_session_refresh_coordinator.dart';
 import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/oxplayer/oxplayer_config.dart';
@@ -379,9 +378,6 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
       await ref.read(sharedUtilityProvider).addAccount(persistedUser);
       ref.read(userProvider.notifier).userState = persistedUser;
     }
-
-    // Do not block navigation on home prefetch; [NavigationScaffold] fetches views on mount.
-    unawaited(oxplayerWarmupHomeLibraryAfterAuth(ref));
 
     if (OxplayerConfig.isEnabled && !kIsWeb) {
       oxplayerNoteSessionEstablished();

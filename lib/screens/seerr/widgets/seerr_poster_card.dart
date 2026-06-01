@@ -7,12 +7,8 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/items/images_models.dart';
 import 'package:fladder/models/seerr/seerr_dashboard_model.dart';
-import 'package:fladder/oxplayer/ox_tmdb_seerr_session.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/seerr_user_provider.dart';
-import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
-import 'package:fladder/util/fladder_config.dart';
 import 'package:fladder/screens/seerr/widgets/seerr_request_popup.dart';
 import 'package:fladder/seerr/seerr_models.dart';
 import 'package:fladder/theme.dart';
@@ -49,16 +45,6 @@ class SeerrPosterCard extends ConsumerWidget {
     final baseItemModel = poster.itemBaseModel;
 
     void openRequestDetails() {
-      // OX + no Seerr: same full details screen, data from OXPlayer /tmdb/seerr-bundle.
-      final seerrUrl =
-          (FladderConfig.seerrBaseUrl ?? ref.read(userProvider)?.seerrCredentials?.serverUrl ?? '')
-              .trim();
-      if (OxplayerConfig.isEnabled && seerrUrl.isEmpty) {
-        ref.read(oxTmdbSeerrOpenProvider.notifier).state = OxTmdbSeerrOpen(
-          tmdbId: poster.tmdbId,
-          mediaType: poster.type,
-        );
-      }
       context.router.push(
         SeerrDetailsRoute(
           mediaType: poster.type == SeerrMediaType.tvshow ? 'tvshow' : 'movie',

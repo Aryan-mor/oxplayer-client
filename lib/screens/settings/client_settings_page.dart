@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_navigation.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/settings/client_sections/client_settings_advanced.dart';
 import 'package:fladder/screens/settings/client_sections/client_settings_dashboard.dart';
@@ -43,7 +41,7 @@ class _ClientSettingsPageState extends ConsumerState<ClientSettingsPage> {
     final clientSettings = ref.watch(clientSettingsProvider);
 
     return SettingsScaffold(
-      label: "OXPlayer",
+      label: "Fladder",
       items: [
         ...buildClientSettingsDownload(context, ref, setState),
         ...settingsListGroup(
@@ -143,7 +141,7 @@ class _ClientSettingsPageState extends ConsumerState<ClientSettingsPage> {
                             ElevatedButton(
                               onPressed: () async {
                                 await ref.read(sharedPreferencesProvider).clear();
-                                context.router.push(oxplayerAddAccountRoute());
+                                context.router.push(LoginRoute());
                               },
                               child: Text(context.localized.clear),
                             )

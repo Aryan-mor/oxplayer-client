@@ -8,7 +8,7 @@ dynamic oxplayerCoerceRef(dynamic ref) {
     final widgetRef = candidate.ref;
     if (widgetRef is WidgetRef || widgetRef is Ref) return widgetRef;
   } catch (_) {
-    /* not a Consumer element */
+    // not a Consumer element
   }
   throw ArgumentError('Expected Ref or WidgetRef, got ${ref.runtimeType}');
 }

@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/season_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/models/syncing/sync_item.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/sync/sync_provider_helpers.dart';
@@ -254,12 +252,10 @@ class EpisodePoster extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    Widget placeHolder = OxplayerConfig.isEnabled
-        ? const OxplayerTmdbEmptyImagePlaceholder()
-        : Container(
-            height: double.infinity,
-            child: const Icon(Icons.local_movies_outlined),
-          );
+    Widget placeHolder = Container(
+      height: double.infinity,
+      child: const Icon(Icons.local_movies_outlined),
+    );
     bool episodeAvailable = episode.status == EpisodeStatus.available;
     final syncedDetails = ref.watch(syncedItemProvider(episode));
     return AspectRatio(
@@ -352,13 +348,13 @@ class EpisodePoster extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (episode.progress > 0)
+                if ((episode.userData.progress) > 0)
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: LinearProgressIndicator(
                       minHeight: 6,
                       backgroundColor: Colors.black.withValues(alpha: 0.75),
-                      value: episode.progress / 100,
+                      value: episode.userData.progress / 100,
                     ),
                   ),
               ],

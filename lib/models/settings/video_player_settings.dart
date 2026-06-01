@@ -8,7 +8,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/models/settings/key_combinations.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/util/bitrate_helper.dart';
 import 'package:fladder/util/localization_helper.dart';
 
@@ -165,14 +164,9 @@ enum PlayerOptions {
             };
 
   static PlayerOptions get platformDefaults {
-    if (leanBackMode) {
-      return PlayerOptions.nativePlayer;
-    }
+    if (leanBackMode) return PlayerOptions.nativePlayer;
     if (kIsWeb) return PlayerOptions.libMPV;
     return switch (defaultTargetPlatform) {
-      // OXPlayer phone UX: in-app player with minimize bar (arrow-down). Native opens a separate Activity without it.
-      TargetPlatform.android =>
-        OxplayerConfig.isEnabled ? PlayerOptions.libMPV : PlayerOptions.nativePlayer,
       _ => PlayerOptions.libMPV,
     };
   }

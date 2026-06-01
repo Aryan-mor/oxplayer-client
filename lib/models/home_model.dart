@@ -16,7 +16,7 @@ class HomeModel {
   final List<ItemBaseModel> bannerTrendingTop10;
 
   HomeModel({
-    this.loading = true,
+    this.loading = false,
     this.resumeVideo = const [],
     this.resumeAudio = const [],
     this.resumeBooks = const [],

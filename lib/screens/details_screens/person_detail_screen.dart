@@ -31,15 +31,6 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
   late final providerID = personDetailsProvider(widget.person.id);
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.read(providerID.notifier).fetchPerson(widget.person);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final details = ref.watch(providerID);
     return DetailScaffold(
@@ -89,14 +80,9 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
                           Flexible(child: Text(details?.name ?? "", style: Theme.of(context).textTheme.displaySmall)),
                           const SizedBox(width: 15),
                           SelectableIconButton(
-                            onPressed: () async {
-                              final newData = await ref
-                                  .read(userProvider.notifier)
-                                  .setAsFavorite(!(details?.userData.isFavourite ?? false), details?.id ?? "");
-                              if (newData != null) {
-                                ref.read(providerID.notifier).updatePersonUserData(newData.bodyOrThrow);
-                              }
-                            },
+                            onPressed: () async => await ref
+                                .read(userProvider.notifier)
+                                .setAsFavorite(!(details?.userData.isFavourite ?? false), details?.id ?? ""),
                             selected: (details?.userData.isFavourite ?? false),
                             selectedIcon: Icons.favorite_rounded,
                             icon: Icons.favorite_border_rounded,
@@ -121,22 +107,12 @@ class _PersonDetailScreenState extends ConsumerState<PersonDetailScreen> {
               contentPadding: padding,
               posters: details?.movies ?? [],
               label: context.localized.mediaTypeMovie(details?.movies.length ?? 2),
-              onUserDataChanged: (id, newData) {
-                if (newData != null) {
-                  ref.read(providerID.notifier).applyOxFilmographyUserData(id, newData);
-                }
-              },
             ),
           if (details?.series.isNotEmpty ?? false)
             PosterRow(
               contentPadding: padding,
               posters: details?.series ?? [],
               label: context.localized.mediaTypeSeries(details?.series.length ?? 2),
-              onUserDataChanged: (id, newData) {
-                if (newData != null) {
-                  ref.read(providerID.notifier).applyOxFilmographyUserData(id, newData);
-                }
-              },
             ),
           if (details?.seerrMovies.isNotEmpty ?? false)
             SeerrPosterRow(

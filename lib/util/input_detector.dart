@@ -3,14 +3,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'package:fladder/models/settings/arguments_model.dart';
-import 'package:fladder/oxplayer/oxplayer_hotkey_layout.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/util/focus_helper.dart';
 
-class InputDetector extends ConsumerStatefulWidget {
+class InputDetector extends StatefulWidget {
   final bool isDesktop;
   final bool htpcMode;
   final Widget Function(InputDevice input) child;
@@ -23,10 +19,10 @@ class InputDetector extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<InputDetector> createState() => _InputDetectorState();
+  State<InputDetector> createState() => _InputDetectorState();
 }
 
-class _InputDetectorState extends ConsumerState<InputDetector> {
+class _InputDetectorState extends State<InputDetector> {
   late InputDevice _currentInput = widget.htpcMode
       ? InputDevice.dPad
       : (widget.isDesktop || kIsWeb)
@@ -82,14 +78,6 @@ class _InputDetectorState extends ConsumerState<InputDetector> {
 
   void _updateInputDevice(InputDevice device) {
     if (_currentInput != device) {
-      if (device == InputDevice.dPad &&
-          !kIsWeb &&
-          defaultTargetPlatform == TargetPlatform.android &&
-          !androidTvRemoteStyleShortcuts) {
-        androidTvRemoteStyleShortcuts = true;
-        ref.read(hotkeyLayoutEpochProvider.notifier).state =
-            ref.read(hotkeyLayoutEpochProvider) + 1;
-      }
       if (device != InputDevice.dPad) {
         FocusManager.instance.primaryFocus?.unfocus();
       }

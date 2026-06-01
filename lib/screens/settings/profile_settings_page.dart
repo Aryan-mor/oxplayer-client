@@ -9,9 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as enums;
 import 'package:fladder/models/seerr_credentials_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_account_flags.dart';
-import 'package:fladder/oxplayer/oxplayer_delete_account_flow.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/cultures_provider.dart';
 import 'package:fladder/providers/home_preferences_provider.dart';
@@ -344,7 +341,7 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
               subLabel: Text(_seerrStatusLabel(context, user?.seerrCredentials, seerrUser)),
               onTap: () => showSeerrConnectionDialog(context),
             ),
-            if ((seerrUser?.canManageRequests ?? false) && ref.watch(supportsNotificationsProvider))
+            if (seerrUser?.canManageRequests ?? false)
               SettingsListTileCheckbox(
                 label: Text(context.localized.seerrRequestNotifications),
                 value: user?.seerrRequestsEnabled ?? false,
@@ -403,22 +400,6 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
             ),
           ],
         ),
-        if (OxplayerConfig.isEnabled &&
-            !ref.watch(oxplayerAccountDeleteDisabledProvider)) ...[
-          const SizedBox(height: 16),
-          ...settingsListGroup(
-            context,
-            SettingsLabelDivider(label: context.localized.oxplayerDeleteAccountSectionTitle),
-            [
-              SettingsListTile(
-                label: Text(context.localized.oxplayerDeleteAccountTileTitle),
-                subLabel: Text(context.localized.oxplayerDeleteAccountTileSubtitle),
-                contentColor: Theme.of(context).colorScheme.error,
-                onTap: () => showOxplayerDeleteAccountDialog(context: context, ref: ref),
-              ),
-            ],
-          ),
-        ],
       ],
     );
   }

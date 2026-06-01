@@ -1,12 +1,8 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:fladder/oxplayer/oxplayer_claim_code_login_panel.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
-import 'package:fladder/oxplayer/oxplayer_telegram_auth_client.dart';
 import 'package:fladder/providers/auth_provider.dart';
-import 'package:fladder/providers/shared_provider.dart';
-import 'package:fladder/providers/user_provider.dart';
-import 'package:fladder/routes/auto_router.gr.dart';
-import 'package:fladder/screens/login/lock_screen.dart';
+import 'package:fladder/screens/login/login_screen_credentials.dart';
 import 'package:fladder/screens/shared/fladder_logo.dart';
 import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/util/fladder_config.dart';
@@ -77,32 +73,9 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
     setState(() => _bootstrapping = false);
   }
 
-  Future<void> _onAuthSuccess(OxplayerTelegramAuthResponse exchanged) async {
-    setState(() {
-      _bootstrapping = true;
-      _bootstrapError = null;
-    });
-    try {
-      await ref.read(authProvider.notifier).applyOxplayerTelegramAuthResponse(
-            exchanged,
-            awaitServerInfo: false,
-          );
-      final user = ref.read(userProvider);
-      if (user != null) {
-        await ref.read(sharedUtilityProvider).addAccount(user);
-      }
-      ref.read(lockScreenActiveProvider.notifier).update((s) => false);
-      if (!mounted) return;
-      await context.router.replaceAll([const DashboardRoute()]);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _bootstrapping = false;
-          _bootstrapError = e.toString();
-        });
-        FladderSnack.show('$e', context: context);
-      }
-    }
+  Future<void> _onAuthSuccess() async {
+    if (!mounted) return;
+    await loggedInGoToHome(context, ref);
   }
 
   @override
@@ -170,7 +143,7 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
                               ),
                               const SizedBox(height: 24),
                               OxplayerClaimCodeLoginPanel(
-                                onSuccess: (res) => _onAuthSuccess(res),
+                                onSuccess: _onAuthSuccess,
                               ),
                             ],
                           ),

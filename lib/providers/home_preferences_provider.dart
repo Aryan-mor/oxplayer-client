@@ -8,7 +8,6 @@ import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
-import 'package:fladder/util/home_library_order.dart';
 
 final homePreferencesProvider = StateNotifierProvider<HomePreferencesNotifier, HomePreferencesModel>((ref) {
   return HomePreferencesNotifier(ref);
@@ -29,13 +28,8 @@ class HomePreferencesNotifier extends StateNotifier<HomePreferencesModel> {
     final userConfig = user?.userConfiguration;
     final views = ref.read(viewsProvider).views;
 
-    final serverOrder = userConfig?.orderedViews ?? [];
-    final baseOrder = serverOrder.isNotEmpty
-        ? serverOrder
-        : applyDefaultHomeLibraryOrdering(views).map((v) => v.id).toList();
-
     final orderedLibraryIds = _buildOrderedLibraryIds(
-      baseOrder,
+      userConfig?.orderedViews ?? [],
       views.map((v) => v.id).toList(),
     );
 
@@ -95,7 +89,7 @@ class HomePreferencesNotifier extends StateNotifier<HomePreferencesModel> {
     try {
       await _saveLibraryPreferences();
       await ref.read(userProvider.notifier).updateInformation();
-      await ref.read(viewsProvider.notifier).fetchViews(force: true);
+      await ref.read(viewsProvider.notifier).fetchViews();
       return ApiResult.success(null);
     } catch (e) {
       return ApiResult.failure(ApiError(message: e.toString()));

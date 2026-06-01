@@ -1,23 +1,13 @@
-import 'dart:convert';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:http/http.dart' as http;
-
-import 'package:fladder/util/app_http_client.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart';
 import 'package:fladder/models/items/images_models.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/seerr/seerr_dashboard_model.dart';
-import 'package:fladder/oxplayer/ox_tmdb_seerr_session.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/providers/seerr_api_provider.dart';
 import 'package:fladder/providers/seerr_user_provider.dart';
-import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/seerr/seerr_models.dart';
-import 'package:fladder/util/fladder_config.dart';
 import 'package:fladder/util/seerr_helpers.dart';
 
 part 'seerr_details_provider.freezed.dart';
@@ -50,23 +40,6 @@ class SeerrDetails extends _$SeerrDetails {
     final currentTmdbId = state.tmdbId;
     final currentMediaType = state.mediaType;
     if (currentTmdbId == null || currentMediaType == null) return;
-
-    final ox = ref.read(oxTmdbSeerrOpenProvider);
-    final seerrUrl =
-        (FladderConfig.seerrBaseUrl ?? ref.read(userProvider)?.seerrCredentials?.serverUrl ?? '')
-            .trim();
-    if (OxplayerConfig.isEnabled &&
-        seerrUrl.isEmpty &&
-        ox != null &&
-        ox.tmdbId == currentTmdbId &&
-        ox.mediaType == currentMediaType) {
-      try {
-        await _fetchOxTmdbBundle();
-        return;
-      } finally {
-        ref.read(oxTmdbSeerrOpenProvider.notifier).state = null;
-      }
-    }
 
     SeerrDashboardPosterModel? poster = state.poster;
 
@@ -160,173 +133,6 @@ class SeerrDetails extends _$SeerrDetails {
     );
   }
 
-  /// Loads the same [SeerrDetailsModel] as Seerr, but from OXPlayer TMDB cache (no Seerr server).
-  Future<void> _fetchOxTmdbBundle() async {
-    final tmdbId = state.tmdbId!;
-    final mediaType = state.mediaType!;
-
-    final credentials = ref.read(userProvider)?.credentials;
-    if (credentials == null) return;
-
-    final credUrl = credentials.url.trim();
-    final rawOrigin = credUrl.isNotEmpty ? credUrl : (OxplayerEnv.apiBaseUrl ?? '');
-    if (rawOrigin.isEmpty) return;
-    final base = rawOrigin.endsWith('/') ? rawOrigin.substring(0, rawOrigin.length - 1) : rawOrigin;
-
-    final mParam = mediaType == SeerrMediaType.tvshow ? 'tv' : 'movie';
-    final uri = Uri.parse('$base/tmdb/seerr-bundle')
-        .replace(queryParameters: {'mediaType': mParam, 'tmdbId': '$tmdbId'});
-
-    final res = await appHttpClient.get(uri, headers: credentials.header(ref));
-    if (res.statusCode != 200) return;
-    final map = jsonDecode(res.body) as Map<String, dynamic>;
-    if (map['isOxTmdbSource'] != true) return;
-
-    final p = map['poster'] as Map<String, dynamic>?;
-    if (p == null) return;
-
-    final primary = p['primaryImageUrl'] as String?;
-    final backs = (p['backdropImageUrls'] as List?)?.whereType<String>().toList() ?? <String>[];
-
-    var bi = 0;
-    final images = ImagesData(
-      primary: primary != null ? ImageData(path: primary, key: 'ox-${p['tmdbId']}-p') : null,
-      backDrop: backs
-          .map(
-            (u) {
-              final k = bi++;
-              return ImageData(path: u, key: 'ox-${p['tmdbId']}-bd-$k');
-            },
-          )
-          .toList(),
-    );
-
-    final isTv = mediaType == SeerrMediaType.tvshow;
-    final seasonMaps = (p['seasons'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
-    final seasons = <SeerrSeason>[];
-    for (final s in seasonMaps) {
-      seasons.add(SeerrSeason(
-        id: s['id'] as int?,
-        name: s['name'] as String?,
-        overview: s['overview'] as String?,
-        seasonNumber: s['seasonNumber'] as int?,
-        internalPosterPath: s['posterPath'] as String?,
-        episodeCount: s['episodeCount'] as int?,
-      ));
-    }
-
-    final tvdb = map['tvdbId'] as int?;
-    final exMap = map['externalIds'] as Map<String, dynamic>?;
-    var imdb = exMap?['imdbId'] as String?;
-    if (imdb != null && imdb.isNotEmpty && !imdb.startsWith('tt')) {
-      imdb = 'tt$imdb';
-    }
-
-    final mediaInfo =
-        isTv ? SeerrMediaInfo(tmdbId: tmdbId, tvdbId: tvdb, requests: const []) : null;
-
-    final poster = SeerrDashboardPosterModel(
-      id: p['id'] as String? ?? 'ox-$tmdbId',
-      type: isTv ? SeerrMediaType.tvshow : SeerrMediaType.movie,
-      tmdbId: tmdbId,
-      title: p['title'] as String? ?? '',
-      overview: p['overview'] as String? ?? '',
-      images: images,
-      mediaStatus: SeerrMediaStatus.unknown,
-      requestStatus: null,
-      jellyfinItemId: null,
-      releaseYear: p['year'] as String?,
-      seasons: seasons,
-      mediaInfo: mediaInfo,
-    );
-
-    final genreList = (map['genres'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
-    final genres = genreList
-        .map(
-          (g) => SeerrGenre(id: g['id'] as int?, name: g['name'] as String?),
-        )
-        .toList();
-
-    final people = <Person>[];
-    final peopleRaw = (map['people'] as List?) ?? const [];
-    for (final row in peopleRaw.whereType<Map<String, dynamic>>()) {
-      final kind = row['kind'] as String? ?? '';
-      final url = row['profilePath'] as String?;
-      people.add(
-        Person(
-          id: row['id'] as String? ?? '',
-          name: row['name'] as String? ?? '',
-          role: row['role'] as String? ?? '',
-          image: url != null && url.isNotEmpty
-              ? ImageData(path: url, key: 'oxp-${row['id']}')
-              : null,
-          type: kind == 'actor' ? PersonKind.actor : _mapCrewKind(row['role'] as String?),
-        ),
-      );
-    }
-
-    final vids = (map['relatedVideos'] as List?)?.whereType<Map<String, dynamic>>().toList() ?? [];
-    final relatedVideos = vids
-        .map(
-          (v) => SeerrRelatedVideo(
-            url: v['url'] as String?,
-            key: v['key'] as String?,
-            name: v['name'] as String?,
-            type: v['type'] as String?,
-            site: v['site'] as String?,
-          ),
-        )
-        .toList();
-
-    state = SeerrDetailsModel(
-      tmdbId: tmdbId,
-      mediaType: mediaType,
-      poster: poster,
-      genres: genres,
-      voteAverage: (map['voteAverage'] as num?)?.toDouble(),
-      contentRating: map['contentRating'] as String?,
-      releaseDate: map['releaseDate'] as String?,
-      recommended: _mapOxPosterList(map['recommended']),
-      similar: _mapOxPosterList(map['similar']),
-      people: people,
-      seasonStatuses: const {},
-      currentUser: null,
-      relatedVideos: relatedVideos,
-      externalIds: imdb != null && imdb.isNotEmpty
-          ? SeerrExternalIds(imdbId: imdb)
-          : null,
-      ratings: null,
-      isOxTmdbSource: true,
-    );
-  }
-
-  List<SeerrDashboardPosterModel> _mapOxPosterList(dynamic raw) {
-    if (raw is! List) return const [];
-    final out = <SeerrDashboardPosterModel>[];
-    for (final e in raw.whereType<Map<String, dynamic>>()) {
-      final id = e['tmdbId'];
-      if (id is! int) continue;
-      final isTv = e['mediaType'] == 'tv';
-      out.add(SeerrDashboardPosterModel(
-        id: 'oxr-$id',
-        type: isTv ? SeerrMediaType.tvshow : SeerrMediaType.movie,
-        tmdbId: id,
-        title: e['title'] as String? ?? '',
-        overview: e['overview'] as String? ?? '',
-        images: ImagesData(
-          primary: e['posterPath'] != null
-              ? ImageData(path: e['posterPath']! as String, key: 'oxr-$id')
-              : null,
-        ),
-        mediaStatus: SeerrMediaStatus.unknown,
-        requestStatus: null,
-        jellyfinItemId: null,
-        releaseYear: e['year'] as String?,
-      ));
-    }
-    return out;
-  }
-
   List<Person> _mapCredits(SeerrCredits? credits) {
     if (credits == null) return const [];
 
@@ -414,40 +220,6 @@ class SeerrDetails extends _$SeerrDetails {
     final poster = state.poster;
     if (poster == null) return;
 
-    if (state.isOxTmdbSource) {
-      final credentials = ref.read(userProvider)?.credentials;
-      if (credentials == null) return;
-      final credUrl = credentials.url.trim();
-      final rawOrigin = credUrl.isNotEmpty ? credUrl : (OxplayerEnv.apiBaseUrl ?? '');
-      if (rawOrigin.isEmpty) return;
-      final base = rawOrigin.endsWith('/') ? rawOrigin.substring(0, rawOrigin.length - 1) : rawOrigin;
-      final uri = Uri.parse('$base/tmdb/tv/season-episodes').replace(
-        queryParameters: {'tvId': '${poster.tmdbId}', 'seasonNumber': '$seasonNumber'},
-      );
-      final res = await appHttpClient.get(uri, headers: credentials.header(ref));
-      if (res.statusCode != 200) return;
-      final map = jsonDecode(res.body) as Map<String, dynamic>;
-      final raw = map['episodes'] as List? ?? const [];
-      final episodes = <SeerrEpisode>[];
-      for (final e in raw.whereType<Map<String, dynamic>>()) {
-        episodes.add(SeerrEpisode(
-          id: e['id'] as int?,
-          name: e['name'] as String?,
-          overview: e['overview'] as String?,
-          episodeNumber: e['episodeNumber'] as int?,
-          seasonNumber: e['seasonNumber'] as int?,
-          airDate: e['airDate'] as String?,
-          internalStillPath: e['stillPath'] as String?,
-          voteAverage: (e['voteAverage'] as num?)?.toDouble(),
-          voteCount: e['voteCount'] as int?,
-        ));
-      }
-      final updatedCache = Map<int, List<SeerrEpisode>>.from(state.episodesCache);
-      updatedCache[seasonNumber] = episodes;
-      state = state.copyWith(episodesCache: updatedCache);
-      return;
-    }
-
     final response = await api.seasonDetails(
       tvId: poster.tmdbId,
       seasonNumber: seasonNumber,
@@ -498,8 +270,6 @@ abstract class SeerrDetailsModel with _$SeerrDetailsModel {
     @Default([]) List<SeerrRelatedVideo> relatedVideos,
     SeerrExternalIds? externalIds,
     SeerrRatingsResponse? ratings,
-    /// Filled when details were loaded via [Route /tmdb/seerr-bundle] (OX TMDB) instead of Seerr.
-    @Default(false) bool isOxTmdbSource,
   }) = _SeerrDetailsModel;
 
   bool get isTv => mediaType == SeerrMediaType.tvshow;

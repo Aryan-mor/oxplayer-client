@@ -10,41 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as enums;
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
-import 'package:fladder/oxplayer/oxplayer_cache_manager.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/image_provider.dart';
 import 'package:fladder/util/custom_cache_manager.dart';
-import 'package:fladder/util/http_url_validation.dart';
-
-/// OxPlayer API: direct TMDB CDN URL in [BaseItemDto.externalUrls] (bypasses Jellyfin `/Items/.../Images`).
-const String _kOxTmdbImagePrimaryName = 'TmdbImagePrimary';
-
-/// OxPlayer API: TMDB backdrop (`backdrop_path`) at wide resolution for TV/detail heroes.
-const String _kOxTmdbImageBackdropName = 'TmdbImageBackdrop';
-
-String? _oxTmdbPrimaryImageUrl(dto.BaseItemDto item) {
-  final urls = item.externalUrls;
-  if (urls == null) return null;
-  for (final e in urls) {
-    final u = e.url?.trim();
-    if (e.name == _kOxTmdbImagePrimaryName && u != null && isUsableHttpImageUrl(u)) {
-      return u;
-    }
-  }
-  return null;
-}
-
-String? _oxTmdbBackdropImageUrl(dto.BaseItemDto item) {
-  final urls = item.externalUrls;
-  if (urls == null) return null;
-  for (final e in urls) {
-    final u = e.url?.trim();
-    if (e.name == _kOxTmdbImageBackdropName && u != null && isUsableHttpImageUrl(u)) {
-      return u;
-    }
-  }
-  return null;
-}
 
 class ImagesData {
   final ImageData? primary;
@@ -57,9 +24,8 @@ class ImagesData {
   });
 
   bool get isEmpty {
-    if (primary != null) return false;
-    if (backDrop != null && backDrop!.isNotEmpty) return false;
-    return true;
+    if (primary == null && backDrop == null) return true;
+    return false;
   }
 
   ImageData? get firstOrNull {
@@ -79,56 +45,22 @@ class ImagesData {
     final itemid = item.id;
     if (itemid == null) return null;
     final imageProvider = ref.read(imageUtilityProvider);
-    final tmdbPrimary = _oxTmdbPrimaryImageUrl(item);
-    final pids = item.providerIds;
-    final isOxGeneral =
-        pids != null && pids['OX'] != null && pids['OX'].toString() == 'general_video';
-    // OX general video: prefer TMDB (if any); do not use Jellyfin `/Items/.../Images` (404) — use local TDLib in [FladderImage.oxMediaId].
-    final useJellyfinPrimary = !isOxGeneral && (item.imageTags?['Primary'] != null);
-    final hasServerPrimary = tmdbPrimary != null || useJellyfinPrimary;
 
-    final oxBackdropUrl = _oxTmdbBackdropImageUrl(item);
-    final jellyfinBackdropImages = (item.backdropImageTags ?? [])
-        .mapIndexed(
-          (index, backdrop) {
-            final image = ImageData(
-              path: getOriginalSize
-                  ? imageProvider.getBackdropOrigImage(
-                      itemid,
-                      index,
-                      backdrop,
-                    )
-                  : imageProvider.getBackdropImage(
-                      itemid,
-                      index,
-                      backdrop,
-                      maxHeight: backDrop.height.toInt(),
-                      maxWidth: backDrop.width.toInt(),
-                    ),
-              key: "${itemid}_backdrop_${index}_$backdrop",
-              hash: item.imageBlurHashes?.backdrop?[backdrop] ?? "",
-            );
-            return image;
-          },
-        )
-        .nonNulls
-        .toList();
     final newImgesData = ImagesData(
-      primary: hasServerPrimary
+      primary: item.imageTags?['Primary'] != null
           ? ImageData(
-              path: tmdbPrimary ??
-                  (getOriginalSize
-                      ? imageProvider.getItemsOrigImageUrl(
-                          itemid,
-                          type: enums.ImageType.primary,
-                        )
-                      : imageProvider.getItemsImageUrl(
-                          itemid,
-                          type: enums.ImageType.primary,
-                          maxHeight: primary.height.toInt(),
-                          maxWidth: primary.width.toInt(),
-                        )),
-              key: "${itemid}_primary_${item.imageTags?['Primary'] ?? 'tmdb'}",
+              path: getOriginalSize
+                  ? imageProvider.getItemsOrigImageUrl(
+                      itemid,
+                      type: enums.ImageType.primary,
+                    )
+                  : imageProvider.getItemsImageUrl(
+                      itemid,
+                      type: enums.ImageType.primary,
+                      maxHeight: primary.height.toInt(),
+                      maxWidth: primary.width.toInt(),
+                    ),
+              key: "${itemid}_primary_${item.imageTags?['Primary']}",
               hash: item.imageBlurHashes?.primary?[item.imageTags?['Primary']] ?? "",
             )
           : null,
@@ -146,16 +78,31 @@ class ImagesData {
                 ),
           key: "${itemid}_logo_${item.imageTags?['Logo']}",
           hash: item.imageTags?['Logo'] != null ? (item.imageBlurHashes?.logo?[item.imageTags?['Logo']] ?? "") : ""),
-      // Ox TMDB backdrop last so [tvPosterLarge] (uses last backdrop) gets the wide hero asset.
-      backDrop: [
-        ...jellyfinBackdropImages,
-        if (oxBackdropUrl != null)
-          ImageData(
-            path: oxBackdropUrl,
-            key: "${itemid}_backdrop_tmdb",
-            hash: "",
-          ),
-      ],
+      backDrop: (item.backdropImageTags ?? [])
+          .mapIndexed(
+            (index, backdrop) {
+              final image = ImageData(
+                path: getOriginalSize
+                    ? imageProvider.getBackdropOrigImage(
+                        itemid,
+                        index,
+                        backdrop,
+                      )
+                    : imageProvider.getBackdropImage(
+                        itemid,
+                        index,
+                        backdrop,
+                        maxHeight: backDrop.height.toInt(),
+                        maxWidth: backDrop.width.toInt(),
+                      ),
+                key: "${itemid}_backdrop_${index}_$backdrop",
+                hash: item.imageBlurHashes?.backdrop?[backdrop] ?? "",
+              );
+              return image;
+            },
+          )
+          .nonNulls
+          .toList(),
     );
     return newImgesData;
   }
@@ -171,19 +118,16 @@ class ImagesData {
 
     final imageProvider = ref.read(imageUtilityProvider);
 
-    final tmdbSeriesPrimary = _oxTmdbPrimaryImageUrl(item);
-
     final newImgesData = ImagesData(
-      primary: (tmdbSeriesPrimary != null || item.seriesPrimaryImageTag != null)
+      primary: (item.seriesPrimaryImageTag != null)
           ? ImageData(
-              path: tmdbSeriesPrimary ??
-                  imageProvider.getItemsImageUrl(
-                    item.seriesId,
-                    type: enums.ImageType.primary,
-                    maxHeight: primary.height.toInt(),
-                    maxWidth: primary.width.toInt(),
-                  ),
-              key: "${item.seriesId}_primary_${item.seriesPrimaryImageTag ?? 'tmdb'}",
+              path: imageProvider.getItemsImageUrl(
+                item.seriesId,
+                type: enums.ImageType.primary,
+                maxHeight: primary.height.toInt(),
+                maxWidth: primary.width.toInt(),
+              ),
+              key: "${item.seriesId}_primary_${item.seriesPrimaryImageTag ?? ""}",
               hash: item.imageBlurHashes?.primary?[item.seriesPrimaryImageTag] ?? "")
           : null,
       logo: ImageData(
@@ -227,21 +171,16 @@ class ImagesData {
     Size logo = const Size(1000, 1000),
     Size primary = const Size(500, 500),
   }) {
-    final tag = item.primaryImageTag?.trim();
-    final tmdbDirect = tag != null && isUsableHttpImageUrl(tag) ? tag : null;
-
     return ImagesData(
-      primary: (tmdbDirect != null ||
-              (item.primaryImageTag != null && item.imageBlurHashes != null))
+      primary: (item.primaryImageTag != null && item.imageBlurHashes != null)
           ? ImageData(
-              path: tmdbDirect ??
-                  ref.read(imageUtilityProvider).getItemsImageUrl(
-                        item.id ?? "",
-                        type: enums.ImageType.primary,
-                        maxHeight: primary.height.toInt(),
-                        maxWidth: primary.width.toInt(),
-                      ),
-              key: "${item.id ?? ""}_primary_${tmdbDirect != null ? 'tmdb' : (item.primaryImageTag ?? '')}",
+              path: ref.read(imageUtilityProvider).getItemsImageUrl(
+                    item.id ?? "",
+                    type: enums.ImageType.primary,
+                    maxHeight: primary.height.toInt(),
+                    maxWidth: primary.width.toInt(),
+                  ),
+              key: "${item.id ?? ""}_primary_${item.primaryImageTag ?? ''}",
               hash: item.imageBlurHashes?.primary?[item.primaryImageTag] ?? '')
           : null,
       logo: null,
@@ -297,18 +236,12 @@ class ImageData {
   });
 
   ImageProvider get imageProvider {
-    if (path.startsWith("http") && isUsableHttpImageUrl(path)) {
+    if (path.startsWith("http")) {
       return CachedNetworkImageProvider(
-        path,
         cacheKey: key,
-        cacheManager: OxplayerConfig.isEnabled
-            ? OxplayerCacheManager.instance
-            : CustomCacheManager.instance,
-        errorListener: OxplayerConfig.isEnabled ? _silenceImageError : null,
+        cacheManager: CustomCacheManager.instance,
+        path,
       );
-    }
-    if (path.startsWith("http") && !isUsableHttpImageUrl(path)) {
-      return transparentPlaceholderImageProvider;
     } else {
       return Image.file(
         key: Key(key),
@@ -318,32 +251,18 @@ class ImageData {
   }
 
   ImageProvider get nonCachedImageProvider {
-    if (path.startsWith("http") && isUsableHttpImageUrl(path)) {
+    if (path.startsWith("http")) {
       return CachedNetworkImageProvider(
-        path,
         cacheKey: UniqueKey().toString(),
-        cacheManager: OxplayerConfig.isEnabled
-            ? OxplayerCacheManager.instance
-            : CustomCacheManager.instance,
-        errorListener: OxplayerConfig.isEnabled ? _silenceImageError : null,
+        cacheManager: CustomCacheManager.instance,
+        path,
       );
-    }
-    if (path.startsWith("http") && !isUsableHttpImageUrl(path)) {
-      return transparentPlaceholderImageProvider;
     } else {
       return Image.file(
         key: Key(key),
         File(path),
       ).image;
     }
-  }
-
-  /// Swallows image-load errors (e.g. [TimeoutException] on ngrok) so they
-  /// don't surface as unhandled Dart exceptions. The widget layer already
-  /// shows a placeholder / blur hash when the image fails.
-  static void _silenceImageError(Object error) {
-    // Intentionally empty — errors are expected on slow/dev tunnels.
-    // Remove or replace with a logger call if you need visibility.
   }
 
   @override

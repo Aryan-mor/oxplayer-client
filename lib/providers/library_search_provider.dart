@@ -21,8 +21,6 @@ import 'package:fladder/models/library_search/library_search_model.dart';
 import 'package:fladder/models/library_search/library_search_options.dart';
 import 'package:fladder/models/playlist_model.dart';
 import 'package:fladder/models/view_model.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_swr_cache.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/providers/library_filters_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -63,7 +61,6 @@ class LibrarySearchNotifier extends StateNotifier<LibrarySearchModel> {
     String? viewModelId,
     LibraryFilterModel filters,
   ) async {
-    if (ref.read(effectiveOfflineModeProvider)) return;
     loading = true;
     state = state.resetLazyLoad();
     if (state.views.isEmpty && state.folderOverwrite.isEmpty) {
@@ -95,7 +92,6 @@ class LibrarySearchNotifier extends StateNotifier<LibrarySearchModel> {
 
   Future<void> loadMore({bool? init}) async {
     if ((loading && init != true) || state.allDoneFetching) return;
-    if (ref.read(effectiveOfflineModeProvider)) return;
     loading = true;
 
     final newLastIndices = Map<String, int>.from(state.lastIndices);
@@ -160,26 +156,20 @@ class LibrarySearchNotifier extends StateNotifier<LibrarySearchModel> {
       );
     }
 
-    try {
-      await oxplayerTrackSwrRequest(ref, () async {
-        if (state.folderOverwrite.isNotEmpty) {
-          await handleItemLoading(state.folderOverwrite.last.id, state.folderOverwrite.last);
-        } else if (state.views.hasEnabled) {
-          await handleViewLoading();
-        } else {
-          if (state.searchQuery.isEmpty && state.filters.favourites == false) {
-            state = state.copyWith(posters: []);
-          } else {
-            final response = await _loadLibrary(recursive: true);
-            state = state.copyWith(posters: response?.items ?? []);
-          }
-        }
-      });
-    } catch (_) {
-      // Keep stale search results visible when refresh fails.
-    } finally {
-      loading = false;
+    if (state.folderOverwrite.isNotEmpty) {
+      await handleItemLoading(state.folderOverwrite.last.id, state.folderOverwrite.last);
+    } else if (state.views.hasEnabled) {
+      await handleViewLoading();
+    } else {
+      if (state.searchQuery.isEmpty && state.filters.favourites == false) {
+        state = state.copyWith(posters: []);
+      } else {
+        final response = await _loadLibrary(recursive: true);
+        state = state.copyWith(posters: response?.items ?? []);
+      }
     }
+
+    loading = false;
   }
 
   Future<void> loadViews(

@@ -109,7 +109,6 @@ dependencies:
   transparent_image: ^2.0.1
   universal_html: ^2.2.4
   collection: ^1.19.1
-  ffi: ^2.1.0
 
   # Device and System
   local_auth: ^2.3.0
@@ -148,7 +147,6 @@ dependencies:
   # Fix cjk font rendering issue on Windows
   chinese_font_library: ^1.2.0
   qr_flutter: ^4.1.0
-  webview_flutter: ^4.10.0
   flutter_dotenv: ^5.2.1
 
 dependency_overrides:

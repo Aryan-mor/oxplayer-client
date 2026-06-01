@@ -7,10 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/item_base_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/widgets/oxplayer_tmdb_empty_image_placeholder.dart';
 import 'package:fladder/models/items/channel_model.dart';
-import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/screens/details_screens/components/overview_header.dart';
@@ -40,7 +37,6 @@ class TVPosterRow extends ConsumerStatefulWidget {
   final Function(ItemBaseModel focused)? onFocused;
   final bool primaryPosters;
   final bool autoFocus;
-  final Function(String id, UserData? newData)? onUserDataChanged;
 
   const TVPosterRow({
     required this.posters,
@@ -51,7 +47,6 @@ class TVPosterRow extends ConsumerStatefulWidget {
     this.onFocused,
     this.primaryPosters = false,
     this.autoFocus = false,
-    this.onUserDataChanged,
     super.key,
   });
 
@@ -149,7 +144,6 @@ class _TVPosterRowState extends ConsumerState<TVPosterRow> {
                   }
                 },
                 primaryPosters: isFocused || widget.primaryPosters,
-                onUserDataChanged: widget.onUserDataChanged,
                 onTap: () => poster.navigateTo(context, ref: ref),
               );
             },
@@ -179,7 +173,6 @@ class _TVPosterItem extends ConsumerWidget {
   final bool focused;
   final Function(bool focused)? onFocusChanged;
   final bool primaryPosters;
-  final Function(String id, UserData? newData)? onUserDataChanged;
   final VoidCallback onTap;
 
   const _TVPosterItem({
@@ -190,7 +183,6 @@ class _TVPosterItem extends ConsumerWidget {
     required this.focused,
     this.onFocusChanged,
     required this.primaryPosters,
-    this.onUserDataChanged,
     required this.onTap,
   });
 
@@ -306,7 +298,6 @@ class _TVPosterItem extends ConsumerWidget {
             .generateActions(
               context,
               ref,
-              onUserDataChanged: (newData) => onUserDataChanged?.call(poster.id, newData),
             )
             .listTileItems(scrollContext, useIcons: true),
       ),
@@ -322,7 +313,6 @@ class _TVPosterItem extends ConsumerWidget {
           .generateActions(
             context,
             ref,
-            onUserDataChanged: (newData) => onUserDataChanged?.call(poster.id, newData),
           )
           .popupMenuItems(useIcons: true),
     );
@@ -458,12 +448,6 @@ class _TVPosterPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (OxplayerConfig.isEnabled) {
-      return Container(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: const OxplayerTmdbEmptyImagePlaceholder(),
-      );
-    }
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Center(

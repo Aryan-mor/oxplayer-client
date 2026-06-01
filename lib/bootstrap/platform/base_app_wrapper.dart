@@ -10,8 +10,6 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:fladder/background/update_notifications_worker.dart' as update_worker;
 import 'package:fladder/models/account_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_session_recovery_navigation.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
@@ -43,7 +41,7 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
   bool _hidden = false;
 
   StreamSubscription<String?>? _notificationSub;
-  bool get enableNotifications => !OxplayerConfig.isEnabled;
+  bool get enableNotifications => true;
 
   @override
   void initState() {
@@ -51,29 +49,12 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(sharedUtilityProvider).loadSettings();
-      if (OxplayerConfig.isEnabled && mounted) {
-        ref.read(oxplayerRegisteredAppRouterProvider.notifier).state = autoRouter;
-      }
       await platformInit();
-      if (OxplayerConfig.isEnabled) {
-        await _cancelLegacyBackgroundSyncTasks();
-      }
       await _initializeNotifications();
     });
   }
 
   Future<void> platformInit() async {}
-
-  /// Drops WorkManager jobs from older builds that used FOREGROUND_SERVICE_DATA_SYNC.
-  Future<void> _cancelLegacyBackgroundSyncTasks() async {
-    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
-    try {
-      await Workmanager().initialize(update_worker.callbackDispatcher);
-      await Workmanager().cancelAll();
-    } catch (e) {
-      log('OXPlayer: cancel legacy WorkManager tasks: $e');
-    }
-  }
 
   Future<void> _initializeNotifications() async {
     if (!enableNotifications) return;
@@ -155,9 +136,6 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
 
   @override
   void dispose() {
-    if (OxplayerConfig.isEnabled) {
-      ref.read(oxplayerRegisteredAppRouterProvider.notifier).state = null;
-    }
     _notificationSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

@@ -5,8 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:transparent_image/transparent_image.dart';
 
 import 'package:fladder/models/items/images_models.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/widgets/ox_general_video_artwork.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 
@@ -23,11 +21,8 @@ class FladderImage extends ConsumerWidget {
   final bool blurOnly;
   final int decodeHeight;
   final bool cachedImage;
-  /// When [OxplayerConfig] is on: try TMDB / Jellyfin first, then local Telegram (TDLib) for OX general video.
-  final String? oxMediaId;
   const FladderImage({
     required this.image,
-    this.oxMediaId,
     this.frameBuilder,
     this.imageErrorBuilder,
     this.placeHolder,
@@ -51,9 +46,6 @@ class FladderImage extends ConsumerWidget {
     final leanBackMode = ref.watch(argumentsStateProvider.select((value) => value.leanBackMode));
 
     if (newImage == null) {
-      if (oxMediaId != null && OxplayerConfig.isEnabled) {
-        return OxGeneralVideoArtwork(mediaId: oxMediaId!, fit: fit);
-      }
       return placeHolder ?? Container();
     } else {
       return Stack(
@@ -76,12 +68,7 @@ class FladderImage extends ConsumerWidget {
               fit: fit,
               placeholderFit: fit,
               alignment: alignment ?? Alignment.center,
-              imageErrorBuilder: imageErrorBuilder ??
-                  (oxMediaId != null && OxplayerConfig.isEnabled
-                      ? (c, o, s) {
-                          return OxGeneralVideoArtwork(mediaId: oxMediaId!, fit: fit);
-                        }
-                      : null),
+              imageErrorBuilder: imageErrorBuilder,
               image: leanBackMode
                   ? ResizeImage(
                       imageProvider,

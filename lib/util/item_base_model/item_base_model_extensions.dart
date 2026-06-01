@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:developer' show log;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -11,10 +8,8 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:fladder/models/book_model.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
-import 'package:fladder/models/items/item_stream_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/movie_model.dart';
-import 'package:fladder/models/items/season_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/providers/sync_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -33,33 +28,9 @@ import 'package:fladder/util/clipboard_helper.dart';
 import 'package:fladder/util/file_downloader.dart';
 import 'package:fladder/util/item_base_model/play_item_helpers.dart';
 import 'package:fladder/util/localization_helper.dart';
-import 'package:fladder/util/refresh_after_watch_state.dart';
 import 'package:fladder/util/refresh_state.dart';
-import 'package:fladder/util/router_extension.dart';
 import 'package:fladder/widgets/pop_up/delete_file.dart';
 import 'package:fladder/widgets/shared/item_actions.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_item_stream_ox_ids.dart';
-import 'package:fladder/oxplayer/oxplayer_library_media_api.dart';
-import 'package:fladder/oxplayer/providers/oxplayer_watch_later_provider.dart';
-import 'package:fladder/oxplayer/oxplayer_library_share_sheet.dart';
-
-extension ItemBaseModelOxShareEligible on ItemBaseModel {
-  bool get oxSupportsLibraryShare {
-    if (!OxplayerConfig.isEnabled) return false;
-    switch (type) {
-      case FladderItemType.movie:
-      case FladderItemType.series:
-      case FladderItemType.season:
-      case FladderItemType.episode:
-      case FladderItemType.playlist:
-      case FladderItemType.video:
-        return true;
-      default:
-        return false;
-    }
-  }
-}
 
 extension ItemBaseModelsBooleans on List<ItemBaseModel> {
   Map<FladderItemType, List<ItemBaseModel>> get groupedItems {
@@ -108,32 +79,6 @@ extension ItemBaseModelsBooleans on List<ItemBaseModel> {
   }
 }
 
-extension ItemBaseModelOxGeneralVideo on ItemBaseModel {
-  /// OX [ProviderIds] from Jellyfin: `OX=general_video`, `OXMedia=<db media id>`.
-  String? get oxMediaIdForGeneralVideoThumb {
-    if (this is! MovieModel) return null;
-    final p = (this as MovieModel).providerIds;
-    if (p == null) return null;
-    if (p['OX']?.toString() != 'general_video') return null;
-    final id = p['OXMedia']?.toString().trim();
-    if (id == null || id.isEmpty) return null;
-    return id;
-  }
-}
-
-/// After a library delete succeeds: run optional screen hook, otherwise pop one route (e.g. detail → previous).
-Future<void> _navigateAfterLibraryItemDelete(
-  BuildContext context,
-  ItemBaseModel item,
-  FutureOr<void> Function(ItemBaseModel item)? onDeleteSuccesFully,
-) async {
-  if (onDeleteSuccesFully != null) {
-    await onDeleteSuccesFully(item);
-  } else if (context.mounted) {
-    await context.router.popBack();
-  }
-}
-
 enum ItemActions {
   play,
   openShow,
@@ -151,23 +96,6 @@ enum ItemActions {
   mediaInfo,
   identify,
   download,
-  watchLater,
-  share,
-}
-
-void _debugWatchedLog(String message) {
-  if (!kDebugMode) return;
-  debugPrint('[DEBUG_WATCHED] $message');
-}
-
-/// One of watched / unwatched in the item menu, not both (see [ItemBaseModelExtensions.generateActions]).
-bool _showMarkWatchedMenuAction(ItemBaseModel item) {
-  if (item is SeasonModel || item is SeriesModel) {
-    final u = item.userData.unPlayedItemCount;
-    if (u != null) return u > 0;
-    return !item.userData.played;
-  }
-  return !item.userData.played;
 }
 
 extension ItemBaseModelExtensions on ItemBaseModel {
@@ -178,7 +106,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
     Set<ItemActions> exclude = const {},
     Function(UserData? newData)? onUserDataChanged,
     Function(ItemBaseModel item)? onItemUpdated,
-    FutureOr<void> Function(ItemBaseModel item)? onDeleteSuccesFully,
+    Function(ItemBaseModel item)? onDeleteSuccesFully,
   }) {
     final isAdmin = ref.read(userProvider)?.policy?.isAdministrator ?? false;
     final downloadEnabled = ref.read(userProvider.select(
@@ -189,10 +117,6 @@ extension ItemBaseModelExtensions on ItemBaseModel {
     final downloadUrl = ref.read(userProvider.notifier).createDownloadUrl(this);
     final syncedItemFuture = ref.read(syncProvider.notifier).getSyncedItem(id);
     final hasSeerrData = overview.seerrUrl?.isNotEmpty == true;
-    final showMarkWatched = _showMarkWatchedMenuAction(this);
-    _debugWatchedLog(
-      'generateActions id=$id type=$runtimeType played=${userData.played} unPlayedCount=${userData.unPlayedItemCount} → ${showMarkWatched ? "menu:MarkWatched" : "menu:MarkUnwatched"}',
-    );
     return [
       if (!exclude.contains(ItemActions.play))
         if (playAble)
@@ -228,7 +152,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
           label: Text(context.localized.showAlbum),
         ),
       if (!exclude.contains(ItemActions.playFromStart))
-        if (progress > 0)
+        if ((userData.progress) > 0)
           ItemActionButton(
             icon: const Icon(IconsaxPlusLinear.refresh),
             action: (this is BookModel)
@@ -263,35 +187,29 @@ extension ItemBaseModelExtensions on ItemBaseModel {
             },
             label: Text(context.localized.addToPlaylist),
           ),
-      if (!exclude.contains(ItemActions.markPlayed) && showMarkWatched)
+      if (!exclude.contains(ItemActions.markPlayed))
         ItemActionButton(
           icon: const Icon(IconsaxPlusLinear.eye),
           action: () async {
-            _debugWatchedLog('tap markAsWatched id=$id type=$runtimeType');
             try {
-              final userData = await ref.read(userProvider.notifier).markAsPlayedOxAware(true, this);
-              _debugWatchedLog('markAsWatched done id=$id userData=${userData?.bodyOrThrow != null}');
+              final userData = await ref.read(userProvider.notifier).markAsPlayed(true, id);
               onUserDataChanged?.call(userData?.bodyOrThrow);
             } finally {
-              await refreshAfterWatchStateChange(ref, this);
-              if (context.mounted) context.refreshData();
+              context.refreshData();
             }
           },
           label: Text(context.localized.markAsWatched),
         ),
-      if (!exclude.contains(ItemActions.markUnplayed) && !showMarkWatched)
+      if (!exclude.contains(ItemActions.markUnplayed))
         ItemActionButton(
           icon: const Icon(IconsaxPlusLinear.eye_slash),
           label: Text(context.localized.markAsUnwatched),
           action: () async {
-            _debugWatchedLog('tap markAsUnwatched id=$id type=$runtimeType');
             try {
-              final userData = await ref.read(userProvider.notifier).markAsPlayedOxAware(false, this);
-              _debugWatchedLog('markAsUnwatched done id=$id userData=${userData?.bodyOrThrow != null}');
+              final userData = await ref.read(userProvider.notifier).markAsPlayed(false, id);
               onUserDataChanged?.call(userData?.bodyOrThrow);
             } finally {
-              await refreshAfterWatchStateChange(ref, this);
-              if (context.mounted) context.refreshData();
+              context.refreshData();
             }
           },
         ),
@@ -308,36 +226,6 @@ extension ItemBaseModelExtensions on ItemBaseModel {
           },
           label: Text(userData.isFavourite ? context.localized.removeAsFavorite : context.localized.addAsFavorite),
         ),
-      if (OxplayerConfig.isEnabled && !exclude.contains(ItemActions.watchLater))
-        () {
-          final watchLaterState = ref.read(oxplayerWatchLaterProvider);
-          final isWatchLater = watchLaterState.itemsMap.containsKey(id);
-          return ItemActionButton(
-            icon: Icon(isWatchLater ? IconsaxPlusBold.clock : IconsaxPlusLinear.clock),
-            action: () async {
-              try {
-                await ref.read(oxplayerWatchLaterProvider.notifier).toggleWatchLater(this);
-              } finally {
-                context.refreshData();
-              }
-            },
-            label: Text(isWatchLater ? "Remove from Watch Later" : "Add to Watch Later"),
-          );
-        }(),
-      if (OxplayerConfig.isEnabled && !exclude.contains(ItemActions.share) && oxSupportsLibraryShare)
-        ItemActionButton(
-          icon: const Icon(IconsaxPlusLinear.share),
-          action: () async {
-            await showOxplayerLibraryShareSheet(context: context, ref: ref, itemId: id);
-          },
-          label: const Text('Share'),
-        ),
-      ..._oxplayerLibraryIssueActions(
-        context: context,
-        ref: ref,
-        item: this,
-        onDeleteSuccesFully: onDeleteSuccesFully,
-      ),
       ...otherActions,
       ItemActionDivider(),
       if (!exclude.contains(ItemActions.editMetaData) && isAdmin)
@@ -435,7 +323,7 @@ extension ItemBaseModelExtensions on ItemBaseModel {
               successTitle: context.localized.deletedItem(name),
             );
             if (response.isSuccess) {
-              await _navigateAfterLibraryItemDelete(context, this, onDeleteSuccesFully);
+              onDeleteSuccesFully?.call(this);
               if (context.mounted) {
                 context.refreshData();
               }
@@ -487,76 +375,5 @@ extension ItemBaseModelExtensions on ItemBaseModel {
     final value = providerIds['Tvdb'];
     final parsed = int.tryParse(value.toString());
     return parsed;
-  }
-}
-
-Iterable<ItemAction> _oxplayerLibraryIssueActions({
-  required BuildContext context,
-  required WidgetRef ref,
-  required ItemBaseModel item,
-  FutureOr<void> Function(ItemBaseModel item)? onDeleteSuccesFully,
-}) sync* {
-  if (item is MovieModel && item.oxMediaIdForGeneralVideoThumb != null) {
-    final mediaId = item.oxMediaIdForGeneralVideoThumb!;
-    yield ItemActionButton(
-      icon: const Icon(IconsaxPlusLinear.trash),
-      label: Text(context.localized.oxplayerRemoveFromLibrary),
-      action: () async {
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(ctx.localized.oxplayerRemoveGeneralVideoTitle),
-            content: Text(ctx.localized.oxplayerRemoveGeneralVideoBody),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.localized.cancel)),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.localized.delete)),
-            ],
-          ),
-        );
-        if (ok != true || !context.mounted) return;
-        final removed = await oxplayerDeleteLibraryMedia(ref, mediaId);
-        if (!context.mounted) return;
-        if (removed) {
-          FladderSnack.show(context.localized.oxplayerRemoveGeneralVideoSuccess, context: context);
-          await _navigateAfterLibraryItemDelete(context, item, onDeleteSuccesFully);
-          if (context.mounted) {
-            context.refreshData();
-          }
-        } else {
-          FladderSnack.show(context.localized.oxplayerRemoveGeneralVideoFailed, context: context);
-        }
-      },
-    );
-    return;
-  }
-  if (item is ItemStreamModel) {
-    final mid = item.oxTelegramLibraryMediaId;
-    if (mid == null) return;
-    yield ItemActionButton(
-      icon: const Icon(IconsaxPlusLinear.flag),
-      label: Text(context.localized.oxplayerReportIssue),
-      action: () async {
-        final r = await oxplayerPostLibraryMediaReport(ref, mid);
-        if (!context.mounted) return;
-        if (!r.ok) {
-          if (kDebugMode) {
-            log(r.debugLine, name: 'oxplayer_library_report');
-          }
-          final msg = switch (r.httpStatus) {
-            401 => context.localized.oxplayerReportIssueUnauthorized,
-            404 => context.localized.oxplayerReportIssueNotFound,
-            _ => context.localized.oxplayerReportIssueFailed,
-          };
-          FladderSnack.show(msg, context: context);
-          return;
-        }
-        FladderSnack.show(
-          r.adminNotified
-              ? context.localized.oxplayerReportIssueSent
-              : context.localized.oxplayerReportIssueRecordedWithoutAdmin,
-          context: context,
-        );
-      },
-    );
   }
 }

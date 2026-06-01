@@ -9,8 +9,6 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:fladder/oxplayer/oxplayer_debug.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
-import 'package:fladder/oxplayer/telegram/tdlib_facade.dart';
-
 /// Optional crash reporting via [Sentry](https://sentry.io). Disabled when [OxplayerEnv.sentryDsn] is empty.
 abstract final class OxplayerSentry {
   static const String _cGitCommit = String.fromEnvironment('GIT_COMMIT');
@@ -160,7 +158,6 @@ abstract final class OxplayerSentry {
 
   /// Expected control-flow / offline noise — not sent to Sentry or local crash logs.
   static bool shouldDropPlatformError(Object? error) {
-    if (isTdlibInteractiveLoginRequired(error)) return true;
     return _isBenignNetworkError(error);
   }
 

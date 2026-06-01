@@ -21,7 +21,8 @@ Do **not** add OX helpers that prefetch home/library or patch Fladder providers 
 
 - TDLib: `telegram/`, `lib/td_api_generated/`, `tool/tdlib/`, My Telegram routes/UI
 - Catalog UX overlays: search landing, TMDB row, home banner
-- Telegram playback: `oxplayer://telegram/`, verified-streams resolver, sync-from-chat
+- Telegram playback: `oxplayer://telegram/`, sync-from-chat
+- **Playback verified streams** (`lib/oxplayer/playback/`): after Exo/mpv mux discovery, POST manifest to `MediaVariants/{id}/PlayerVerifiedStreams` on oxplayer-be. Wired via `OXPLAYER_HOOK` in `media_control_wrapper.dart` only.
 
 ## Merging Fladder updates
 

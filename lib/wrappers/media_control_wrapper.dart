@@ -30,6 +30,8 @@ import 'package:fladder/wrappers/players/base_player.dart';
 import 'package:fladder/wrappers/players/lib_mdk.dart'
     if (dart.library.html) 'package:fladder/stubs/web/lib_mdk_web.dart';
 import 'package:fladder/wrappers/players/lib_mpv.dart';
+import 'package:fladder/oxplayer/oxplayer_config.dart';
+import 'package:fladder/oxplayer/playback/oxplayer_playback_muxed_hooks.dart';
 import 'package:fladder/wrappers/players/native_player.dart';
 import 'package:fladder/wrappers/players/player_states.dart';
 
@@ -109,6 +111,10 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
     for (var element in subscriptions) {
       element.cancel();
     }
+    // OXPLAYER_HOOK: detach muxed verified-stream listeners (lib/oxplayer/playback/).
+    if (OxplayerConfig.isEnabled) {
+      oxplayerPlaybackDetachMuxedDiscovery();
+    }
     stop();
     _subscribePlayer();
     _subtitleSettingsSubscription = ref.listen(subtitleSettingsProvider, (_, next) {
@@ -122,6 +128,10 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
       await (_player as NativePlayer).sendPlaybackDataToNative(context, model, startPosition);
     }
     _isNewPlayback = play;
+    // OXPLAYER_HOOK: muxed track discovery → POST PlayerVerifiedStreams (lib/oxplayer/playback/).
+    if (OxplayerConfig.isEnabled) {
+      oxplayerPlaybackAttachMuxedDiscovery(ref, _player);
+    }
     await _player?.loadVideo(model.media?.url ?? "", play, startPosition: startPosition);
     _player?.applySubtitleSettings(ref.read(subtitleSettingsProvider));
 

@@ -65,8 +65,10 @@ Future<void> oxplayerInvalidateLocalSession(OxplayerRead read, AccountModel acco
   await read(authProvider.notifier).logOutUser();
 }
 
-void oxplayerAttachSessionRevokedListener(WidgetRef ref, StackRouter router) {
-  ref.listen<int>(oxplayerSessionRevokedProvider, (previous, next) {
+/// Listen for server-driven session invalidation. Call from [State.initState] only
+/// with [ref.listenManual] (not [ref.listen], which requires an active build).
+ProviderSubscription<int> oxplayerAttachSessionRevokedListener(WidgetRef ref, StackRouter router) {
+  return ref.listenManual<int>(oxplayerSessionRevokedProvider, (previous, next) {
     if (next == 0 || next == previous) return;
     router.replaceAll([const OxplayerLoginRoute()]);
   });

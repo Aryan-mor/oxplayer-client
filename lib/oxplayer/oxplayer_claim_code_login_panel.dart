@@ -5,9 +5,14 @@ import 'package:fladder/oxplayer/oxplayer_jellyfin_auth.dart';
 import 'package:fladder/oxplayer/oxplayer_login_bot_actions.dart';
 
 class OxplayerClaimCodeLoginPanel extends ConsumerStatefulWidget {
-  const OxplayerClaimCodeLoginPanel({required this.onSuccess, super.key});
+  const OxplayerClaimCodeLoginPanel({
+    required this.onSuccess,
+    this.onBack,
+    super.key,
+  });
 
   final Future<void> Function() onSuccess;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<OxplayerClaimCodeLoginPanel> createState() => _OxplayerClaimCodeLoginPanelState();
@@ -54,6 +59,17 @@ class _OxplayerClaimCodeLoginPanelState extends ConsumerState<OxplayerClaimCodeL
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.onBack != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _loading ? null : widget.onBack,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back'),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
         Text(
           'Login code',
           style: Theme.of(context).textTheme.titleMedium,

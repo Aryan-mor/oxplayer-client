@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:chopper/chopper.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/oxplayer/oxplayer_provider_read.dart';
@@ -13,14 +11,14 @@ import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const kOxJellyfinRefreshUsername = '__ox_refresh__';
 
 /// Bumped when the server rejects the session and local credentials are cleared.
 final oxplayerSessionRevokedProvider = StateProvider<int>((ref) => 0);
 
-OxplayerSessionStore _sessionStore(OxplayerRead read) =>
-    OxplayerSessionStore(read(sharedPreferencesProvider));
+OxplayerSessionStore _sessionStore(OxplayerRead read) => OxplayerSessionStore(read(sharedPreferencesProvider));
 
 Future<void> oxplayerPersistRefreshFromResponse(
   WidgetRef ref,

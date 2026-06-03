@@ -2,12 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:workmanager/workmanager.dart';
-
 import 'package:fladder/background/update_notifications_worker.dart' as update_worker;
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/oxplayer/oxplayer_session.dart';
@@ -23,6 +17,10 @@ import 'package:fladder/screens/login/lock_screen.dart';
 import 'package:fladder/services/notification_service.dart';
 import 'package:fladder/util/deep_link_helper.dart';
 import 'package:fladder/wrappers/players/native_player.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:workmanager/workmanager.dart';
 
 typedef PlatformAppBuilder = Widget Function(
   BuildContext context,

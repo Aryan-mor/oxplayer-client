@@ -131,6 +131,14 @@ class AuthNotifier extends StateNotifier<LoginScreenModel> {
     return _createAccountModel(response);
   }
 
+  /// OXPlayer: apply a Jellyfin-shaped auth payload (e.g. login-attempt long poll).
+  Future<Response<AccountModel>?> finishAuthenticationFromResult(
+    Response<AuthenticationResult> response,
+  ) async {
+    clearAllProviders();
+    return _createAccountModel(response);
+  }
+
   Future<Response<AccountModel>> _createAccountModel(Response<AuthenticationResult> response) async {
     CredentialsModel? credentials = state.serverLoginModel?.tempCredentials;
     if (credentials == null) return Response(response.base, null);

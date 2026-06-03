@@ -2735,6 +2735,8 @@
   "musicDashboard": "Music Dashboard",
   "quiet": "Quiet",
   "loud": "Loud",
+  "oxplayerHomeWelcome": "Welcome to OXPlayer",
+  "@oxplayerHomeWelcome": {},
   "oxplayerHelpTitle": "Get started",
   "@oxplayerHelpTitle": {},
   "oxplayerHelpBody": "OXPlayer is your Telegram media library in one place. Send or forward media to the bot to add it here, then browse and play from Home.",

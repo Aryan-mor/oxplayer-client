@@ -16,8 +16,9 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
    └─ Splash: oxplayerRestoreSession() — GET /Users/Me; on 401 try refresh; else logout → /ox-login
 
 2. User sees OxplayerLoginScreen  (route: /ox-login)
-   └─ FladderLogo + OxplayerClaimCodeLoginPanel
-   └─ User runs /login on main bot → enters 6-char code
+   └─ FladderLogo + OxplayerTelegramLoginPanel (QR + Sign in with Telegram)
+   └─ App creates login attempt → opens `?start=li_<attemptId>` → long-poll until bot completes
+   └─ Fallback: OxplayerClaimCodeLoginPanel (6-char code from bot /login)
 
 3. Jellyfin AuthenticateByName (username `ox`, password = code)
    ← session token + `X-Ox-Refresh-Token` header (stored in SharedPreferences)
@@ -33,7 +34,9 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
 | File | Role |
 |------|------|
 | `oxplayer_login_screen.dart` | Login UI at `/ox-login` |
-| `oxplayer_claim_code_login_panel.dart` | Code entry UI |
+| `oxplayer_telegram_login_panel.dart` | QR + Telegram deep-link login (primary) |
+| `oxplayer_login_attempt_api.dart` | POST attempt + long-poll GET |
+| `oxplayer_claim_code_login_panel.dart` | Manual code entry (fallback) |
 | `oxplayer_jellyfin_auth.dart` | Jellyfin authenticateByName + refresh |
 | `oxplayer_session.dart` | Cold-start restore, refresh, invalidate |
 | `oxplayer_session_interceptor.dart` | 401 → refresh or logout |

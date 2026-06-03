@@ -37,4 +37,12 @@ abstract final class OxplayerEnv {
     final b = botUsername;
     return b == null ? null : 'https://t.me/$b?start=login';
   }
+
+  /// Deep link for app login attempt: ?start=li_<32-char hex attemptId>.
+  static String? telegramBotLoginAttemptLink(String attemptId) {
+    final b = botUsername;
+    final id = attemptId.trim();
+    if (b == null || id.isEmpty) return null;
+    return 'https://t.me/$b?start=li_$id';
+  }
 }

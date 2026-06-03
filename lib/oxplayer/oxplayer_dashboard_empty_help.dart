@@ -6,6 +6,7 @@ import 'package:fladder/models/home_model.dart';
 import 'package:fladder/models/views_model.dart';
 import 'package:fladder/oxplayer/oxplayer_help_content.dart';
 import 'package:fladder/providers/views_provider.dart';
+import 'package:fladder/util/localization_helper.dart';
 
 bool oxplayerIsHomeLibraryEmpty({
   required ViewsModel views,
@@ -63,13 +64,31 @@ class _OxplayerDashboardEmptyHelpSliverState extends ConsumerState<OxplayerDashb
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
+    final theme = Theme.of(context);
+
     return SliverToBoxAdapter(
       child: Padding(
         padding: EdgeInsets.only(
           top: MediaQuery.paddingOf(context).top + 24,
           bottom: 32,
         ),
-        child: const OxplayerHelpContent(embedded: true),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                context.localized.oxplayerHomeWelcome,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const OxplayerHelpContent(embedded: true),
+          ],
+        ),
       ),
     );
   }

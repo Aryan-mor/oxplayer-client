@@ -112,6 +112,16 @@ class NativePlayer extends BasePlayer implements VideoPlayerListenerCallback {
     _stateController.add(lastState);
   }
 
+  @override
+  void onMuxedTracksDiscovered(
+    List<NativeMuxedAudioRow> audio,
+    List<NativeMuxedSubtitleRow> subtitles,
+  ) {
+    // Exo already mapped embedded tracks; re-apply defaults from the last PlayableData payload.
+    if (audio.isEmpty && subtitles.isEmpty) return;
+    unawaited(player.refreshDefaultTrackSelection());
+  }
+
   final StreamController<PlayerState> _stateController = StreamController.broadcast();
 
   @override

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/oxplayer/oxplayer_claim_code_login_panel.dart';
+import 'package:fladder/oxplayer/oxplayer_telegram_login_panel.dart';
 import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/providers/auth_provider.dart';
@@ -21,6 +22,7 @@ class OxplayerLoginScreen extends ConsumerStatefulWidget {
 class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
   bool _bootstrapping = true;
   String? _bootstrapError;
+  bool _manualCode = false;
 
   @override
   void initState() {
@@ -114,9 +116,16 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
                           children: [
                             const FladderLogo(),
                             const SizedBox(height: 24),
-                            OxplayerClaimCodeLoginPanel(
-                              onSuccess: () => loggedInGoToHome(context, ref),
-                            ),
+                            if (_manualCode)
+                              OxplayerClaimCodeLoginPanel(
+                                onSuccess: () => loggedInGoToHome(context, ref),
+                                onBack: () => setState(() => _manualCode = false),
+                              )
+                            else
+                              OxplayerTelegramLoginPanel(
+                                onSuccess: () => loggedInGoToHome(context, ref),
+                                onManualCode: () => setState(() => _manualCode = true),
+                              ),
                           ],
                         ),
             ),

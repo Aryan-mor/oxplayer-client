@@ -71,7 +71,6 @@ class _PullToRefreshState extends ConsumerState<PullToRefresh> {
             ? RefreshIndicator(
                 displacement: widget.displacement ?? 80 + MediaQuery.of(context).viewPadding.top,
                 key: refreshKey,
-                triggerMode: RefreshIndicatorTriggerMode.anywhere,
                 onRefresh: widget.onRefresh!,
                 color: Theme.of(context).colorScheme.onPrimaryContainer,
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,

@@ -24,6 +24,18 @@
   "@addToCollection": {},
   "addToPlaylist": "Add to playlist",
   "@addToPlaylist": {},
+  "addToQueue": "Add to queue",
+  "@addToQueue": {},
+  "instantMix": "Instant mix",
+  "@instantMix": {},
+  "addedToQueue": "{count, plural, one{Added {count} track to queue} other{Added {count} tracks to queue}}",
+  "@addedToQueue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "advanced": "Advanced",
   "@advanced": {},
   "all": "All",
@@ -50,6 +62,27 @@
   "audio": "{count, plural, one{Audio} other{Audio}}",
   "@audio": {
     "description": "Audio (plural)",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "audioPlayerPlaybackOptionsTitle": "Playback options",
+  "@audioPlayerPlaybackOptionsTitle": {},
+  "audioPlayerRepeatAll": "Repeat all",
+  "@audioPlayerRepeatAll": {},
+  "audioPlayerRepeatOff": "Repeat off",
+  "@audioPlayerRepeatOff": {},
+  "audioPlayerRepeatOne": "Repeat one",
+  "@audioPlayerRepeatOne": {},
+  "audioPlayerShuffle": "Shuffle",
+  "@audioPlayerShuffle": {},
+  "showArtist": "Show artist",
+  "track": "{count, plural, one{Track} other{Tracks}}",
+  "@track": {
+    "description": "track",
     "placeholders": {
       "count": {
         "type": "int",
@@ -158,6 +191,15 @@
   "dashboardRecentlyAdded": "Recently added in {name}",
   "@dashboardRecentlyAdded": {
     "description": "Recently added on home screen",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardRecentlyAddedItems": "Recently added {name}",
+  "@dashboardRecentlyAddedItems": {
+    "description": "Recently added items on home screen",
     "placeholders": {
       "name": {
         "type": "String"
@@ -366,7 +408,7 @@
   "@login": {},
   "logout": "Log out",
   "@logout": {},
-  "logoutUserPopupContent": "This will log out {userName} and delete the user from the app.",
+  "logoutUserPopupContent": "This will log out {userName} and delete the user from the app.\nYou will have to log back in on {serverName}.",
   "@logoutUserPopupContent": {
     "description": "Pop-up for logging out the user description",
     "placeholders": {
@@ -386,34 +428,6 @@
         "type": "String"
       }
     }
-  },
-  "oxplayerDeleteAccountTileTitle": "Delete account",
-  "@oxplayerDeleteAccountTileTitle": {
-    "description": "Profile settings: destructive account delete row title"
-  },
-  "oxplayerDeleteAccountSectionTitle": "Account deletion",
-  "@oxplayerDeleteAccountSectionTitle": {
-    "description": "Profile settings: section header above delete account row"
-  },
-  "oxplayerDeleteAccountTileSubtitle": "Remove your account from this server. You can sign in again as a new user.",
-  "@oxplayerDeleteAccountTileSubtitle": {
-    "description": "Profile settings: account delete row subtitle"
-  },
-  "oxplayerDeleteAccountDialogTitle": "Delete your account?",
-  "@oxplayerDeleteAccountDialogTitle": {
-    "description": "Confirmation dialog title for account deletion"
-  },
-  "oxplayerDeleteAccountDialogBody": "Your account will be closed and your Telegram id released. The next time you sign in, you will start as a new user.",
-  "@oxplayerDeleteAccountDialogBody": {
-    "description": "Confirmation dialog body for account deletion"
-  },
-  "oxplayerDeleteAccountConfirm": "Delete account",
-  "@oxplayerDeleteAccountConfirm": {
-    "description": "Confirmation button to proceed with account deletion"
-  },
-  "oxplayerDeleteAccountFailed": "Could not delete account. Try again.",
-  "@oxplayerDeleteAccountFailed": {
-    "description": "Shown when the delete-account API request fails"
   },
   "loop": "Loop",
   "@loop": {},
@@ -478,6 +492,16 @@
   "mediaTypePerson": "{count, plural, one{Person} other{People}}",
   "@mediaTypePerson": {
     "description": "Person (plural)",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "mediaTypeArtists": "{count, plural, one{Artist} other{Artists}}",
+  "@mediaTypeArtists": {
+    "description": "Artist (plural)",
     "placeholders": {
       "count": {
         "type": "int",
@@ -693,6 +717,8 @@
   "@playLabel": {},
   "playVideos": "Play videos",
   "@playVideos": {},
+  "playMusic": "Play music",
+  "@playMusic": {},
   "played": "Played",
   "@played": {},
   "quickConnectAction": "Enter quick connect code for",
@@ -919,7 +945,7 @@
   "@settingsBlurredPlaceholderTitle": {},
   "settingsClientDesc": "General, Time-out, Layout, Theme",
   "@settingsClientDesc": {},
-  "settingsClientTitle": "OXPlayer",
+  "settingsClientTitle": "Fladder",
   "@settingsClientTitle": {},
   "settingsContinue": "Continue",
   "@settingsContinue": {},
@@ -954,6 +980,10 @@
   "@settingsPlayerNativeLibassAccelTitle": {},
   "settingsPlayerBufferSizeTitle": "Video buffer size",
   "@settingsPlayerBufferSizeTitle": {},
+  "settingsPlayerPlayPauseFadeTitle": "Play/pause volume fade",
+  "@settingsPlayerPlayPauseFadeTitle": {},
+  "settingsPlayerPlayPauseFadeDesc": "Fade volume in and out when playing or pausing",
+  "@settingsPlayerPlayPauseFadeDesc": {},
   "settingsPlayerBufferSizeDesc": "Configure the buffer size for video playback, determining how much data is loaded into the cache.",
   "@settingsPlayerBufferSizeDesc": {},
   "settingsPlayerTitle": "Player",
@@ -1050,6 +1080,14 @@
   "@syncDeleteItemTitle": {},
   "syncDeletePopupPermanent": "This action is permanent and will remove all locally synced files",
   "@syncDeletePopupPermanent": {},
+  "syncPlaylistDeleteTitle": "Delete synced playlist",
+  "@syncPlaylistDeleteTitle": {},
+  "syncPlaylistDeleteContent": "Do you also want to remove the tracks synced from this playlist?",
+  "@syncPlaylistDeleteContent": {},
+  "syncPlaylistKeepTracks": "Keep tracks",
+  "@syncPlaylistKeepTracks": {},
+  "syncPlaylistRemoveTracks": "Remove tracks",
+  "@syncPlaylistRemoveTracks": {},
   "syncDetails": "Sync details",
   "@syncDetails": {},
   "syncOpenParent": "Open parent",
@@ -1220,6 +1258,14 @@
       }
     }
   },
+  "removedFromPlaylist": "Removed from {playlistName} playlist",
+  "@removedFromPlaylist": {
+    "placeholders": {
+      "playlistName": {
+        "type": "String"
+      }
+    }
+  },
   "syncStatusEnqueued": "Enqueued",
   "@syncStatusEnqueued": {},
   "syncStatusRunning": "Running",
@@ -1350,16 +1396,28 @@
   "libraryShuffleAndPlayItems": "Shuffle and play items",
   "libraryPlayItems": "Play items",
   "clientSettingsShowAllCollectionsTitle": "Show all collection types",
-  "clientSettingsShowAllCollectionsDesc": "When enabled, show all collection types, including those not supported by OXPlayer",
+  "clientSettingsShowAllCollectionsDesc": "When enabled, show all collection types, including those not supported by Fladder",
   "stop": "Stop",
   "resumeVideo": "Resume video",
   "closeVideo": "Close video",
   "playNextVideo": "Play next video",
-  "playerSettingsBackendTitle": "Video player Backend",
+  "playerSettingsBackendTitle": "Media player Backend",
   "playerSettingsBackendDesc": "Choose your preferred media player for optimal playback experience",
+  "playerSettingsReplayGainTitle": "ReplayGain",
+  "playerSettingsReplayGainDesc": "Normalize music loudness using ReplayGain tags.",
+  "playerSettingsReplayGainLevelTitle": "ReplayGain level",
+  "playerSettingsReplayGainLevelDesc": "Set the target loudness level for ReplayGain normalization. A common standard is -14 dB, but you can adjust it to your preference.",
+  "settingsPlayerCrossfadeTitle": "Crossfade",
+  "@settingsPlayerCrossfadeTitle": {},
+  "settingsPlayerCrossfadeDesc": "Fade between tracks that are not consecutive in the same album",
+  "@settingsPlayerCrossfadeDesc": {},
+  "settingsPlayerCrossfadeDurationTitle": "Crossfade duration",
+  "@settingsPlayerCrossfadeDurationTitle": {},
+  "settingsPlayerCrossfadeDurationDesc": "Duration of the crossfade",
+  "@settingsPlayerCrossfadeDurationDesc": {},
   "defaultLabel": "Default",
   "@defaultLabel": {
-    "description": "To indicate a default value, default video player backend"
+    "description": "To indicate a default value, default media player backend"
   },
   "noVideoPlayerOptions": "The selected backend has no options",
   "mdkExperimental": "MDK is still in a experimental stage",
@@ -1418,8 +1476,8 @@
   "segmentActionSkipOnce": "Skip once",
   "segmentActionSkip": "Skip",
   "loading": "Loading",
-  "exitFladderTitle": "Exit OXPlayer",
-  "exitFladderDesc": "Are you sure you want to close OXPlayer?",
+  "exitFladderTitle": "Exit Fladder",
+  "exitFladderDesc": "Are you sure you want to close Fladder?",
   "castAndCrew": "Cast & Crew",
   "guestActor": "{count, plural, other{Guest Actors} one{Guest Actor}}",
   "@guestActor": {
@@ -1632,9 +1690,9 @@
   "screensaverBlack": "Black",
   "playerSettingsScreensaverTitle": "Screensaver",
   "playerSettingsScreensaverDesc": "Select screen saver that will be shown after no player activity",
-  "settingsLocalUrlTitle": "Local server URL",
-  "settingsLocalUrlSetTitle": "Configure local server URL",
-  "settingsLocalUrlSetDesc": "Specify the local OXPlayer server address. OXPlayer will automatically use this URL when your device is on the same network.",
+  "settingsLocalUrlTitle": "Local Jellyfin URL",
+  "settingsLocalUrlSetTitle": "Configure Local Jellyfin URL",
+  "settingsLocalUrlSetDesc": "Specify the local Jellyfin address. Fladder will automatically use this URL when your device is on the same network.",
   "regenerateTrickplayImages": "Regenerate trickplay images",
   "controlPanel": "Control Panel",
   "@controlPanel": {},
@@ -2085,6 +2143,12 @@
   },
   "recentlyAdded": "Recently added",
   "@recentlyAdded": {},
+  "recentlyPlayed": "Recently played",
+  "@recentlyPlayed": {},
+  "recentlyFavorited": "Recently favorited",
+  "@recentlyFavorited": {},
+  "mostPlayed": "Most played",
+  "@mostPlayed": {},
   "recentRequests": "Recent requests",
   "@recentRequests": {},
   "trending": "Trending",
@@ -2228,7 +2292,7 @@
   "@seerrAuthApiKey": {},
   "seerrAuthLocal": "Local",
   "@seerrAuthLocal": {},
-  "seerrAuthJellyfin": "Media library",
+  "seerrAuthJellyfin": "Jellyfin",
   "@seerrAuthJellyfin": {},
   "seerrUserFetchFailed": "Failed to fetch user from Seerr",
   "@seerrUserFetchFailed": {},
@@ -2258,7 +2322,7 @@
   "@emailUsername": {},
   "discover": "Discover",
   "sponsor": "Sponsor",
-  "sponsorMessage": "If you enjoy using OXPlayer, consider sponsoring the project to support ongoing development and improvements. Thank you for your support!",
+  "sponsorMessage": "If you enjoy using Fladder, consider sponsoring the project to support ongoing development and improvements. Thank you for your support!",
   "min": "min",
   "max": "max",
   "manageRequest": "Manage request",
@@ -2330,6 +2394,25 @@
     }
   },
   "now": "Now",
+  "@now": {},
+  "nowPlaying": "Now playing",
+  "@nowPlaying": {},
+  "upNext": "Up next",
+  "@upNext": {},
+  "queue": "Queue",
+  "@queue": {},
+  "queueIsEmpty": "Queue is empty",
+  "@queueIsEmpty": {},
+  "queueItemCount": "{count} items",
+  "@queueItemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "removeFromQueue": "Remove from queue",
+  "@removeFromQueue": {},
   "noPrograms": "No programs available",
   "switchChannel": "Switch channel",
   "switchChannelDesc": "Do you want to watch \"{programName}\" on {channelName}?",
@@ -2555,7 +2638,7 @@
     }
   },
   "notificationTimerIOSWarning": " iOS decides when/if updates actually run, notifications may be delayed or not show up at all.",
-  "batteryOptimizationDesc": "Battery optimizations may delay background notifications for OXPlayer.\nTap to open system settings and disable optimizations for OXPlayer to improve notification reliability.",
+  "batteryOptimizationDesc": "Battery optimizations may delay background notifications for Fladder.\nTap to open system settings and disable optimizations for Fladder to improve notification reliability.",
   "@batteryOptimizationDesc": {},
   "updateCheckInterval": "Update check interval",
   "updateCheckIntervalDesc": "How often the background task runs",
@@ -2593,7 +2676,7 @@
   "passwordNotRequired": "Not required, leave empty to not include password in the link",
   "authLinkButtonToolTip": "Open auth link dialog",
   "connectWithAuthLink": "Connect with auth link",
-  "pasteFladderAuthLink": "Paste OXPlayer auth link oxplayer:///login?authLink=...",
+  "pasteFladderAuthLink": "Paste fladder auth link fladder:///login?authLink=...",
   "connect": "Connect",
   "authLinkDesc": "Ask the server admin to provide the auth link. The link contains authentication information, so be sure to keep it secure.",
   "deletedItem": "Deleted {itemName}",
@@ -2649,99 +2732,12 @@
   "seerrMovies": "Discover Movies",
   "seerrSeries": "Discover Series",
   "today": "Today",
-  "myTelegramTitle": "My Telegram",
-  "@myTelegramTitle": {},
-  "myTelegramConfigureChats": "Configure chats",
-  "@myTelegramConfigureChats": {},
-  "myTelegramBucketChats": "Chats",
-  "myTelegramBucketGroups": "Groups",
-  "myTelegramBucketSupergroups": "Forums",
-  "myTelegramBucketChannels": "Channels",
-  "myTelegramBucketBots": "Bots",
-  "myTelegramShowSectionInHub": "Show in My Telegram hub",
-  "@myTelegramShowSectionInHub": {},
-  "myTelegramSave": "Save",
-  "myTelegramCancel": "Cancel",
-  "myTelegramShowInMyTelegram": "Show in My Telegram",
-  "myTelegramSearchChatsHint": "Search chats",
-  "myTelegramLoadMore": "Load more",
-  "myTelegramNoChatsYet": "No chats selected. Use Configure to choose dialogs.",
-  "myTelegramIndexed": "Indexed",
-  "myTelegramLive": "Live",
-  "myTelegramForumTopics": "Topics",
-  "myTelegramAuthRequired": "Sign in with Telegram to use My Telegram.",
-  "myTelegramError": "Something went wrong",
-  "myTelegramNothingToShow": "No videos here yet",
-  "myTelegramSavedSelection": "Selection saved",
-  "myTelegramVideoDetails": "Video",
-  "@myTelegramVideoDetails": {},
-  "myTelegramVideo": "Video",
-  "@myTelegramVideo": {},
-  "myTelegramPlay": "Play",
-  "@myTelegramPlay": {},
-  "myTelegramPreparingPlayback": "Preparing playback…",
-  "@myTelegramPreparingPlayback": {},
-  "myTelegramDownloadProgress": "Downloading from Telegram: {percent}% ({downloaded} of {total})",
-  "@myTelegramDownloadProgress": {
-    "placeholders": {
-      "percent": { "type": "String" },
-      "downloaded": { "type": "String" },
-      "total": { "type": "String" }
-    }
-  },
-  "myTelegramOpeningPlayer": "Opening player…",
-  "@myTelegramOpeningPlayer": {},
-  "myTelegramPlaybackDownloadTimeout": "The file is still downloading or the download timed out. Check the log for [MyTelegram play].",
-  "@myTelegramPlaybackDownloadTimeout": {},
-  "myTelegramAddToLibraryIndex": "Add to library index",
-  "@myTelegramAddToLibraryIndex": {},
-  "myTelegramIndexNeedSignIn": "Sign in to the OX API to index media.",
-  "@myTelegramIndexNeedSignIn": {},
-  "myTelegramIndexQueued": "Sent {count} file(s) to the indexer",
-  "@myTelegramIndexQueued": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "myTelegramDetailSender": "Sender",
-  "@myTelegramDetailSender": {},
-  "myTelegramDetailFolder": "Folder / chat",
-  "@myTelegramDetailFolder": {},
-  "myTelegramDetailDate": "Date",
-  "@myTelegramDetailDate": {},
-  "myTelegramDetailDuration": "Duration",
-  "@myTelegramDetailDuration": {},
-  "myTelegramDetailMessageId": "Message",
-  "@myTelegramDetailMessageId": {},
-  "myTelegramDetailTopic": "Topic",
-  "@myTelegramDetailTopic": {},
-  "oxplayerReportIssue": "Report issue",
-  "@oxplayerReportIssue": {},
-  "oxplayerRemoveFromLibrary": "Remove from library",
-  "@oxplayerRemoveFromLibrary": {},
-  "oxplayerReportIssueSent": "Report sent to admins.",
-  "@oxplayerReportIssueSent": {},
-  "oxplayerReportIssueRecordedWithoutAdmin": "Report saved. Admins were not notified (server Telegram is not configured or delivery failed).",
-  "@oxplayerReportIssueRecordedWithoutAdmin": {},
-  "oxplayerReportIssueFailed": "Could not send report. Check your connection and try again.",
-  "@oxplayerReportIssueFailed": {},
-  "oxplayerReportIssueUnauthorized": "Session expired or not signed in. Sign in again, then try Report issue.",
-  "@oxplayerReportIssueUnauthorized": {},
-  "oxplayerReportIssueNotFound": "This title is not linked to your account for reporting. Open it from your library or try again after playback starts.",
-  "@oxplayerReportIssueNotFound": {},
-  "oxplayerRemoveGeneralVideoTitle": "Remove this video?",
-  "@oxplayerRemoveGeneralVideoTitle": {},
-  "oxplayerRemoveGeneralVideoBody": "This removes the file from your library database. This cannot be undone.",
-  "@oxplayerRemoveGeneralVideoBody": {},
-  "oxplayerRemoveGeneralVideoSuccess": "Video removed from library.",
-  "@oxplayerRemoveGeneralVideoSuccess": {},
-  "oxplayerRemoveGeneralVideoFailed": "Could not remove video.",
-  "@oxplayerRemoveGeneralVideoFailed": {},
+  "musicDashboard": "Music Dashboard",
+  "quiet": "Quiet",
+  "loud": "Loud",
   "oxplayerHelpTitle": "Get started",
   "@oxplayerHelpTitle": {},
-  "oxplayerHelpBody": "OXPlayer is your Telegram media library in one place. Send or forward media to the bot to add it here then browse and play from Home.",
+  "oxplayerHelpBody": "OXPlayer is your Telegram media library in one place. Send or forward media to the bot to add it here, then browse and play from Home.",
   "@oxplayerHelpBody": {},
   "oxplayerHelpQrCaption": "Scan with your phone to open the bot in Telegram.",
   "@oxplayerHelpQrCaption": {},
@@ -2749,8 +2745,7 @@
   "@oxplayerHelpOpenBot": {
     "placeholders": {
       "username": {
-        "type": "String",
-        "example": "OXPlayerBot"
+        "type": "String"
       }
     }
   },
@@ -2758,20 +2753,6 @@
   "@oxplayerHelpBotNotConfigured": {},
   "oxplayerHelpNavLabel": "Help",
   "@oxplayerHelpNavLabel": {},
-  "oxplayerLoginOpenOnAndroid": "Open OXPlayer in Telegram",
-  "@oxplayerLoginOpenOnAndroid": {},
-  "oxplayerLoginBotQrTooltip": "Show bot QR code",
-  "@oxplayerLoginBotQrTooltip": {},
-  "oxplayerLoginBotQrShort": "QR",
-  "@oxplayerLoginBotQrShort": {},
-  "oxplayerServerUnavailableTitle": "Server unavailable",
-  "@oxplayerServerUnavailableTitle": {},
-  "oxplayerServerUnavailableBody": "We can't reach the OXPlayer server right now. Your sign-in is still saved. Follow our Telegram channel for news and status updates.",
-  "@oxplayerServerUnavailableBody": {},
-  "oxplayerServerUnavailableOpenChannelGeneric": "Open Telegram channel",
-  "@oxplayerServerUnavailableOpenChannelGeneric": {},
-  "oxplayerServerUnavailableRetry": "Try again",
-  "@oxplayerServerUnavailableRetry": {},
-  "oxplayerServerUnavailableOfflineDownloads": "Offline downloads",
-  "@oxplayerServerUnavailableOfflineDownloads": {}
+  "oxplayerLoginOpenOnAndroid": "Open bot in Telegram",
+  "@oxplayerLoginOpenOnAndroid": {}
 }

@@ -93,23 +93,19 @@ class _SyncedEpisodeItemState extends ConsumerState<SyncedEpisodeItem> {
                     ],
                   ),
                 ),
-                if (!hasFile) ...[
+                if (!hasFile && downloadTask.hasDownload)
+                  Flexible(
+                    child: SyncProgressBar(item: syncedItem, task: downloadTask),
+                  )
+                else
                   Flexible(
                     child: SyncLabel(
-                      label: context.localized.totalSize(
-                        ref.watch(syncSizeProvider(syncedItem, [])).byteFormat ?? '--',
-                      ),
-                      status: downloadTask.hasDownload
-                          ? downloadTask.status
-                          : ref.watch(syncDownloadStatusProvider(syncedItem, [])
-                              .select((value) => value?.status ?? TaskStatus.notFound)),
+                      label:
+                          context.localized.totalSize(ref.watch(syncSizeProvider(syncedItem, [])).byteFormat ?? '--'),
+                      status: ref.watch(syncDownloadStatusProvider(syncedItem, [])
+                          .select((value) => value?.status ?? TaskStatus.notFound)),
                     ),
-                  ),
-                  if (downloadTask.hasDownload)
-                    Flexible(
-                      child: SyncProgressBar(item: syncedItem, task: downloadTask),
-                    ),
-                ],
+                  )
               ],
             ),
           ),

@@ -12,7 +12,7 @@ class NotificationService {
   NotificationService._();
 
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
-  static const String _channelId = 'oxplayer_updates';
+  static const String _channelId = 'fladder_updates';
   static const String _channelName = 'Update notifications';
   static const String _channelDesc = 'Notifications for newly added items';
 
@@ -31,8 +31,8 @@ class NotificationService {
     final darwin = const DarwinInitializationSettings();
     final linux = const LinuxInitializationSettings(defaultActionName: 'Open notification');
     final windows = const WindowsInitializationSettings(
-      appName: 'OXPlayer',
-      appUserModelId: 'de.aryanmo.oxplayer',
+      appName: 'Fladder',
+      appUserModelId: 'nl.jknaapen.fladder',
       guid: 'd49b0314-ee7a-4626-bf79-97cdb8a991bb',
     );
 
@@ -125,7 +125,7 @@ class NotificationService {
     if (notifications.isEmpty) return;
 
     final baseId = DateTime.now().millisecond;
-    final groupKey = 'oxplayer_group_$groupId';
+    final groupKey = 'fladder_group_$groupId';
 
     if (notifications.length == 1) {
       final single = notifications.first;

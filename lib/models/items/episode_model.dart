@@ -1,7 +1,11 @@
 import 'dart:collection';
 
+import 'package:flutter/material.dart';
+
 import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:fladder/jellyfin/enum_models.dart';
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/l10n/generated/app_localizations.dart';
@@ -14,8 +18,6 @@ import 'package:fladder/models/items/overview_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/util/humanize_duration.dart';
 import 'package:fladder/util/string_extensions.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'episode_model.mapper.dart';
 
@@ -48,9 +50,6 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
   final List<Chapter> chapters;
   final ItemLocation? location;
   final DateTime? dateAired;
-
-  /// When Ox duplicates the same SxEy as multiple library rows, all Jellyfin item ids (including [id]).
-  final List<String> oxLinkedEpisodeIds;
   const EpisodeModel({
     required this.seriesName,
     required this.season,
@@ -59,7 +58,6 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
     this.chapters = const [],
     this.location,
     this.dateAired,
-    this.oxLinkedEpisodeIds = const [],
     required super.name,
     required super.id,
     required super.overview,
@@ -213,7 +211,6 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
         canDelete: item.canDelete,
         canDownload: item.canDownload,
         jellyType: item.type,
-        oxLinkedEpisodeIds: const [],
       );
     }
 
@@ -239,7 +236,6 @@ class EpisodeModel extends ItemStreamModel with EpisodeModelMappable {
       canDownload: item.canDownload,
       mediaStreams: MediaStreamsModel.fromMediaStreamsList(item.mediaSources, ref),
       jellyType: item.type,
-      oxLinkedEpisodeIds: const [],
     );
   }
 
@@ -268,20 +264,20 @@ extension EpisodeListExtensions on List<EpisodeModel> {
     final episodes = where((e) => e.season > 0 && e.status == EpisodeStatus.available).toList();
     if (episodes.isEmpty) return null;
 
-    final lastProgressIndex = episodes.lastIndexWhere((e) => e.progress != 0);
+    final lastProgressIndex = episodes.lastIndexWhere((e) => e.userData.progress != 0);
     final lastPlayedIndex = episodes.lastIndexWhere((e) => e.userData.played);
     final lastWatchedIndex = [lastProgressIndex, lastPlayedIndex].reduce((a, b) => a > b ? a : b);
 
     if (lastWatchedIndex >= 0) {
       final current = episodes[lastWatchedIndex];
-      if (!current.userData.played && current.progress != 0) {
+      if (!current.userData.played && current.userData.progress != 0) {
         return current;
       }
 
       final nextIndex = lastWatchedIndex + 1;
       if (nextIndex < episodes.length) {
         final next = episodes[nextIndex];
-        if (!next.userData.played && next.progress != 0) {
+        if (!next.userData.played && next.userData.progress != 0) {
           return next;
         }
 

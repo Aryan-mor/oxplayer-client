@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:chopper/chopper.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/providers/connectivity_provider.dart';
@@ -16,13 +15,6 @@ import 'package:fladder/util/seerr_http_client.dart'
     if (dart.library.html) 'package:fladder/util/seerr_http_client_web.dart';
 
 part 'seerr_api_provider.g.dart';
-
-/// True when a Seerr base URL is set (build config or per-account credentials).
-bool isSeerrServerConfigured(Ref ref) {
-  final creds = ref.read(userProvider)?.seerrCredentials;
-  final serverUrl = (FladderConfig.seerrBaseUrl ?? creds?.serverUrl)?.trim();
-  return serverUrl != null && serverUrl.isNotEmpty;
-}
 
 @riverpod
 class SeerrApi extends _$SeerrApi {
@@ -55,17 +47,12 @@ class SeerrRequest implements Interceptor {
   @override
   FutureOr<Response<BodyType>> intercept<BodyType>(Chain<BodyType> chain) async {
     final connectivityNotifier = ref.read(connectivityStatusProvider.notifier);
-    if (!isSeerrServerConfigured(ref)) {
-      // Seerr is optional; return a failed response instead of throwing so
-      // fire-and-forget provider fetches do not hit PlatformDispatcher.onError.
-      return Response<BodyType>(
-        http.Response('Seerr server not configured', 503),
-        null,
-      );
-    }
-
     final creds = ref.read(userProvider)?.seerrCredentials;
-    final serverUrl = (FladderConfig.seerrBaseUrl ?? creds?.serverUrl)!.trim();
+    final serverUrl = (FladderConfig.seerrBaseUrl ?? creds?.serverUrl)?.trim();
+
+    if (serverUrl == null || serverUrl.isEmpty) {
+      throw const HttpException('Seerr server not configured');
+    }
 
     final apiKey = creds?.apiKey.trim() ?? '';
     final cookie = creds?.sessionCookie.trim() ?? '';

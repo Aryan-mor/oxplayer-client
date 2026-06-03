@@ -1,8 +1,6 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/login/lock_screen.dart';
@@ -94,55 +92,32 @@ final List<AutoRoute> detailsRoutes = [
   AutoRoute(page: LiveTvRoute.page, path: 'live-tv'),
   AutoRoute(page: SeerrSearchRoute.page, path: 'seerr-search'),
   AutoRoute(page: SeerrDetailsRoute.page, path: 'seerr/:mediaType/:tmdbId'),
-  AutoRoute(page: OxplayerHelpRoute.page, path: 'help'),
 ];
 
 final List<AutoRoute> _defaultRoutes = [
   AutoRoute(page: SplashRoute.page, path: '/splash'),
   AutoRoute(page: LoginRoute.page, path: '/login', maintainState: false),
-  AutoRoute(
-      page: OxplayerLoginRoute.page,
-      path: '/ox-login',
-      maintainState: false),
+  AutoRoute(page: OxplayerLoginRoute.page, path: '/ox-login', maintainState: false),
+  AutoRoute(page: OxplayerHelpRoute.page, path: '/ox-help'),
 ];
 
 final List<AutoRoute> _settingsChildren = [
   AutoRoute(page: SettingsSelectionRoute.page, path: 'list'),
-  AutoRoute(
-      page: ClientSettingsRoute.page, path: 'client', maintainState: false),
-  AutoRoute(
-      page: ProfileSettingsRoute.page, path: 'security', maintainState: false),
-  AutoRoute(
-      page: PlayerSettingsRoute.page, path: 'player', maintainState: false),
+  AutoRoute(page: ClientSettingsRoute.page, path: 'client', maintainState: false),
+  AutoRoute(page: ProfileSettingsRoute.page, path: 'security', maintainState: false),
+  AutoRoute(page: PlayerSettingsRoute.page, path: 'player', maintainState: false),
   AutoRoute(page: AboutSettingsRoute.page, path: 'about'),
 ];
 
 final List<AutoRoute> _controlPanelRoutes = [
   AutoRoute(page: ControlPanelSelectionRoute.page, path: 'list'),
-  AutoRoute(
-      page: ControlDashboardRoute.page,
-      path: 'dashboard',
-      maintainState: false),
-  AutoRoute(
-      page: ControlActiveTasksRoute.page,
-      path: 'active-tasks',
-      maintainState: false),
-  AutoRoute(
-      page: ControlServerRoute.page,
-      path: 'server-settings',
-      maintainState: false),
-  AutoRoute(
-      page: ControlUsersRoute.page,
-      path: 'user-management',
-      maintainState: false),
-  AutoRoute(
-      page: ControlUserEditRoute.page, path: 'edit-user', maintainState: false),
-  AutoRoute(
-      page: ControlLibrariesRoute.page,
-      path: 'library-management',
-      maintainState: false),
-  AutoRoute(
-      page: ControlLiveTvRoute.page, path: 'live-tv', maintainState: false),
+  AutoRoute(page: ControlDashboardRoute.page, path: 'dashboard', maintainState: false),
+  AutoRoute(page: ControlActiveTasksRoute.page, path: 'active-tasks', maintainState: false),
+  AutoRoute(page: ControlServerRoute.page, path: 'server-settings', maintainState: false),
+  AutoRoute(page: ControlUsersRoute.page, path: 'user-management', maintainState: false),
+  AutoRoute(page: ControlUserEditRoute.page, path: 'edit-user', maintainState: false),
+  AutoRoute(page: ControlLibrariesRoute.page, path: 'library-management', maintainState: false),
+  AutoRoute(page: ControlLiveTvRoute.page, path: 'live-tv', maintainState: false),
 ];
 
 class LockScreenGuard extends AutoRouteGuard {
@@ -151,10 +126,8 @@ class LockScreenGuard extends AutoRouteGuard {
   const LockScreenGuard({required this.ref});
 
   @override
-  Future<void> onNavigation(
-      NavigationResolver resolver, StackRouter router) async {
-    if (ref.read(lockScreenActiveProvider) &&
-        resolver.routeName != const LockRoute().routeName) {
+  Future<void> onNavigation(NavigationResolver resolver, StackRouter router) async {
+    if (ref.read(lockScreenActiveProvider) && resolver.routeName != const LockRoute().routeName) {
       router.replace(const LockRoute());
       return;
     } else {
@@ -169,58 +142,26 @@ class AuthGuard extends AutoRouteGuard {
   const AuthGuard({required this.ref});
 
   @override
-  Future<void> onNavigation(
-      NavigationResolver resolver, StackRouter router) async {
+  Future<void> onNavigation(NavigationResolver resolver, StackRouter router) async {
     if (resolver.route == router.current.route) {
-      if (kDebugMode) {
-        debugPrint(
-          '[OX AuthGuard] skip (same route) name=${resolver.routeName}',
-        );
-      }
-      return;
-    }
-
-    if (kDebugMode) {
-      debugPrint(
-        '[OX AuthGuard] -> ${resolver.routeName} user=${ref.read(userProvider) != null} '
-        'ox=${OxplayerConfig.isEnabled}',
-      );
-    }
-
-    if (OxplayerConfig.isEnabled &&
-        resolver.routeName == LoginRoute().routeName) {
-      if (kDebugMode) {
-        debugPrint('[OX AuthGuard] redirect Login -> OxplayerLoginRoute');
-      }
-      await resolver.redirectUntil(const OxplayerLoginRoute());
       return;
     }
 
     if (ref.read(userProvider) != null ||
         resolver.routeName == LoginRoute().routeName ||
-        resolver.routeName == SplashRoute().routeName ||
-        (OxplayerConfig.isEnabled &&
-            resolver.routeName == OxplayerLoginRoute.name)) {
+        resolver.routeName == const OxplayerLoginRoute().routeName ||
+        resolver.routeName == const OxplayerHelpRoute().routeName ||
+        resolver.routeName == SplashRoute().routeName) {
       // We assume the last main focus is no longer active after navigating
       lastMainFocus = null;
-      if (kDebugMode) {
-        debugPrint('[OX AuthGuard] allow ${resolver.routeName}');
-      }
       return resolver.next(true);
     }
 
-    if (kDebugMode) {
-      debugPrint('[OX AuthGuard] redirectUntil Splash -> login/ox-login');
-    }
     resolver.redirectUntil<bool>(SplashRoute(loggedIn: (value) {
       if (value) {
         resolver.next(true);
       } else {
-        if (OxplayerConfig.isEnabled) {
-          router.replace(const OxplayerLoginRoute());
-        } else {
-          router.replace(LoginRoute());
-        }
+        router.replace(const OxplayerLoginRoute());
       }
     }));
 

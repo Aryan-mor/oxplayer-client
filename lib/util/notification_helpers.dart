@@ -4,20 +4,19 @@ import 'dart:developer';
 import 'package:chopper/chopper.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
-import 'package:fladder/util/app_http_client.dart';
 import 'package:fladder/models/last_seen_notifications_model.dart';
 import 'package:fladder/models/seerr_credentials_model.dart';
 import 'package:fladder/seerr/seerr_chopper_service.dart';
 import 'package:fladder/seerr/seerr_json_converter.dart';
 import 'package:fladder/seerr/seerr_models.dart';
 
-const String updateTaskName = 'de.aryanmo.oxplayer.update_notifications_check';
-const String updateTaskNameDebug = 'de.aryanmo.oxplayer.update_notifications_check_debug';
+const String updateTaskName = 'nl.jknaapen.fladder.update_notifications_check';
+const String updateTaskNameDebug = 'nl.jknaapen.fladder.update_notifications_check_debug';
 
 class NotificationHelpers {
-  static String buildDetailsDeepLink(String id) => 'oxplayer:///details?id=${Uri.encodeComponent(id)}';
+  static String buildDetailsDeepLink(String id) => 'fladder:///details?id=${Uri.encodeComponent(id)}';
 
-  static String buildSeerrDeepLink(String mediaType, int tmdbId) => 'oxplayer:///seerr/$mediaType/$tmdbId';
+  static String buildSeerrDeepLink(String mediaType, int tmdbId) => 'fladder:///seerr/$mediaType/$tmdbId';
 
   static List<LastSeenModel> replaceOrAppendLastSeen(List<LastSeenModel> servers, LastSeenModel saved) {
     final exists = servers.any((s) => s.userId == saved.userId);
@@ -88,7 +87,6 @@ class NotificationHelpers {
 
       api = dto.JellyfinOpenApi.create(
         baseUrl: Uri.parse(trimmed),
-        httpClient: createAppHttpClient(),
         interceptors: [
           _WorkerAuthInterceptor(token),
         ],

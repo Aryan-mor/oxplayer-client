@@ -68,16 +68,11 @@ class Update extends _$Update {
   }
 
   Future<List<ReleaseInfo>> _fetchLatest() async {
-    try {
-      final latest = await updateChecker.fetchRecentReleases();
-      state = UpdatesModel(
-        lastRelease: latest,
-      );
-      return latest;
-    } catch (e, st) {
-      debugPrint('UpdateChecker: unexpected error: $e\n$st');
-      return state.lastRelease;
-    }
+    final latest = await updateChecker.fetchRecentReleases();
+    state = UpdatesModel(
+      lastRelease: latest,
+    );
+    return latest;
   }
 }
 

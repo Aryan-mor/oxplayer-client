@@ -4,8 +4,6 @@ import 'dart:developer';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-
-import 'package:fladder/util/app_http_client.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
@@ -70,7 +68,7 @@ class ConnectivityStatus extends _$ConnectivityStatus {
     ref.read(localConnectionAvailableProvider.notifier).update((state) => correctServerResponse);
   }
 
-  Future<void> checkConnectivity() async {
+  void checkConnectivity() async {
     final connectivityResult = await Connectivity().checkConnectivity();
     onStateChange(connectivityResult);
   }
@@ -81,7 +79,7 @@ Future<PublicSystemInfo?> fetchSystemInfoDynamic(String baseUrl) async {
   try {
     final uri = buildServerUriFromBase(baseUrl, pathSegments: const ['System', 'Info', 'Public']);
     if (uri == null) return null;
-    final response = await appHttpClient.get(uri).timeout(const Duration(seconds: 1));
+    final response = await http.get(uri).timeout(const Duration(seconds: 1));
     if (response.statusCode == 200) {
       return PublicSystemInfo.fromJson(jsonDecode(response.body));
     }

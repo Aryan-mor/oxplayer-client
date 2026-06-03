@@ -7,7 +7,6 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/collection_types.dart';
 import 'package:fladder/models/settings/client_settings_model.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/views_provider.dart';
 import 'package:fladder/routes/auto_router.dart';
@@ -389,16 +388,6 @@ class _SideNavigationRail extends ConsumerState<SideNavigationRail> {
                               ],
                             ),
                           ),
-                          if (OxplayerConfig.isEnabled)
-                            NavigationButton(
-                              label: context.localized.oxplayerHelpNavLabel,
-                              selected: widget.currentLocation.contains(OxplayerHelpRoute.name),
-                              selectedIcon: const Icon(IconsaxPlusBold.message_question),
-                              horizontal: true,
-                              expanded: shouldExpand,
-                              icon: const Icon(IconsaxPlusLinear.message_question),
-                              onPressed: () => context.router.push(const OxplayerHelpRoute()),
-                            ),
                           NavigationButton(
                             label: context.localized.settings,
                             selected: widget.currentLocation.contains(const SettingsRoute().routeName),

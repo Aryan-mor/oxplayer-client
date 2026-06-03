@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,20 +58,8 @@ class OverviewModel with OverviewModelMappable {
 
   factory OverviewModel.fromBaseItemDto(BaseItemDto item, Ref? ref) {
     final trickPlayItem = item.trickplay;
-    Duration? runTime = item.runTimeDuration;
-    if (runTime == null || runTime.inMilliseconds <= 0) {
-      final ms = item.mediaSources
-          ?.map((s) => s.runTimeTicks)
-          .whereType<int>()
-          .map((t) => t ~/ 10000)
-          .where((ms) => ms > 0)
-          .firstOrNull;
-      if (ms != null) {
-        runTime = Duration(milliseconds: ms);
-      }
-    }
     return OverviewModel(
-      runTime: runTime,
+      runTime: item.runTimeDuration,
       yearAired: item.productionYear,
       parentalRating: item.officialRating,
       summary: item.overview ?? "",

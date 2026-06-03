@@ -1,7 +1,11 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 
+import 'package:flutter/material.dart';
+
 import 'package:collection/collection.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/l10n/generated/app_localizations.dart';
 import 'package:fladder/models/item_base_model.dart';
@@ -12,8 +16,6 @@ import 'package:fladder/models/items/overview_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/models/items/special_feature_model.dart';
 import 'package:fladder/models/items/watched_state.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'season_model.mapper.dart';
 
@@ -72,7 +74,7 @@ class SeasonModel extends ItemBaseModel with SeasonModelMappable {
   }
 
   EpisodeModel? get nextUp {
-    return episodes.lastWhereOrNull((element) => element.progress > 0) ??
+    return episodes.lastWhereOrNull((element) => element.userData.progress > 0) ??
         episodes.firstWhereOrNull((element) => element.userData.played == false);
   }
 
@@ -91,12 +93,11 @@ class SeasonModel extends ItemBaseModel with SeasonModelMappable {
   String localizedName(AppLocalizations l10n) => name.replaceFirst("Season", l10n.season(1));
 
   @override
-  WatchedState watchedState(AppLocalizations l10n) {
-    if (userData.played) return const Played();
-    final u = userData.unPlayedItemCount;
-    if (u != null && u > 0) return PartiallyPlayed(u.toString());
-    return const Unplayed();
-  }
+  WatchedState watchedState(AppLocalizations l10n) => userData.played
+      ? const Played()
+      : userData.unPlayedItemCount != null
+          ? PartiallyPlayed(userData.unPlayedItemCount!.toString())
+          : const Unplayed();
 
   @override
   SeriesModel get parentBaseModel => SeriesModel(

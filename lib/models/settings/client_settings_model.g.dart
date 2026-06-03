@@ -11,6 +11,10 @@ _ClientSettingsModel _$ClientSettingsModelFromJson(Map<String, dynamic> json) =>
       syncPath: json['syncPath'] as String?,
       transcodeDownloadModel: TranscodeDownloadModel.fromJson(
           json['transcodeDownloadModel'] as Map<String, dynamic>),
+      transcodeMusicDownloadModel: json['transcodeMusicDownloadModel'] == null
+          ? const TranscodeMusicDownloadModel()
+          : TranscodeMusicDownloadModel.fromJson(
+              json['transcodeMusicDownloadModel'] as Map<String, dynamic>),
       position: json['position'] == null
           ? const Vector2(x: 0, y: 0)
           : Vector2.fromJson(json['position'] as String),
@@ -64,11 +68,6 @@ _ClientSettingsModel _$ClientSettingsModelFromJson(Map<String, dynamic> json) =>
                 KeyCombination.fromJson(e as Map<String, dynamic>)),
           ) ??
           const {},
-      myTelegramVisibleBuckets:
-          (json['myTelegramVisibleBuckets'] as List<dynamic>?)
-                  ?.map((e) => e as String)
-                  .toList() ??
-              const ['chats', 'groups', 'supergroups', 'channels', 'bots'],
     );
 
 Map<String, dynamic> _$ClientSettingsModelToJson(
@@ -76,6 +75,7 @@ Map<String, dynamic> _$ClientSettingsModelToJson(
     <String, dynamic>{
       'syncPath': instance.syncPath,
       'transcodeDownloadModel': instance.transcodeDownloadModel,
+      'transcodeMusicDownloadModel': instance.transcodeMusicDownloadModel,
       'position': instance.position,
       'size': instance.size,
       'timeOut': instance.timeOut?.inMicroseconds,
@@ -108,7 +108,6 @@ Map<String, dynamic> _$ClientSettingsModelToJson(
       'libraryPageSize': instance.libraryPageSize,
       'shortcuts': instance.shortcuts
           .map((k, e) => MapEntry(_$GlobalHotKeysEnumMap[k]!, e)),
-      'myTelegramVisibleBuckets': instance.myTelegramVisibleBuckets,
     };
 
 const _$ThemeModeEnumMap = {

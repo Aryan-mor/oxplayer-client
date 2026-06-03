@@ -31,9 +31,9 @@ class EmptyItem extends ConsumerWidget {
           ItemActions.playFromStart,
           ItemActions.details,
         },
-        onDeleteSuccesFully: (item) async {
+        onDeleteSuccesFully: (item) {
           if (context.mounted) {
-            await context.router.popBack();
+            context.router.popBack();
           }
         },
       ),

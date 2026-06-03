@@ -1,15 +1,15 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:fladder/oxplayer/oxplayer_claim_code_login_panel.dart';
+import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/screens/login/login_screen_credentials.dart';
 import 'package:fladder/screens/shared/fladder_logo.dart';
-import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/util/fladder_config.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// OX v2 login: main-bot `/login` code only (Fladder shell + branding).
 @RoutePage()
 class OxplayerLoginScreen extends ConsumerStatefulWidget {
   const OxplayerLoginScreen({super.key});
@@ -34,10 +34,9 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
       _bootstrapError = null;
     });
 
-    OxplayerEnv.debugLogApiResolution();
-    final api = OxplayerEnv.apiBaseUrl;
+    await OxplayerDotenv.ensureLoaded();
     final media = OxplayerEnv.effectiveMediaServerUrl;
-    if (api == null || media == null) {
+    if (media == null) {
       setState(() {
         _bootstrapping = false;
         _bootstrapError =
@@ -49,7 +48,7 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
     FladderConfig.baseUrl = media;
 
     try {
-      await ref.read(authProvider.notifier).initModel(clearUserState: false);
+      await ref.read(authProvider.notifier).initModel();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -73,81 +72,53 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
     setState(() => _bootstrapping = false);
   }
 
-  Future<void> _onAuthSuccess() async {
-    if (!mounted) return;
-    await loggedInGoToHome(context, ref);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return NotificationManagerInitializer(
-      child: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
               padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: _bootstrapping
-                    ? const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            height: 120,
-                            width: double.infinity,
-                            child: FladderLogo(),
-                          ),
-                          SizedBox(height: 24),
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Connecting…', style: TextStyle(color: Colors.grey)),
-                        ],
-                      )
-                    : _bootstrapError != null
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                height: 120,
-                                width: double.infinity,
-                                child: FladderLogo(),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _bootstrapError!,
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 16),
-                              FilledButton(
-                                onPressed: _bootstrap,
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const SizedBox(
-                                height: 120,
-                                width: double.infinity,
-                                child: FladderLogo(),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Sign in',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                              const SizedBox(height: 24),
-                              OxplayerClaimCodeLoginPanel(
-                                onSuccess: _onAuthSuccess,
-                              ),
-                            ],
-                          ),
-              ),
+              child: _bootstrapping
+                  ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FladderLogo(),
+                        SizedBox(height: 24),
+                        CircularProgressIndicator(),
+                      ],
+                    )
+                  : _bootstrapError != null
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const FladderLogo(),
+                            const SizedBox(height: 16),
+                            Text(
+                              _bootstrapError!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            ),
+                            const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: _bootstrap,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const FladderLogo(),
+                            const SizedBox(height: 24),
+                            OxplayerClaimCodeLoginPanel(
+                              onSuccess: () => loggedInGoToHome(context, ref),
+                            ),
+                          ],
+                        ),
             ),
           ),
         ),

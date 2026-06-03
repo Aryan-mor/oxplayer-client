@@ -1,24 +1,21 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:fladder/bootstrap/app_bootstrap.dart';
 import 'package:fladder/bootstrap/platform/platform_app_wrapper.dart';
 import 'package:fladder/l10n/generated/app_localizations.dart';
 import 'package:fladder/localization_delegates.dart';
-import 'package:fladder/oxplayer/oxplayer_bootstrap.dart';
-import 'package:fladder/oxplayer/oxplayer_brand.dart';
-import 'package:fladder/oxplayer/oxplayer_config.dart';
-import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
-import 'package:fladder/oxplayer/oxplayer_env.dart';
-import 'package:fladder/oxplayer/oxplayer_sentry.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/crash_log_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/sync_provider.dart';
-import 'package:auto_route/auto_route.dart' show AutoRouterDelegate;
 import 'package:fladder/routes/auto_router.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:fladder/theme.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/util/application_info.dart';
@@ -26,55 +23,17 @@ import 'package:fladder/util/deep_link_helper.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/themes_data.dart';
 import 'package:fladder/widgets/media_query_scaler.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Dotenv must load before [OxplayerSentry.runApp]: `isActive` reads [OxplayerEnv.sentryDsn]
-  // and Sentry is configured at init time. Android Gradle only injects a subset of keys (see
-  // android/build.gradle); SENTRY_* is read from the bundled default.env asset.
-  await OxplayerDotenv.ensureLoaded();
-  OxplayerSentry.logStartupStatus();
-  await OxplayerSentry.runApp(() => _runApp(args));
-}
-
-Future<void> _runApp(List<String> args) async {
-  await OxplayerDotenv.ensureLoaded();
-  if (kDebugMode) {
-    OxplayerEnv.debugLogApiResolution();
-    debugPrint(
-      '[OX main] dotenv loaded=${OxplayerDotenv.isLoaded} '
-      'OxplayerConfig.isEnabled=${OxplayerConfig.isEnabled} '
-      'sentry=${OxplayerSentry.isActive}',
-    );
-  }
-
-  if (OxplayerConfig.isEnabled) {
-    await OxplayerBootstrap.beforeAppBootstrap(args);
-  }
 
   final bootstrap = await bootstrapApplication(args);
-  OxplayerSentry.wrapCrashHandlers();
-  await OxplayerSentry.debugPingIfEnabled();
-
-  if (OxplayerConfig.isEnabled) {
-    await OxplayerBootstrap.afterAppBootstrap(bootstrap);
-  }
-
-  final applicationInfo = ApplicationInfo(
-    name: OxplayerBrand.appName,
-    version: bootstrap.applicationInfo.version,
-    buildNumber: bootstrap.applicationInfo.buildNumber,
-    platform: bootstrap.applicationInfo.platform,
-  );
 
   runApp(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWith((ref) => bootstrap.sharedPreferences),
-        applicationInfoProvider.overrideWith((ref) => applicationInfo),
+        applicationInfoProvider.overrideWith((ref) => bootstrap.applicationInfo),
         crashLogProvider.overrideWith((ref) => bootstrap.crashProvider),
         argumentsStateProvider.overrideWith((ref) => bootstrap.argumentsModel),
         syncProvider.overrideWith((ref) => SyncNotifier(ref, bootstrap.applicationDirectory)),
@@ -111,8 +70,6 @@ class _FladderApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isLinux = defaultTargetPlatform == TargetPlatform.linux;
-    // chinese_font_library uses dart:io File checks — unsupported on web (crashes before TDLib).
-    final applyChineseFont = !isLinux && !kIsWeb;
     final themeMode = ref.watch(clientSettingsProvider.select((value) => value.themeMode));
     final themeColor = ref.watch(clientSettingsProvider.select((value) => value.themeColor));
     final amoledBlack = ref.watch(clientSettingsProvider.select((value) => value.amoledBlack));
@@ -130,22 +87,20 @@ class _FladderApp extends ConsumerWidget {
             ? FladderTheme.theme(darkDynamic ?? FladderTheme.defaultScheme(Brightness.dark), schemeVariant)
             : FladderTheme.theme(themeColor.schemeDark, schemeVariant));
 
-        // Apply Chinese font on desktop/mobile native only (not Linux, not web).
-        final lightTheme = applyChineseFont
-            ? FladderTheme.applyChineseFontToTheme(
+        // Apply Chinese font for non-Linux platforms (Windows, macOS, Android, iOS)
+        final lightTheme = isLinux
+            ? baseLightTheme
+            : FladderTheme.applyChineseFontToTheme(
                 lightTheme: baseLightTheme,
                 darkTheme: baseDarkTheme,
-              )
-            : baseLightTheme;
-        final darkTheme =
-            applyChineseFont ? FladderTheme.applyChineseFontToDarkTheme(darkTheme: baseDarkTheme) : baseDarkTheme;
+              );
+        final darkTheme = isLinux ? baseDarkTheme : FladderTheme.applyChineseFontToDarkTheme(darkTheme: baseDarkTheme);
 
         final amoledOverwrite = amoledBlack ? Colors.black : null;
         return ThemesData(
           light: lightTheme,
           dark: darkTheme,
           child: MaterialApp.router(
-            title: OxplayerBrand.appName,
             theme: lightTheme,
             scrollBehavior: scrollBehaviour.copyWith(
               dragDevices: {
@@ -190,10 +145,6 @@ class _FladderApp extends ConsumerWidget {
             themeMode: themeMode,
             routerConfig: autoRouter.config(
               deepLinkBuilder: (deepLink) => deepLinkBuilder(deepLink.uri),
-              navigatorObservers: () => [
-                ...AutoRouterDelegate.defaultNavigatorObserversBuilder(),
-                if (OxplayerSentry.isActive) SentryNavigatorObserver(),
-              ],
             ),
           ),
         );

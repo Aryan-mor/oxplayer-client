@@ -1,25 +1,17 @@
 import 'dart:convert';
 
-import 'package:fladder/providers/arguments_provider.dart';
-import 'package:fladder/util/application_info.dart';
-import 'package:fladder/util/string_extensions.dart';
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:xid/xid.dart';
 
+import 'package:fladder/providers/arguments_provider.dart';
+import 'package:fladder/util/application_info.dart';
+import 'package:fladder/util/string_extensions.dart';
+
 part 'credentials_model.freezed.dart';
 part 'credentials_model.g.dart';
-
-T _providerRead<T>(Object ref, ProviderListenable<T> provider) {
-  if (ref is WidgetRef) {
-    return ref.read(provider);
-  }
-  if (ref is Ref) {
-    return ref.read(provider);
-  }
-  throw ArgumentError.value(ref, 'ref', 'Expected WidgetRef or Ref');
-}
 
 @Freezed(copyWith: true)
 abstract class CredentialsModel with _$CredentialsModel {
@@ -32,17 +24,13 @@ abstract class CredentialsModel with _$CredentialsModel {
     @Default("") String serverName,
     @Default("") String serverId,
     @Default("") String deviceId,
-
-    /// OXPlayer `POST /auth/refresh` (from `POST /auth/telegram`); empty when unknown / legacy.
-    @Default("") String oxRefreshToken,
   }) = _CredentialsModel;
 
   factory CredentialsModel.createNewCredentials() => CredentialsModel.internal(deviceId: Xid().toString());
 
-  /// Works with [WidgetRef] (UI) and [Ref] (notifiers / interceptors).
-  Map<String, String> header(Object ref) {
-    final application = _providerRead(ref, applicationInfoProvider);
-    final leanbackMode = _providerRead(ref, argumentsStateProvider).leanBackMode;
+  Map<String, String> header(Ref ref) {
+    final application = ref.read(applicationInfoProvider);
+    final leanbackMode = ref.read(argumentsStateProvider).leanBackMode;
     final os = switch (application.platform) {
       TargetPlatform.android => kIsWeb
           ? "${application.platform.name.capitalize()} Web"
@@ -67,7 +55,6 @@ abstract class CredentialsModel with _$CredentialsModel {
       serverName: map['serverName'] ?? '',
       serverId: map['serverId'] ?? '',
       deviceId: map['deviceId'] ?? '',
-      oxRefreshToken: map['oxRefreshToken']?.toString() ?? '',
     );
   }
 }

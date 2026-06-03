@@ -1,39 +1,20 @@
 import 'package:flutter/material.dart';
-
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/screens/shared/media/external_urls.dart';
-import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/util/localization_helper.dart';
 
-/// Shared “get started” panel: QR → bot link, short copy, open-in-Telegram button.
 class OxplayerHelpContent extends StatelessWidget {
-  const OxplayerHelpContent({
-    super.key,
-    this.embedded = false,
-  });
+  const OxplayerHelpContent({super.key, this.embedded = false});
 
-  /// When true, used inside the home [CustomScrollView] (no nested scroll view).
   final bool embedded;
-
-  Future<void> _openBot(BuildContext context) async {
-    final link = OxplayerEnv.telegramBotOpenLink;
-    if (link == null) return;
-    await launchUrl(context, link);
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final link = OxplayerEnv.telegramBotOpenLink;
     final bot = OxplayerEnv.botUsername;
-    final ap = AdaptiveLayout.adaptivePadding(context);
-    final pad = ap.copyWith(
-      top: embedded ? 8 : 16,
-      bottom: embedded ? 24 : 16,
-    );
-
     final qrSize = (MediaQuery.sizeOf(context).shortestSide * 0.42).clamp(160.0, 220.0);
 
     final body = Column(
@@ -72,9 +53,7 @@ class OxplayerHelpContent extends StatelessWidget {
         ],
         Text(
           link != null && bot != null
-              ? '${context.localized.oxplayerHelpBody}\n\n'
-                  'In Telegram, open @$bot and send /login to sign in. '
-                  'Forward media to the bot to add it to your library.'
+              ? '${context.localized.oxplayerHelpBody}\n\nOpen @$bot in Telegram and send /login to sign in.'
               : context.localized.oxplayerHelpBody,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyLarge,
@@ -84,38 +63,25 @@ class OxplayerHelpContent extends StatelessWidget {
           Text(
             context.localized.oxplayerHelpBotNotConfigured,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.error,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Set OXPLAYER_BOT_USERNAME in assets/env/default.env '
-            '(or run pnpm dev:server from oxplayer to sync from TELEGRAM_MAIN_BOT_USERNAME).',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
           ),
         ],
-        const SizedBox(height: 24),
-        if (link != null && bot != null)
+        if (link != null) ...[
+          const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: () => _openBot(context),
+            onPressed: () => launchUrl(context, link),
             icon: const Icon(Icons.telegram),
-            label: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(context.localized.oxplayerHelpOpenBot(bot)),
-            ),
+            label: Text(context.localized.oxplayerHelpOpenBot(bot ?? '')),
           ),
+        ],
       ],
     );
 
     if (embedded) {
-      return Padding(padding: pad, child: body);
+      return Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: body);
     }
     return SingleChildScrollView(
-      padding: pad,
+      padding: const EdgeInsets.all(24),
       child: body,
     );
   }

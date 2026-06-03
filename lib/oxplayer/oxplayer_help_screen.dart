@@ -11,12 +11,8 @@ class OxplayerHelpScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.localized.oxplayerHelpTitle),
-      ),
-      body: const SafeArea(
-        child: OxplayerHelpContent(embedded: false),
-      ),
+      appBar: AppBar(title: Text(context.localized.oxplayerHelpTitle)),
+      body: const SafeArea(child: OxplayerHelpContent()),
     );
   }
 }

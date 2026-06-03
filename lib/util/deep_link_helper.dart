@@ -3,39 +3,15 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:auto_route/auto_route.dart' show DeepLink, PageRouteInfo;
-import 'package:flutter/foundation.dart';
 
-import 'package:fladder/oxplayer/oxplayer_config.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
 
 FutureOr<DeepLink> deepLinkBuilder(Uri? payload) {
-  if (kDebugMode) {
-    debugPrint(
-      '[OX deepLink] uri=$payload oxplayer=${OxplayerConfig.isEnabled}',
-    );
-  }
   final route = payloadToRoute(payload);
   if (route != null) {
-    final path = pageRouteInfoToPath(route);
-    if (kDebugMode) {
-      debugPrint('[OX deepLink] matched route -> DeepLink.path($path)');
-    }
-    return DeepLink.path(path);
+    return DeepLink.path(pageRouteInfoToPath(route));
   }
-  // OX builds used to default to `/ox-login`, but that route calls [AuthNotifier.initModel]
-  // and briefly clears in-memory session — returning users saw a login flash and could
-  // be bounced through TDLib bootstrap again. Use the same cold-start path as upstream:
-  // [SplashScreen] restores the last auto-login account or sends users to Telegram login.
-  if (OxplayerConfig.isEnabled) {
-    if (kDebugMode) {
-      debugPrint('[OX deepLink] default -> DeepLink.single(SplashRoute)');
-    }
-    return DeepLink.single(SplashRoute());
-  }
-  if (kDebugMode) {
-    debugPrint('[OX deepLink] default -> DeepLink.single(SplashRoute)');
-  }
-  return DeepLink.single(SplashRoute());
+  return DeepLink.defaultPath;
 }
 
 class AuthLinkData {
@@ -98,19 +74,13 @@ String encodeAuthLink(AuthLinkData data) {
 
 String buildAuthUrl(AuthLinkData data) {
   final payload = encodeAuthLink(data);
-  return 'oxplayer:///login?authLink=$payload';
+  return 'fladder:///login?authLink=$payload';
 }
 
 PageRouteInfo? payloadToRoute(Uri? payload) {
   if (payload == null) return null;
 
-  if (payload.path.contains('ox-login') || payload.path.contains('/login')) {
-    if (OxplayerConfig.isEnabled) {
-      return const OxplayerLoginRoute();
-    }
-    if (!payload.path.contains('/login')) {
-      return null;
-    }
+  if (payload.path.contains('/login')) {
     final authLink = payload.queryParameters['authLink'];
     if (authLink != null && authLink.isNotEmpty) {
       log("Parsing auth link from payload: $authLink");
@@ -140,7 +110,6 @@ String pageRouteInfoToPath(PageRouteInfo route) {
       DetailsRoute() => '/details?id=${route.queryParams.get('id')}',
       SeerrDetailsRoute() =>
         '/seerr?mediaType=${route.queryParams.get('mediaType')}&tmdbId=${route.queryParams.get('tmdbId')}',
-      OxplayerLoginRoute() => '/ox-login',
       LoginRoute() => '/login?authLink=${route.queryParams.get('authLink')}',
       _ => '/',
     };

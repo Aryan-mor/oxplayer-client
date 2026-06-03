@@ -16,14 +16,8 @@ abstract class BasePlayer {
   PlayerState lastState = PlayerState();
 
   Future<void> init(VideoPlayerSettingsModel settings);
-  Widget? videoWidget(
-    Key key,
-    BoxFit fit,
-  );
-  Widget? subtitles(
-    bool showOverlay, {
-    GlobalKey? controlsKey,
-  });
+  Widget? videoWidget(Key key, BoxFit fit);
+  Widget? subtitles(bool showOverlay, {GlobalKey? controlsKey});
   Future<void> dispose();
   Future<void> open(BuildContext context);
   Future<void> loadVideo(String url, bool play, {Duration startPosition = Duration.zero});
@@ -35,17 +29,17 @@ abstract class BasePlayer {
   Future<void> stop();
   Future<void> playOrPause();
   Future<void> loop(bool loop);
+  Future<void> skipToNext() async {}
+  Future<void> skipToPrevious() async {}
+  Future<void> addToPlaylist(String url) async {}
+  Future<void> removeFromPlaylist(int index) async {}
+  Future<void> playerNext() async {}
+  Future<void> playerPrevious() async {}
+  Stream<int> get playlistIndexStream => const Stream<int>.empty();
   Future<Uint8List?> takeScreenshot();
   Future<int> setSubtitleTrack(SubStreamModel? model, PlaybackModel playbackModel);
   Future<int> setAudioTrack(AudioStreamModel? model, PlaybackModel playbackModel);
   void applySubtitleSettings(SubtitleSettingsModel settings) {}
-
-  /// Emits muxed (container) subtitle rows when the demuxer exposes them (e.g. libmpv track list).
-  /// Null when the backend does not support discovery.
-  Stream<List<SubStreamModel>>? get muxedSubtitleDiscoveryStream => null;
-
-  /// Emits muxed (container) audio rows when the demuxer exposes them.
-  Stream<List<AudioStreamModel>>? get muxedAudioDiscoveryStream => null;
 
   Uri? isValidUrl(String input) {
     try {

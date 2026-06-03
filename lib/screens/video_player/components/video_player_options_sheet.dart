@@ -28,7 +28,6 @@ import 'package:fladder/util/list_padding.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/map_bool_helper.dart';
 import 'package:fladder/util/refresh_state.dart';
-import 'package:fladder/util/single_line_ellipsis_text.dart';
 import 'package:fladder/util/string_extensions.dart';
 import 'package:fladder/widgets/shared/enum_selection.dart';
 import 'package:fladder/widgets/shared/fladder_slider.dart';
@@ -137,18 +136,12 @@ class _VideoOptionsMobileState extends ConsumerState<VideoOptions> {
             ),
           SpacedListTile(
             title: Text(context.localized.subtitles),
-            content: singleLineEllipsisText(
-              currentMediaStreams?.currentSubStream?.label(context) ?? context.localized.off,
-              textAlign: TextAlign.end,
-            ),
+            content: Text(currentMediaStreams?.currentSubStream?.label(context) ?? context.localized.off),
             onTap: currentMediaStreams?.subStreams.isNotEmpty == true ? () => showSubSelection(context) : null,
           ),
           SpacedListTile(
             title: Text(context.localized.audio(1)),
-            content: singleLineEllipsisText(
-              currentMediaStreams?.currentAudioStream?.label(context) ?? context.localized.off,
-              textAlign: TextAlign.end,
-            ),
+            content: Text(currentMediaStreams?.currentAudioStream?.label(context) ?? context.localized.off),
             onTap: currentMediaStreams?.audioStreams.isNotEmpty == true ? () => showAudioSelection(context) : null,
           ),
           ListTile(
@@ -251,9 +244,14 @@ class _VideoOptionsMobileState extends ConsumerState<VideoOptions> {
                   context,
                   items: playbackState?.queue ?? [],
                   currentItem: playbackState?.item,
-                  playSelected: (item) {
-                    throw UnimplementedError();
+                  onSectionReorder: (section, oldIndex, newIndex) {
+                    return ref.read(videoPlayerProvider.notifier).reorderAudioQueueSection(
+                          section,
+                          oldIndex,
+                          newIndex,
+                        );
                   },
+                  playSelected: ref.read(videoPlayerProvider.notifier).playAudioQueueItem,
                 );
               },
             )
@@ -418,21 +416,10 @@ Future<void> showSubSelection(BuildContext context) {
               (index, subModel) {
                 final selected = playbackModel.mediaStreams?.defaultSubStreamIndex == subModel.index;
                 return ListTile(
-                  title: Text(
-                    subModel.label(context),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  title: Text(subModel.label(context)),
                   tileColor: selected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3) : null,
                   subtitle: subModel.language.isNotEmpty
-                      ? Opacity(
-                          opacity: 0.6,
-                          child: Text(
-                            subModel.language.capitalize(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )
+                      ? Opacity(opacity: 0.6, child: Text(subModel.language.capitalize()))
                       : null,
                   onTap: () async {
                     final newModel = await playbackModel.setSubtitle(subModel, player);
@@ -470,21 +457,10 @@ Future<void> showAudioSelection(BuildContext context) {
               (index, audioStream) {
                 final selected = playbackModel.mediaStreams?.defaultAudioStreamIndex == audioStream.index;
                 return ListTile(
-                    title: Text(
-                      audioStream.label(context),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    title: Text(audioStream.label(context)),
                     tileColor: selected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3) : null,
                     subtitle: audioStream.language.isNotEmpty
-                        ? Opacity(
-                            opacity: 0.6,
-                            child: Text(
-                              audioStream.language.capitalize(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          )
+                        ? Opacity(opacity: 0.6, child: Text(audioStream.language.capitalize()))
                         : null,
                     onTap: () async {
                       final newModel = await playbackModel.setAudio(audioStream, player);

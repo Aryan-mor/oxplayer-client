@@ -438,7 +438,7 @@
     "libraryShuffleAndPlayItems": "Acak dan putar item",
     "libraryPlayItems": "Putar item",
     "clientSettingsShowAllCollectionsTitle": "Tampilkan Semua Koleksi",
-    "clientSettingsShowAllCollectionsDesc": "Jika diaktifkan, tampilkan semua jenis koleksi, termasuk yang tidak didukung oleh OXPlayer",
+    "clientSettingsShowAllCollectionsDesc": "Jika diaktifkan, tampilkan semua jenis koleksi, termasuk yang tidak didukung oleh Fladder",
     "stop": "Berhenti",
     "resumeVideo": "Lanjutkan video",
     "closeVideo": "Tutup video",
@@ -488,8 +488,8 @@
     "segmentActionSkipOnce": "Lewati sekali",
     "segmentActionSkip": "Lewati",
     "loading": "Memuat",
-    "exitFladderTitle": "Keluar dari OXPlayer",
-    "exitFladderDesc": "Apakah Anda yakin ingin menutup OXPlayer?",
+    "exitFladderTitle": "Keluar dari Fladder",
+    "exitFladderDesc": "Apakah Anda yakin ingin menutup Fladder?",
     "castAndCrew": "Pemeran dan Kru",
     "maxConcurrentDownloadsTitle": "Jumlah maksimum unduhan bersamaan",
     "maxConcurrentDownloadsDesc": "Menetapkan jumlah maksimum unduhan yang dapat dijalankan secara bersamaan. Atur ke 0 untuk menonaktifkan batasan.",
@@ -585,9 +585,9 @@
     "screensaverBlack": "Hitam",
     "playerSettingsScreensaverTitle": "Screensaver Pemutar",
     "playerSettingsScreensaverDesc": "Pilih screen saver yang akan ditampilkan setelah tidak ada aktivitas pemutar",
-    "settingsLocalUrlTitle": "URL Server Lokal",
-    "settingsLocalUrlSetTitle": "Atur URL Lokal",
-    "settingsLocalUrlSetDesc": "Tentukan alamat server lokal. OXPlayer akan secara otomatis menggunakan URL ini ketika perangkat Anda berada di jaringan yang sama.",
+    "settingsLocalUrlTitle": "URL Jellyfin Lokal",
+    "settingsLocalUrlSetTitle": "Konfigurasikan URL Jellyfin Lokal",
+    "settingsLocalUrlSetDesc": "Tentukan alamat Jellyfin lokal. Fladder akan otomatis menggunakan URL ini saat perangkat Anda berada di jaringan yang sama.",
     "regenerateTrickplayImages": "Buat ulang gambar trickplay",
     "controlPanel": "Panel Kontrol",
     "controlPanelDesc": "Server, Aktivitas, Pengguna, Perpustakaan",
@@ -771,7 +771,7 @@
     "seerrMediaStatusDeleted": "Dihapus",
     "seerrAuthApiKey": "Kunci API",
     "seerrAuthLocal": "Lokal",
-    "seerrAuthJellyfin": "Pustaka media",
+    "seerrAuthJellyfin": "Jellyfin",
     "seerrUserFetchFailed": "Gagal mengambil data pengguna dari Seerr",
     "seerrEnterServerUrlFirst": "Masukkan URL server terlebih dahulu",
     "seerrApiKeySaved": "Kunci API Seerr tersimpan",
@@ -782,7 +782,7 @@
     "emailUsername": "Email/Nama Pengguna",
     "discover": "Jelajahi",
     "sponsor": "Sponsor",
-    "sponsorMessage": "Jika Anda menikmati menggunakan OXPlayer, pertimbangkan untuk menjadi sponsor proyek ini guna mendukung pengembangan dan perbaikan yang berkelanjutan. Terima kasih atas dukungan Anda!",
+    "sponsorMessage": "Jika Anda menikmati menggunakan Fladder, pertimbangkan untuk menjadi sponsor proyek ini guna mendukung pengembangan dan perbaikan yang berkelanjutan. Terima kasih atas dukungan Anda!",
     "min": "min",
     "max": "maks",
     "manageRequest": "Kelola permintaan",
@@ -1923,7 +1923,7 @@
         }
     },
     "notificationTimerIOSWarning": " iOS menentukan kapan/jika pembaruan benar-benar dijalankan, sehingga notifikasi mungkin tertunda atau tidak muncul sama sekali.",
-    "batteryOptimizationDesc": "Optimasi baterai dapat menunda notifikasi latar belakang untuk OXPlayer.\nKetuk untuk membuka pengaturan sistem dan nonaktifkan optimasi untuk OXPlayer agar keandalan notifikasi meningkat.",
+    "batteryOptimizationDesc": "Optimasi baterai dapat menunda notifikasi latar belakang untuk Fladder.\nKetuk untuk membuka pengaturan sistem dan nonaktifkan optimasi untuk Fladder agar keandalan notifikasi meningkat.",
     "updateCheckInterval": "Interval pemeriksaan pembaruan",
     "updateCheckIntervalDesc": "Seberapa sering tugas latar belakang dijalankan",
     "notificationsIntervalClientReminder": "Interval notifikasi diatur untuk semua pengguna.",
@@ -1976,7 +1976,7 @@
     "passwordNotRequired": "Tidak dibutuhkan, biarkan kosong untuk tidak memasukkan password di link",
     "authLinkButtonToolTip": "Buka dialog otorisasi link",
     "connectWithAuthLink": "Hubungkan dengan link otorisasi",
-    "pasteFladderAuthLink": "Tempel link otorisasi OXPlayer oxplayer:///login?authLink=...",
+    "pasteFladderAuthLink": "Tempel link otorisasi fladder fladder:///login?authLink=...",
     "connect": "Hubungkan",
     "authLinkDesc": "Minta administrator server untuk menyediakan link otorisasi . Link mengandung informasi otentikasi, pastikan untuk menyimpannya dengan aman.",
     "deletedItem": "{itemName} dihapus",
@@ -2021,5 +2021,52 @@
                 "example": "days"
             }
         }
-    }
+    },
+    "gestures": "Gestur",
+    "anyLanguage": "Bahasa apa pun",
+    "enableEdgeGesturesTitle": "Aktifkan gestur tepi",
+    "enableEdgeGesturesDesc": "Atur kecerahan dan volume dengan menggeser ke atas dan ke bawah pada tepi layar",
+    "reverseEdgeGesturesTitle": "Tukar gestur tepi",
+    "reverseEdgeGesturesDesc": "Tukar sisi untuk kontrol kecerahan dan volume",
+    "seekForwardInstant": "Maju Cepat (Instan)",
+    "seekBackInstant": "Mundur (Instan)",
+    "stepForward": "Maju Selangkah",
+    "stepBack": "Mundur Selangkah",
+    "brightnessIndicator": "Kecerahan: {brightness}",
+    "@brightnessIndicator": {
+        "placeholders": {
+            "brightness": {
+                "type": "int"
+            }
+        }
+    },
+    "personBirthday": "Tanggal lahir: {date}",
+    "@personBirthday": {
+        "description": "Birthday label with formatted date",
+        "placeholders": {
+            "date": {
+                "type": "String"
+            }
+        }
+    },
+    "personAge": "Usia: {age}",
+    "@personAge": {
+        "description": "Age label with age number",
+        "placeholders": {
+            "age": {
+                "type": "int",
+                "example": "30"
+            }
+        }
+    },
+    "personBirthPlace": "Lahir di {place}",
+    "@personBirthPlace": {
+        "placeholders": {
+            "place": {
+                "type": "String"
+            }
+        }
+    },
+    "seerrMovies": "Temukan Film",
+    "seerrSeries": "Temukan Serial"
 }

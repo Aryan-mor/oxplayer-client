@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 enum ColorThemes {
   fladder(
-    name: 'OXPlayer',
+    name: 'Fladder',
     color: kDebugMode ? Colors.purpleAccent : Colors.orange,
   ),
   deepOrange(

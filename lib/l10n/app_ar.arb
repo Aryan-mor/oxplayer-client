@@ -707,7 +707,7 @@
     "segmentActionNone": "لا شيء",
     "loading": "جارٍ التحميل",
     "segmentActionAskToSkip": "طلب التخطي",
-    "clientSettingsShowAllCollectionsDesc": "عند التمكين، يتم عرض جميع أنواع المجموعات، بما في ذلك تلك غير المدعومة بواسطة OXPlayer",
+    "clientSettingsShowAllCollectionsDesc": "عند التمكين، يتم عرض جميع أنواع المجموعات، بما في ذلك تلك غير المدعومة بواسطة Fladder",
     "settingsVisual": "مرئي",
     "stop": "توقف",
     "segmentActionSkip": "تخطي",
@@ -1031,7 +1031,7 @@
         }
     },
     "television": "التلفاز",
-    "exitFladderDesc": "هل أنت متأكد من أنك تريد إغلاق OXPlayer؟",
+    "exitFladderDesc": "هل أنت متأكد من أنك تريد إغلاق Fladder؟",
     "keyboardShortCuts": "اختصارات الكيبورد",
     "speedUp": "تسريع",
     "speedDown": "‬‬تبطيء",
@@ -1078,9 +1078,9 @@
     "screensaverBlack": "أسود",
     "playerSettingsScreensaverTitle": "شاشة التوقف",
     "playerSettingsScreensaverDesc": "اختر شاشة التوقف التي ستظهر بعد فترة من عدم النشاط في المشغّل",
-    "settingsLocalUrlTitle": "عنوان الخادم المحلي",
-    "settingsLocalUrlSetTitle": "إعداد عنوان URL المحلي",
-    "settingsLocalUrlSetDesc": "حدد عنوان الخادم المحلي. سيستخدم OXPlayer هذا الرابط تلقائياً عند اتصال الجهاز بنفس الشبكة.",
+    "settingsLocalUrlTitle": "رابط Jellyfin المحلي",
+    "settingsLocalUrlSetTitle": "إعداد رابط Jellyfin المحلي",
+    "settingsLocalUrlSetDesc": "حدّد عنوان Jellyfin المحلي. سيستخدم Fladder هذا الرابط تلقائيًا عندما يكون جهازك على نفس الشبكة.",
     "takeScreenshot": "التقط لقطة شاشة",
     "takeScreenshotClean": "التقط لقطة شاشة (بدون ترجمات)",
     "screenshots": "لقطات الشاشة",
@@ -1458,7 +1458,7 @@
     },
     "seerrSetServerFirst": "قم بتعيين خادم Seerr أولاً",
     "seerrLocalLoginTitle": "تسجيل الدخول المحلي لـ Seerr",
-    "seerrJellyfinLoginTitle": "تسجيل الدخول عبر مكتبة الوسائط لـ Seerr",
+    "seerrJellyfinLoginTitle": "تسجيل الدخول عبر Jellyfin لـ Seerr",
     "seerrSessionSaved": "تم حفظ جلسة Seerr",
     "seerrStatusVersion": "Seerr: الإصدار {version}",
     "@seerrStatusVersion": {
@@ -1470,7 +1470,7 @@
     },
     "seerrServer": "خادم Seerr",
     "seerrAuthenticateLocal": "مصادقة Seerr (محلية)",
-    "seerrAuthenticateJellyfin": "مصادقة Seerr عبر مكتبة الوسائط",
+    "seerrAuthenticateJellyfin": "مصادقة Seerr عبر Jellyfin",
     "seerrSessionConfigured": "تم تهيئة الجلسة",
     "seerrConfigured": "تم التهيئة",
     "seerrTestConnection": "اختبار اتصال Seerr",
@@ -1487,7 +1487,7 @@
     "seerrPermissionDenied": "ليس لديك صلاحية لطلب هذا النوع من الوسائط.",
     "seerrAuthApiKey": "مفتاح API",
     "seerrAuthLocal": "محلي",
-    "seerrAuthJellyfin": "مكتبة الوسائط",
+    "seerrAuthJellyfin": "جيلي فين (Jellyfin)",
     "seerrUserFetchFailed": "فشل في جلب المستخدم من Seerr",
     "seerrEnterServerUrlFirst": "أدخل عنوان خادم Seerr أولاً",
     "seerrApiKeySaved": "تم حفظ مفتاح API",
@@ -1557,7 +1557,7 @@
     "seerrMediaStatusBlacklisted": "محظور",
     "seerrMediaStatusDeleted": "محذوف",
     "sponsor": "راعٍ",
-    "sponsorMessage": "إذا كنت تستمتع باستخدام OXPlayer، فكر في رعاية المشروع لدعم تطويره وتحسينه المستمر. شكراً لدعمك!",
+    "sponsorMessage": "إذا كنت تستمتع باستخدام Fladder، فكر في رعاية المشروع لدعم تطويره وتحسينه المستمر. شكراً لدعمك!",
     "min": "الحد الأدنى",
     "max": "الحد الأقصى",
     "manageRequest": "إدارة الطلب",
@@ -1811,7 +1811,7 @@
             }
         }
     },
-    "batteryOptimizationDesc": "تحسينات البطارية قد تؤخر إشعارات الخلفية لتطبيق OXPlayer.\nاضغط لفتح إعدادات النظام وتعطيل تحسينات OXPlayer لتحسين موثوقية الإشعارات.",
+    "batteryOptimizationDesc": "تحسينات البطارية قد تؤخر إشعارات الخلفية لتطبيق Fladder.\nاضغط لفتح إعدادات النظام وتعطيل تحسينات Fladder لتحسين موثوقية الإشعارات.",
     "lastUpdateAt": "آخر تحديث في {date} عند {time}",
     "@lastUpdateAt": {
         "description": "lastUpdateAt",
@@ -1862,7 +1862,7 @@
     "passwordNotRequired": "غير مطلوب، اتركه فارغاً لعدم تضمين كلمة المرور في الرابط",
     "authLinkButtonToolTip": "فتح نافذة رابط المصادقة",
     "connectWithAuthLink": "الاتصال باستخدام رابط المصادقة",
-    "pasteFladderAuthLink": "لصق رابط مصادقة OXPlayer OXPlayer://login?authLink=...",
+    "pasteFladderAuthLink": "لصق رابط مصادقة Fladder fladder://login?authLink=...",
     "connect": "اتصال",
     "authLinkDesc": "اطلب من مدير الخادم تزويدك برابط المصادقة. يحتوي الرابط على معلومات المصادقة، لذا تأكد من الحفاظ على أمانه.",
     "deletedItem": "تم حذف {itemName}",
@@ -1949,5 +1949,9 @@
         }
     },
     "seerrMovies": "استكشاف الأفلام",
-    "seerrSeries": "استكشاف المسلسلات"
+    "seerrSeries": "استكشاف المسلسلات",
+    "stepForward": "التقدم خطوة",
+    "stepBack": "الرجوع خطوة",
+    "seekForwardInstant": "تقديم فوري",
+    "seekBackInstant": "رجوع فوري"
 }

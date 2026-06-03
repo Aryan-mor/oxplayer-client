@@ -19,8 +19,8 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
    └─ FladderLogo + OxplayerClaimCodeLoginPanel
    └─ User runs /login on main bot → enters 6-char code
 
-3. POST /auth/claim-code  { code }
-   ← { accessToken, refreshToken, jellyfinUserId, … }
+3. Jellyfin AuthenticateByName (username `ox`, password = code)
+   ← session token + `X-Ox-Refresh-Token` header
 
 4. Token stored → FladderConfig.baseUrl = OxplayerEnv.apiBaseUrl
    └─ Fladder treats api-v2 as its Jellyfin server
@@ -31,8 +31,8 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
 | File | Role |
 |------|------|
 | `oxplayer_login_screen.dart` | Login UI at `/ox-login` |
-| `oxplayer_claim_code_login_panel.dart` | Code entry + claim API |
-| `oxplayer_telegram_auth_client.dart` | Claim-code + session apply helpers |
+| `oxplayer_claim_code_login_panel.dart` | Code entry UI |
+| `oxplayer_jellyfin_auth.dart` | Jellyfin authenticateByName + refresh |
 | `oxplayer_splash_gate.dart` | Cold start: refresh or route to login |
 | `oxplayer_navigation.dart` | `oxplayerSignOutRouteList()` / `oxplayerAddAccountRoute()` |
 

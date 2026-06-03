@@ -1,27 +1,19 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/oxplayer/oxplayer_jellyfin_auth.dart';
 import 'package:fladder/oxplayer/oxplayer_login_bot_actions.dart';
 
-/// Six-character code entry (main-bot `/login`) for api-v2 auth.
 class OxplayerClaimCodeLoginPanel extends ConsumerStatefulWidget {
-  const OxplayerClaimCodeLoginPanel({
-    required this.onSuccess,
-    super.key,
-  });
+  const OxplayerClaimCodeLoginPanel({required this.onSuccess, super.key});
 
-  /// Called after Fladder [AuthNotifier.authenticateByName] succeeds.
   final Future<void> Function() onSuccess;
 
   @override
-  ConsumerState<OxplayerClaimCodeLoginPanel> createState() =>
-      _OxplayerClaimCodeLoginPanelState();
+  ConsumerState<OxplayerClaimCodeLoginPanel> createState() => _OxplayerClaimCodeLoginPanelState();
 }
 
-class _OxplayerClaimCodeLoginPanelState
-    extends ConsumerState<OxplayerClaimCodeLoginPanel> {
+class _OxplayerClaimCodeLoginPanelState extends ConsumerState<OxplayerClaimCodeLoginPanel> {
   final _controller = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -43,20 +35,15 @@ class _OxplayerClaimCodeLoginPanelState
       _error = null;
     });
     try {
-      final response =
-          await oxplayerAuthenticateWithClaimCode(ref, code);
+      final response = await oxplayerAuthenticateWithClaimCode(ref, code);
       if (!mounted) return;
       if (response?.isSuccessful != true || response?.body == null) {
-        final status = response?.base.statusCode;
-        setState(() => _error = status != null
-            ? 'Login failed ($status). Check the code and try again.'
-            : 'Login failed. Check the code and try again.');
+        setState(() => _error = 'Login failed. Check the code and try again.');
         return;
       }
       await widget.onSuccess();
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -73,7 +60,7 @@ class _OxplayerClaimCodeLoginPanelState
         ),
         const SizedBox(height: 8),
         Text(
-          'Open the bot below (or scan QR) to get your login code, then enter the 6 characters here.',
+          'Get a 6-character code from the Telegram bot, then enter it here.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
@@ -81,10 +68,7 @@ class _OxplayerClaimCodeLoginPanelState
           controller: _controller,
           maxLength: 6,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Code',
-            counterText: '',
-          ),
+          decoration: const InputDecoration(labelText: 'Code', counterText: ''),
           onSubmitted: (_) => _loading ? null : _submit(),
         ),
         if (_error != null) ...[

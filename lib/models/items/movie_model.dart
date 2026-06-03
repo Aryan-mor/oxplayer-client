@@ -74,8 +74,7 @@ class MovieModel extends ItemStreamModel with MovieModelMappable {
   String? get subText => overview.yearAired?.toString() ?? overview.runTime.humanize;
 
   @override
-  bool get playAble =>
-      mediaStreams.versionStreams.any((v) => v.videoStreams.isNotEmpty);
+  bool get playAble => true;
 
   @override
   bool get identifiable => true;

@@ -205,7 +205,7 @@
         }
     },
     "masonry": "Alvenaria",
-    "mediaTypeBoxset": "Boxset",
+    "mediaTypeBoxset": "{count, plural, one{Coletânea} other{Coletâneas}}",
     "mediaTypeFolder": "{count, plural, one{Pasta} other{Pastas}}",
     "metaDataSavedFor": "Metadados salvos para {item}",
     "@metaDataSavedFor": {
@@ -219,7 +219,7 @@
     "mediaTypeMovie": "{count, plural, one{Filme} other{Filmes}}",
     "mediaTypePlaylist": "{count, plural, one{Lista de Reprodução} other{Listas de Reprodução}}",
     "mediaTypeSeason": "{count, plural, one{Temporada} other{Temporadas}}",
-    "mediaTypePhotoAlbum": "Álbum de fotos",
+    "mediaTypePhotoAlbum": "{count, plural, one{Álbum de fotos} other{Álbuns de fotos}}",
     "metadataRefreshDefault": "Verificar se há arquivos novos e atualizados",
     "minutes": "{count, plural, other{Minutos} one{Minuto}}",
     "@minutes": {
@@ -461,7 +461,7 @@
     "libraryPageSizeTitle": "Tamanho da página da biblioteca",
     "settingsBlurredPlaceholderTitle": "Espaço reservado desfocado",
     "settingsClientDesc": "Geral, Tempo limite, Layout, Tema",
-    "settingsClientTitle": "OXPlayer",
+    "settingsClientTitle": "Fladder",
     "settingsContinue": "Continuar",
     "settingsEnableOsMediaControls": "Habilitar controles de mídia do sistema operacional",
     "settingsHomeCarouselDesc": "Mostra um carrossel na tela do painel",
@@ -671,7 +671,7 @@
     "video": "{count, plural, one{Vídeo} other{Vídeos}}",
     "videoScaling": "Dimensionamento de vídeo",
     "videoScalingFill": "Preencher",
-    "videoScalingFillScreenTitle": "Tela cheia",
+    "videoScalingFillScreenTitle": "Preencher tela",
     "videoScalingFitHeight": "Ajustar altura",
     "videoScalingContain": "Conter",
     "videoScalingFillScreenDesc": "Preencha a barra de navegação e status",
@@ -822,7 +822,7 @@
     "libraryFiltersRemoveAllConfirm": "Isto irá apagar todos os filtros gravados para todas as bibliotecas",
     "schemeSettingsFidelity": "Fidelidade",
     "schemeSettingsVibrant": "Vibrante",
-    "clientSettingsShowAllCollectionsDesc": "Quando ativado, mostra todos os tipos de coleção, incluindo aqueles não suportados pelo OXPlayer",
+    "clientSettingsShowAllCollectionsDesc": "Quando ativado, mostra todos os tipos de coleção, incluindo aqueles não suportados pelo Fladder",
     "playerSettingsBackendTitle": "Backend do player de vídeo",
     "mdkExperimental": "MDK ainda está em fase experimental",
     "mediaSegmentPreview": "Prévia",
@@ -903,7 +903,7 @@
     "settingsEnableOsMediaControlsDesc": "Permitir o controle da reprodução usando as teclas de média e mostrar a média atual em reprodução no OS",
     "settingsPlayerBufferSizeTitle": "Tamanho do buffer de vídeo",
     "settingsPlayerBufferSizeDesc": "Configure o tamanho do buffer para reprodução de vídeo, determinando a quantidade de dados que é carregada no cache.",
-    "exitFladderTitle": "Sair do OXPlayer",
+    "exitFladderTitle": "Sair do Fladder",
     "castAndCrew": "Elenco & Equipa",
     "guestActor": "{count, plural, other{Actores Convidados} one{Actor Convidado}}",
     "@guestActor": {
@@ -1015,7 +1015,7 @@
     "deleteRequestConfirmation": "Tem a certeza de que deseja eliminar este pedido?",
     "television": "Televisão",
     "advancedVideoOptionsTitle": "Opções avançadas de vídeo",
-    "exitFladderDesc": "Tem a certeza de que quer fechar o OXPlayer?",
+    "exitFladderDesc": "Tem a certeza de que quer fechar o Fladder?",
     "playbackTypeTV": "TV",
     "syncAllItemsTitle": "Sincronizar todos os itens de {itemName}?",
     "@syncAllItemsTitle": {
@@ -1090,7 +1090,7 @@
     "seerrMediaStatusDeleted": "Eliminado",
     "seerrAuthApiKey": "Chave API",
     "seerrAuthLocal": "Local",
-    "seerrAuthJellyfin": "Biblioteca multimédia",
+    "seerrAuthJellyfin": "Jellyfin",
     "seerrUserFetchFailed": "Não foi possível obter o utilizador do Seerr",
     "seerrEnterServerUrlFirst": "Primeiro, introduza o URL de um servidor Seerr",
     "seerrRequestStatusPending": "Pendente",
@@ -1285,7 +1285,7 @@
     "removeFromRadarr": "Remover do Radarr",
     "discover": "Explorar",
     "sponsor": "Patrocinador",
-    "sponsorMessage": "Se gosta de usar o OXPlayer, considere patrocinar o projeto para apoiar o desenvolvimento e as melhorias contínuas. Obrigado pelo seu apoio!",
+    "sponsorMessage": "Se gosta de usar o Fladder, considere patrocinar o projeto para apoiar o desenvolvimento e as melhorias contínuas. Obrigado pelo seu apoio!",
     "min": "min",
     "seerrApiKeySaved": "Chave API guardada",
     "seerrConnectedToServer": "Ligado ao servidor Seerr: {serverUrl}",
@@ -1317,7 +1317,7 @@
     "requestMore": "Pedir mais",
     "viewRequest": "Ver pedido",
     "email": "Email",
-    "username": "Username",
+    "username": "Nome do utilizador",
     "ok": "OK",
     "transcodeInfoTitle": "Informações de transcodificação",
     "transcodeInfoNoMetadata": "Não existem metadados de transcodificação disponíveis.",
@@ -1384,7 +1384,7 @@
     "subtitleDownloads": "Transferência de legendas",
     "downloadLanguages": "Idiomas para transferência",
     "seerrHeaderValue": "Valor",
-    "emailUsername": "Email/Username",
+    "emailUsername": "Email / Nome do utilizador",
     "markAsAvailable": "Marcar como disponível",
     "deleteData": "Eliminar dados",
     "removeSeriesFromSonarrConfirm": "Remover esta série do Sonarr? Isto irá eliminar todos os dados, INCLUINDO ficheiros.",
@@ -1564,7 +1564,7 @@
     "showNewItemNotificationTitle": "Notificações para itens da biblioteca",
     "notificationChannelDescription": "Notificações para itens adicionados recentemente",
     "notificationTimerIOSWarning": " O iOS decide quando/se as atualizações realmente correm; as notificações podem ser atrasadas ou nem aparecer.",
-    "batteryOptimizationDesc": "As optimizações de bateria podem atrasar as notificações em segundo plano do OXPlayer.\nToque para abrir as definições do sistema e desativar optimizações para o OXPlayer para melhorar a fiabilidade das notificações.",
+    "batteryOptimizationDesc": "As optimizações de bateria podem atrasar as notificações em segundo plano do Fladder.\nToque para abrir as definições do sistema e desativar optimizações para o Fladder para melhorar a fiabilidade das notificações.",
     "updateCheckInterval": "Intervalo de verificação de actualizações",
     "updateCheckIntervalDesc": "Com que frequência a tarefa em segundo plano é executada",
     "notificationsIntervalClientReminder": "O intervalo de notificações é definido para todos os utilizadores.",
@@ -1587,7 +1587,7 @@
     "passwordNotRequired": "Não é necessário, deixe vazio para não incluir palavra-passe no link",
     "authLinkButtonToolTip": "Abrir diálogo de link de autenticação",
     "connectWithAuthLink": "Ligar com link de autenticação",
-    "pasteFladderAuthLink": "Cole o link de autenticação do OXPlayer oxplayer:///login?authLink=...",
+    "pasteFladderAuthLink": "Cole o link de autenticação do Fladder fladder:///login?authLink=...",
     "connect": "Ligar",
     "authLinkDesc": "Peça ao administrador do servidor para fornecer o link de autenticação. O link contém informações de autenticação, por isso mantenha-o seguro.",
     "deletedItem": "{itemName} eliminado",
@@ -1663,7 +1663,7 @@
     "playerSettingsScreensaverDesc": "Selecione o protector de ecrã que será mostrado após inatividade do leitor",
     "settingsLocalUrlTitle": "URL do Servidor Local",
     "settingsLocalUrlSetTitle": "Configurar URL Local",
-    "settingsLocalUrlSetDesc": "Especifique o endereço do servidor local. O OXPlayer irá utilizar automaticamente este URL quando o seu dispositivo estiver na mesma rede.",
+    "settingsLocalUrlSetDesc": "Especifique o endereço do servidor local. O Fladder irá utilizar automaticamente este URL quando o seu dispositivo estiver na mesma rede.",
     "regenerateTrickplayImages": "Regenerar imagens de trickplay",
     "controlPanel": "Painel de Controlo",
     "controlPanelDesc": "Servidor, Actividade, Utilizadores, Biblioteca",
@@ -1868,5 +1868,56 @@
     "seerrLoggedIn": "Com sessão iniciada no Seerr",
     "hidePlayedInLatestDescription": "Ocultar conteúdo já visto de 'Adicionados recentemente'",
     "homeBannerDetailed": "Detalhado",
-    "backgroundColor": "Cor de fundo"
+    "backgroundColor": "Cor de fundo",
+    "gestures": "Gestos",
+    "reverseEdgeGesturesTitle": "Inverter gestos de borda",
+    "enableEdgeGesturesDesc": "Controlar o brilho e volume deslizando para cima e para baixo nos cantos do ecrã",
+    "reverseEdgeGesturesDesc": "Inverter de lados o controlo de volume e brilho",
+    "stepForward": "Avançar um quadro",
+    "stepBack": "Retroceder um quadro",
+    "brightnessIndicator": "Brilho: {brightness}",
+    "@brightnessIndicator": {
+        "placeholders": {
+            "brightness": {
+                "type": "int"
+            }
+        }
+    },
+    "rootFolder": "Pasta raiz",
+    "seerrCustomHeaders": "Cabeçalhos personalizados",
+    "seerrHeader": "Cabeçalho",
+    "viewTrailer": "Ver trailer",
+    "fallbackMaxBitrate": "Taxa de transferência máxima de fallback (Mbps)",
+    "personBirthday": "Data de nascimento: {date}",
+    "@personBirthday": {
+        "description": "Birthday label with formatted date",
+        "placeholders": {
+            "date": {
+                "type": "String"
+            }
+        }
+    },
+    "personAge": "Idade: {age}",
+    "@personAge": {
+        "description": "Age label with age number",
+        "placeholders": {
+            "age": {
+                "type": "int",
+                "example": "30"
+            }
+        }
+    },
+    "personBirthPlace": "Nascido em {place}",
+    "@personBirthPlace": {
+        "placeholders": {
+            "place": {
+                "type": "String"
+            }
+        }
+    },
+    "seerrMovies": "Descobrir Filmes",
+    "seerrSeries": "Descobrir Séries",
+    "today": "Hoje",
+    "anyLanguage": "Qualquer idioma",
+    "enableEdgeGesturesTitle": "Ativar gestos de borda"
 }

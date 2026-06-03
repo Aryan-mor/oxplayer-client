@@ -1,11 +1,8 @@
 {
   "name": "oxplayer-client",
   "private": true,
-  "description": "Pins tdweb for scripts/sync-tdweb.mjs (Flutter web TDLib). Install: npm install",
+  "description": "OXPlayer client tooling (artifact config init).",
   "scripts": {
     "tdlib:bootstrap": "node ./scripts/init-artifacts-config.mjs"
-  },
-  "dependencies": {
-    "tdweb": "1.8.0"
   }
 }

@@ -80,8 +80,7 @@ class SharedKeys {
   //Singleton
   static final SharedKeys instance = SharedKeys._();
 
-  /// Persisted Jellyfin accounts (JSON strings). Used by [SharedHelper] and OX URL sync.
-  static const String loginCredentialsKey = 'loginCredentialsKey';
+  static const String _loginCredentialsKey = 'loginCredentialsKey';
   static const String _clientSettingsKey = 'clientSettings';
   static const String _homeSettingsKey = 'homeSettings';
   static const String _videoPlayerSettingsKey = 'videoPlayerSettings';
@@ -147,7 +146,7 @@ class SharedHelper {
   }
 
   List<AccountModel> getAccounts() {
-    final savedAccounts = sharedPreferences.getStringList(SharedKeys.loginCredentialsKey);
+    final savedAccounts = sharedPreferences.getStringList(SharedKeys._loginCredentialsKey);
     try {
       return savedAccounts != null ? savedAccounts.map((e) => AccountModel.fromJson(jsonDecode(e))).toList() : [];
     } catch (_, stacktrace) {
@@ -163,15 +162,7 @@ class SharedHelper {
         return (element.lastUsed.compareTo(lastLoggedIn.lastUsed)) > 0 ? element : lastLoggedIn;
       });
 
-      if (recentUsedAccount.authMethod == Authentication.autoLogin) {
-        return recentUsedAccount;
-      }
-      // Claim-code / refresh sessions saved before authMethod was set still restore on cold start.
-      final token = recentUsedAccount.credentials.token.trim();
-      final refresh = recentUsedAccount.credentials.oxRefreshToken.trim();
-      if (token.isNotEmpty && refresh.isNotEmpty) {
-        return recentUsedAccount.copyWith(authMethod: Authentication.autoLogin);
-      }
+      if (recentUsedAccount.authMethod == Authentication.autoLogin) return recentUsedAccount;
       return null;
     } catch (e) {
       log(e.toString());
@@ -180,7 +171,7 @@ class SharedHelper {
   }
 
   Future<bool?> saveAccounts(List<AccountModel> accounts) async =>
-      sharedPreferences.setStringList(SharedKeys.loginCredentialsKey, accounts.map((e) => jsonEncode(e)).toList());
+      sharedPreferences.setStringList(SharedKeys._loginCredentialsKey, accounts.map((e) => jsonEncode(e)).toList());
 
   ClientSettingsModel get clientSettings {
     try {

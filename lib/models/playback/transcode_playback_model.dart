@@ -1,18 +1,19 @@
-import 'package:flutter/widgets.dart' hide RepeatMode;
+import 'package:flutter/widgets.dart';
 
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
+import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' hide RepeatMode;
+import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as jellyfin_enums;
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/chapters_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/trick_play_model.dart';
+import 'package:fladder/models/playback/playback_queue_state.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/providers/api_provider.dart';
-import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/util/bitrate_helper.dart';
 import 'package:fladder/util/duration_extensions.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
@@ -27,6 +28,8 @@ class TranscodePlaybackModel extends PlaybackModel {
     super.chapters,
     super.trickPlay,
     super.queue = const [],
+    super.playbackQueue,
+    super.queueSource,
     super.bitRateOptions,
   });
 
@@ -70,7 +73,7 @@ class TranscodePlaybackModel extends PlaybackModel {
             playMethod: PlayMethod.transcode,
             isMuted: false,
             isPaused: false,
-            repeatMode: RepeatMode.repeatall,
+            repeatMode: jellyfin_enums.RepeatMode.repeatall,
           ),
         );
     return null;
@@ -78,14 +81,14 @@ class TranscodePlaybackModel extends PlaybackModel {
 
   @override
   Future<PlaybackModel?> playbackStopped(Duration position, Duration? totalDuration, Ref ref) async {
-    ref.read(playBackModel.notifier).update((state) => null);
+    final stopPosition = resolvedStopPosition(position, totalDuration);
 
     await ref.read(jellyApiProvider).sessionsPlayingStoppedPost(
           body: PlaybackStopInfo(
             itemId: item.id,
             mediaSourceId: item.id,
             playSessionId: playbackInfo?.playSessionId,
-            positionTicks: position.toRuntimeTicks,
+            positionTicks: stopPosition.toRuntimeTicks,
           ),
         );
 
@@ -109,7 +112,7 @@ class TranscodePlaybackModel extends PlaybackModel {
         playMethod: PlayMethod.transcode,
         isPaused: !isPlaying,
         isMuted: false,
-        repeatMode: RepeatMode.repeatall,
+        repeatMode: jellyfin_enums.RepeatMode.repeatall,
       ),
     );
     return this;
@@ -122,6 +125,11 @@ class TranscodePlaybackModel extends PlaybackModel {
         userData: userData,
       ),
     );
+  }
+
+  @override
+  TranscodePlaybackModel updatePlaybackQueue(PlaybackQueueState newQueue) {
+    return copyWith(playbackQueue: newQueue);
   }
 
   @override
@@ -138,6 +146,8 @@ class TranscodePlaybackModel extends PlaybackModel {
     ValueGetter<List<Chapter>?>? chapters,
     ValueGetter<TrickPlayModel?>? trickPlay,
     List<ItemBaseModel>? queue,
+    PlaybackQueueState? playbackQueue,
+    PlaybackQueueSource? queueSource,
     Map<Bitrate, bool>? bitRateOptions,
   }) {
     return TranscodePlaybackModel(
@@ -149,6 +159,8 @@ class TranscodePlaybackModel extends PlaybackModel {
       chapters: chapters != null ? chapters() : this.chapters,
       trickPlay: trickPlay != null ? trickPlay() : this.trickPlay,
       queue: queue ?? this.queue,
+      playbackQueue: playbackQueue ?? this.playbackQueue,
+      queueSource: queueSource ?? this.queueSource,
       bitRateOptions: bitRateOptions ?? this.bitRateOptions,
     );
   }

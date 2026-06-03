@@ -10,6 +10,9 @@ import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' as dto;
 import 'package:fladder/l10n/generated/app_localizations.dart';
 import 'package:fladder/models/book_model.dart';
 import 'package:fladder/models/boxset_model.dart';
+import 'package:fladder/models/items/album_model.dart';
+import 'package:fladder/models/items/artist_model.dart';
+import 'package:fladder/models/items/audio_model.dart';
 import 'package:fladder/models/items/channel_model.dart';
 import 'package:fladder/models/items/episode_model.dart';
 import 'package:fladder/models/items/folder_model.dart';
@@ -20,13 +23,15 @@ import 'package:fladder/models/items/movie_model.dart';
 import 'package:fladder/models/items/overview_model.dart';
 import 'package:fladder/models/items/person_model.dart';
 import 'package:fladder/models/items/photos_model.dart';
+import 'package:fladder/models/items/playlist_model.dart';
 import 'package:fladder/models/items/season_model.dart';
 import 'package:fladder/models/items/series_model.dart';
 import 'package:fladder/models/items/watched_state.dart';
 import 'package:fladder/models/library_search/library_search_options.dart';
-import 'package:fladder/models/playlist_model.dart';
 import 'package:fladder/providers/api_provider.dart';
 import 'package:fladder/routes/auto_router.gr.dart';
+import 'package:fladder/screens/details_screens/album_detail_screen.dart';
+import 'package:fladder/screens/details_screens/artist_detail_screen.dart';
 import 'package:fladder/screens/details_screens/book_detail_screen.dart';
 import 'package:fladder/screens/details_screens/channel_detail_screen.dart';
 import 'package:fladder/screens/details_screens/details_screens.dart';
@@ -115,7 +120,7 @@ class ItemBaseModel with ItemBaseModelMappable {
 
   int? get unPlayedItemCount => userData.unPlayedItemCount;
 
-  bool get unWatched => !userData.played && progress <= 0 && userData.unPlayedItemCount == 0;
+  bool get unWatched => !userData.played && userData.progress <= 0 && userData.unPlayedItemCount == 0;
 
   bool get watched => userData.played;
 
@@ -148,8 +153,7 @@ class ItemBaseModel with ItemBaseModelMappable {
 
   String playText(AppLocalizations l10n) => l10n.play(name);
 
-  /// 0–100 for UI (play button, posters). Uses [UserData.displayProgressPercent] when API omits played %.
-  double get progress => userData.displayProgressPercent(overview.runTime);
+  double get progress => userData.progress;
 
   String playButtonLabel(AppLocalizations l10n) =>
       progress != 0 ? l10n.resume(name.maxLength()) : l10n.play(name.maxLength());
@@ -176,6 +180,10 @@ class ItemBaseModel with ItemBaseModelMappable {
         return MovieDetailScreen(item: this);
       case EpisodeModel _:
         return EpisodeDetailScreen(item: this);
+      case AlbumModel album:
+        return AlbumDetailScreen(item: album);
+      case ArtistModel artist:
+        return ArtistDetailScreen(item: artist);
       case SeriesModel series:
         return SeriesDetailScreen(item: series);
       case ChannelModel channel:
@@ -235,6 +243,9 @@ class ItemBaseModel with ItemBaseModelMappable {
       BaseItemKind.boxset => BoxSetModel.fromBaseDto(item, ref),
       BaseItemKind.book => BookModel.fromBaseDto(item, ref),
       BaseItemKind.playlist => PlaylistModel.fromBaseDto(item, ref),
+      BaseItemKind.musicalbum => AlbumModel.fromBaseDto(item, ref),
+      BaseItemKind.musicartist => ArtistModel.fromBaseDto(item, ref),
+      BaseItemKind.audio => AudioModel.fromBaseDto(item, ref),
       BaseItemKind.tvchannel => ChannelModel.fromBaseDto(item, ref),
       _ => ItemBaseModel._fromBaseDto(item, ref)
     };
@@ -278,6 +289,9 @@ class ItemBaseModel with ItemBaseModelMappable {
         BookModel _ => FladderItemType.book,
         PlaylistModel _ => FladderItemType.playlist,
         FolderModel _ => FladderItemType.folder,
+        AlbumModel _ => FladderItemType.musicAlbum,
+        ArtistModel _ => FladderItemType.musicArtist,
+        AudioModel _ => FladderItemType.audio,
         ItemBaseModel _ => FladderItemType.baseType,
       };
 
@@ -304,6 +318,10 @@ enum FladderItemType {
     selectedicon: IconsaxPlusBold.music,
   ),
   musicAlbum(
+    icon: IconsaxPlusLinear.music,
+    selectedicon: IconsaxPlusBold.music,
+  ),
+  musicArtist(
     icon: IconsaxPlusLinear.music,
     selectedicon: IconsaxPlusBold.music,
   ),
@@ -376,6 +394,8 @@ enum FladderItemType {
         FladderItemType.photoAlbum => 0.8,
         FladderItemType.folder => 0.8,
         FladderItemType.musicAlbum => 0.8,
+        FladderItemType.musicArtist => 0.8,
+        FladderItemType.audio => 0.8,
         FladderItemType.baseType => 0.8,
         FladderItemType.tvchannel => 0.8,
         _ => 0.55,
@@ -390,6 +410,12 @@ enum FladderItemType {
         FladderItemType.tvchannel,
       };
 
+  static Set<FladderItemType> get musicPlayable => {
+        FladderItemType.audio,
+        FladderItemType.musicAlbum,
+        FladderItemType.musicArtist,
+      };
+
   static Set<FladderItemType> get galleryItem => {
         FladderItemType.photo,
         FladderItemType.video,
@@ -400,6 +426,7 @@ enum FladderItemType {
         FladderItemType.audio => l10n.audio(count),
         FladderItemType.collectionFolder => l10n.collectionFolder(count),
         FladderItemType.musicAlbum => l10n.musicAlbum(count),
+        FladderItemType.musicArtist => l10n.mediaTypeArtists(count),
         FladderItemType.musicVideo => l10n.video(count),
         FladderItemType.video => l10n.video(count),
         FladderItemType.movie => l10n.mediaTypeMovie(count),
@@ -421,6 +448,7 @@ enum FladderItemType {
         FladderItemType.audio => BaseItemKind.audio,
         FladderItemType.collectionFolder => BaseItemKind.collectionfolder,
         FladderItemType.musicAlbum => BaseItemKind.musicalbum,
+        FladderItemType.musicArtist => BaseItemKind.musicartist,
         FladderItemType.musicVideo => BaseItemKind.video,
         FladderItemType.video => BaseItemKind.video,
         FladderItemType.movie => BaseItemKind.movie,

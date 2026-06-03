@@ -7,7 +7,7 @@ import 'package:iconsax_plus/iconsax_plus.dart';
 
 import 'package:fladder/models/account_model.dart';
 import 'package:fladder/providers/user_provider.dart';
-import 'package:fladder/oxplayer/oxplayer_navigation.dart';
+import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:fladder/screens/login/widgets/login_icon.dart';
 import 'package:fladder/screens/shared/fladder_notification_overlay.dart';
 import 'package:fladder/screens/shared/passcode_input.dart';
@@ -111,7 +111,7 @@ class _LockScreenState extends ConsumerState<LockScreen> with WidgetsBindingObse
             tooltip: context.localized.login,
             onPressed: () {
               ref.read(lockScreenActiveProvider.notifier).update((state) => false);
-              context.router.replaceAll(oxplayerSignOutRouteList());
+              context.router.replaceAll([const OxplayerLoginRoute()]);
             },
             child: const Icon(IconsaxPlusLinear.arrow_swap_horizontal),
           ),

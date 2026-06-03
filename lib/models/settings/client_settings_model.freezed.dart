@@ -16,6 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$ClientSettingsModel implements DiagnosticableTreeMixin {
   String? get syncPath;
   TranscodeDownloadModel get transcodeDownloadModel;
+  TranscodeMusicDownloadModel get transcodeMusicDownloadModel;
   Vector2 get position;
   Vector2 get size;
   Duration? get timeOut;
@@ -48,9 +49,6 @@ mixin _$ClientSettingsModel implements DiagnosticableTreeMixin {
   int? get libraryPageSize;
   Map<GlobalHotKeys, KeyCombination> get shortcuts;
 
-  /// API `bucket` names to show as sections on the My Telegram hub (default: all).
-  List<String> get myTelegramVisibleBuckets;
-
   /// Create a copy of ClientSettingsModel
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -69,6 +67,8 @@ mixin _$ClientSettingsModel implements DiagnosticableTreeMixin {
       ..add(DiagnosticsProperty('syncPath', syncPath))
       ..add(
           DiagnosticsProperty('transcodeDownloadModel', transcodeDownloadModel))
+      ..add(DiagnosticsProperty(
+          'transcodeMusicDownloadModel', transcodeMusicDownloadModel))
       ..add(DiagnosticsProperty('position', position))
       ..add(DiagnosticsProperty('size', size))
       ..add(DiagnosticsProperty('timeOut', timeOut))
@@ -101,14 +101,12 @@ mixin _$ClientSettingsModel implements DiagnosticableTreeMixin {
       ..add(DiagnosticsProperty('useTVExpandedLayout', useTVExpandedLayout))
       ..add(DiagnosticsProperty('lastViewedUpdate', lastViewedUpdate))
       ..add(DiagnosticsProperty('libraryPageSize', libraryPageSize))
-      ..add(DiagnosticsProperty('shortcuts', shortcuts))
-      ..add(DiagnosticsProperty(
-          'myTelegramVisibleBuckets', myTelegramVisibleBuckets));
+      ..add(DiagnosticsProperty('shortcuts', shortcuts));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'ClientSettingsModel(syncPath: $syncPath, transcodeDownloadModel: $transcodeDownloadModel, position: $position, size: $size, timeOut: $timeOut, nextUpDateCutoff: $nextUpDateCutoff, updateNotificationsInterval: $updateNotificationsInterval, themeMode: $themeMode, themeColor: $themeColor, deriveColorsFromItem: $deriveColorsFromItem, amoledBlack: $amoledBlack, blurPlaceHolders: $blurPlaceHolders, blurUpcomingEpisodes: $blurUpcomingEpisodes, selectedLocale: $selectedLocale, enableMediaKeys: $enableMediaKeys, posterSize: $posterSize, pinchPosterZoom: $pinchPosterZoom, mouseDragSupport: $mouseDragSupport, requireWifi: $requireWifi, expandSideBar: $expandSideBar, showAllCollectionTypes: $showAllCollectionTypes, maxConcurrentDownloads: $maxConcurrentDownloads, schemeVariant: $schemeVariant, backgroundImage: $backgroundImage, enableBlurEffects: $enableBlurEffects, checkForUpdates: $checkForUpdates, usePosterForLibrary: $usePosterForLibrary, useSystemIME: $useSystemIME, useTVExpandedLayout: $useTVExpandedLayout, lastViewedUpdate: $lastViewedUpdate, libraryPageSize: $libraryPageSize, shortcuts: $shortcuts, myTelegramVisibleBuckets: $myTelegramVisibleBuckets)';
+    return 'ClientSettingsModel(syncPath: $syncPath, transcodeDownloadModel: $transcodeDownloadModel, transcodeMusicDownloadModel: $transcodeMusicDownloadModel, position: $position, size: $size, timeOut: $timeOut, nextUpDateCutoff: $nextUpDateCutoff, updateNotificationsInterval: $updateNotificationsInterval, themeMode: $themeMode, themeColor: $themeColor, deriveColorsFromItem: $deriveColorsFromItem, amoledBlack: $amoledBlack, blurPlaceHolders: $blurPlaceHolders, blurUpcomingEpisodes: $blurUpcomingEpisodes, selectedLocale: $selectedLocale, enableMediaKeys: $enableMediaKeys, posterSize: $posterSize, pinchPosterZoom: $pinchPosterZoom, mouseDragSupport: $mouseDragSupport, requireWifi: $requireWifi, expandSideBar: $expandSideBar, showAllCollectionTypes: $showAllCollectionTypes, maxConcurrentDownloads: $maxConcurrentDownloads, schemeVariant: $schemeVariant, backgroundImage: $backgroundImage, enableBlurEffects: $enableBlurEffects, checkForUpdates: $checkForUpdates, usePosterForLibrary: $usePosterForLibrary, useSystemIME: $useSystemIME, useTVExpandedLayout: $useTVExpandedLayout, lastViewedUpdate: $lastViewedUpdate, libraryPageSize: $libraryPageSize, shortcuts: $shortcuts)';
   }
 }
 
@@ -121,6 +119,7 @@ abstract mixin class $ClientSettingsModelCopyWith<$Res> {
   $Res call(
       {String? syncPath,
       TranscodeDownloadModel transcodeDownloadModel,
+      TranscodeMusicDownloadModel transcodeMusicDownloadModel,
       Vector2 position,
       Vector2 size,
       Duration? timeOut,
@@ -150,8 +149,7 @@ abstract mixin class $ClientSettingsModelCopyWith<$Res> {
       bool useTVExpandedLayout,
       String? lastViewedUpdate,
       int? libraryPageSize,
-      Map<GlobalHotKeys, KeyCombination> shortcuts,
-      List<String> myTelegramVisibleBuckets});
+      Map<GlobalHotKeys, KeyCombination> shortcuts});
 
   $TranscodeDownloadModelCopyWith<$Res> get transcodeDownloadModel;
 }
@@ -171,6 +169,7 @@ class _$ClientSettingsModelCopyWithImpl<$Res>
   $Res call({
     Object? syncPath = freezed,
     Object? transcodeDownloadModel = null,
+    Object? transcodeMusicDownloadModel = null,
     Object? position = null,
     Object? size = null,
     Object? timeOut = freezed,
@@ -201,7 +200,6 @@ class _$ClientSettingsModelCopyWithImpl<$Res>
     Object? lastViewedUpdate = freezed,
     Object? libraryPageSize = freezed,
     Object? shortcuts = null,
-    Object? myTelegramVisibleBuckets = null,
   }) {
     return _then(_self.copyWith(
       syncPath: freezed == syncPath
@@ -212,6 +210,10 @@ class _$ClientSettingsModelCopyWithImpl<$Res>
           ? _self.transcodeDownloadModel
           : transcodeDownloadModel // ignore: cast_nullable_to_non_nullable
               as TranscodeDownloadModel,
+      transcodeMusicDownloadModel: null == transcodeMusicDownloadModel
+          ? _self.transcodeMusicDownloadModel
+          : transcodeMusicDownloadModel // ignore: cast_nullable_to_non_nullable
+              as TranscodeMusicDownloadModel,
       position: null == position
           ? _self.position
           : position // ignore: cast_nullable_to_non_nullable
@@ -332,10 +334,6 @@ class _$ClientSettingsModelCopyWithImpl<$Res>
           ? _self.shortcuts
           : shortcuts // ignore: cast_nullable_to_non_nullable
               as Map<GlobalHotKeys, KeyCombination>,
-      myTelegramVisibleBuckets: null == myTelegramVisibleBuckets
-          ? _self.myTelegramVisibleBuckets
-          : myTelegramVisibleBuckets // ignore: cast_nullable_to_non_nullable
-              as List<String>,
     ));
   }
 
@@ -447,6 +445,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
     TResult Function(
             String? syncPath,
             TranscodeDownloadModel transcodeDownloadModel,
+            TranscodeMusicDownloadModel transcodeMusicDownloadModel,
             Vector2 position,
             Vector2 size,
             Duration? timeOut,
@@ -476,8 +475,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
             bool useTVExpandedLayout,
             String? lastViewedUpdate,
             int? libraryPageSize,
-            Map<GlobalHotKeys, KeyCombination> shortcuts,
-            List<String> myTelegramVisibleBuckets)?
+            Map<GlobalHotKeys, KeyCombination> shortcuts)?
         internal,
     required TResult orElse(),
   }) {
@@ -487,6 +485,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
         return internal(
             _that.syncPath,
             _that.transcodeDownloadModel,
+            _that.transcodeMusicDownloadModel,
             _that.position,
             _that.size,
             _that.timeOut,
@@ -516,8 +515,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
             _that.useTVExpandedLayout,
             _that.lastViewedUpdate,
             _that.libraryPageSize,
-            _that.shortcuts,
-            _that.myTelegramVisibleBuckets);
+            _that.shortcuts);
       case _:
         return orElse();
     }
@@ -541,6 +539,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
     required TResult Function(
             String? syncPath,
             TranscodeDownloadModel transcodeDownloadModel,
+            TranscodeMusicDownloadModel transcodeMusicDownloadModel,
             Vector2 position,
             Vector2 size,
             Duration? timeOut,
@@ -570,8 +569,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
             bool useTVExpandedLayout,
             String? lastViewedUpdate,
             int? libraryPageSize,
-            Map<GlobalHotKeys, KeyCombination> shortcuts,
-            List<String> myTelegramVisibleBuckets)
+            Map<GlobalHotKeys, KeyCombination> shortcuts)
         internal,
   }) {
     final _that = this;
@@ -580,6 +578,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
         return internal(
             _that.syncPath,
             _that.transcodeDownloadModel,
+            _that.transcodeMusicDownloadModel,
             _that.position,
             _that.size,
             _that.timeOut,
@@ -609,8 +608,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
             _that.useTVExpandedLayout,
             _that.lastViewedUpdate,
             _that.libraryPageSize,
-            _that.shortcuts,
-            _that.myTelegramVisibleBuckets);
+            _that.shortcuts);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -633,6 +631,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
     TResult? Function(
             String? syncPath,
             TranscodeDownloadModel transcodeDownloadModel,
+            TranscodeMusicDownloadModel transcodeMusicDownloadModel,
             Vector2 position,
             Vector2 size,
             Duration? timeOut,
@@ -662,8 +661,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
             bool useTVExpandedLayout,
             String? lastViewedUpdate,
             int? libraryPageSize,
-            Map<GlobalHotKeys, KeyCombination> shortcuts,
-            List<String> myTelegramVisibleBuckets)?
+            Map<GlobalHotKeys, KeyCombination> shortcuts)?
         internal,
   }) {
     final _that = this;
@@ -672,6 +670,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
         return internal(
             _that.syncPath,
             _that.transcodeDownloadModel,
+            _that.transcodeMusicDownloadModel,
             _that.position,
             _that.size,
             _that.timeOut,
@@ -701,8 +700,7 @@ extension ClientSettingsModelPatterns on ClientSettingsModel {
             _that.useTVExpandedLayout,
             _that.lastViewedUpdate,
             _that.libraryPageSize,
-            _that.shortcuts,
-            _that.myTelegramVisibleBuckets);
+            _that.shortcuts);
       case _:
         return null;
     }
@@ -716,6 +714,7 @@ class _ClientSettingsModel extends ClientSettingsModel
   _ClientSettingsModel(
       {this.syncPath,
       required this.transcodeDownloadModel,
+      this.transcodeMusicDownloadModel = const TranscodeMusicDownloadModel(),
       this.position = const Vector2(x: 0, y: 0),
       this.size = const Vector2(x: 1280, y: 720),
       this.timeOut = const Duration(seconds: 30),
@@ -745,16 +744,8 @@ class _ClientSettingsModel extends ClientSettingsModel
       this.useTVExpandedLayout = false,
       this.lastViewedUpdate,
       this.libraryPageSize,
-      final Map<GlobalHotKeys, KeyCombination> shortcuts = const {},
-      final List<String> myTelegramVisibleBuckets = const [
-        'chats',
-        'groups',
-        'supergroups',
-        'channels',
-        'bots'
-      ]})
+      final Map<GlobalHotKeys, KeyCombination> shortcuts = const {}})
       : _shortcuts = shortcuts,
-        _myTelegramVisibleBuckets = myTelegramVisibleBuckets,
         super._();
   factory _ClientSettingsModel.fromJson(Map<String, dynamic> json) =>
       _$ClientSettingsModelFromJson(json);
@@ -763,6 +754,9 @@ class _ClientSettingsModel extends ClientSettingsModel
   final String? syncPath;
   @override
   final TranscodeDownloadModel transcodeDownloadModel;
+  @override
+  @JsonKey()
+  final TranscodeMusicDownloadModel transcodeMusicDownloadModel;
   @override
   @JsonKey()
   final Vector2 position;
@@ -855,19 +849,6 @@ class _ClientSettingsModel extends ClientSettingsModel
     return EqualUnmodifiableMapView(_shortcuts);
   }
 
-  /// API `bucket` names to show as sections on the My Telegram hub (default: all).
-  final List<String> _myTelegramVisibleBuckets;
-
-  /// API `bucket` names to show as sections on the My Telegram hub (default: all).
-  @override
-  @JsonKey()
-  List<String> get myTelegramVisibleBuckets {
-    if (_myTelegramVisibleBuckets is EqualUnmodifiableListView)
-      return _myTelegramVisibleBuckets;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_myTelegramVisibleBuckets);
-  }
-
   /// Create a copy of ClientSettingsModel
   /// with the given fields replaced by the non-null parameter values.
   @override
@@ -891,6 +872,8 @@ class _ClientSettingsModel extends ClientSettingsModel
       ..add(DiagnosticsProperty('syncPath', syncPath))
       ..add(
           DiagnosticsProperty('transcodeDownloadModel', transcodeDownloadModel))
+      ..add(DiagnosticsProperty(
+          'transcodeMusicDownloadModel', transcodeMusicDownloadModel))
       ..add(DiagnosticsProperty('position', position))
       ..add(DiagnosticsProperty('size', size))
       ..add(DiagnosticsProperty('timeOut', timeOut))
@@ -923,14 +906,12 @@ class _ClientSettingsModel extends ClientSettingsModel
       ..add(DiagnosticsProperty('useTVExpandedLayout', useTVExpandedLayout))
       ..add(DiagnosticsProperty('lastViewedUpdate', lastViewedUpdate))
       ..add(DiagnosticsProperty('libraryPageSize', libraryPageSize))
-      ..add(DiagnosticsProperty('shortcuts', shortcuts))
-      ..add(DiagnosticsProperty(
-          'myTelegramVisibleBuckets', myTelegramVisibleBuckets));
+      ..add(DiagnosticsProperty('shortcuts', shortcuts));
   }
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'ClientSettingsModel.internal(syncPath: $syncPath, transcodeDownloadModel: $transcodeDownloadModel, position: $position, size: $size, timeOut: $timeOut, nextUpDateCutoff: $nextUpDateCutoff, updateNotificationsInterval: $updateNotificationsInterval, themeMode: $themeMode, themeColor: $themeColor, deriveColorsFromItem: $deriveColorsFromItem, amoledBlack: $amoledBlack, blurPlaceHolders: $blurPlaceHolders, blurUpcomingEpisodes: $blurUpcomingEpisodes, selectedLocale: $selectedLocale, enableMediaKeys: $enableMediaKeys, posterSize: $posterSize, pinchPosterZoom: $pinchPosterZoom, mouseDragSupport: $mouseDragSupport, requireWifi: $requireWifi, expandSideBar: $expandSideBar, showAllCollectionTypes: $showAllCollectionTypes, maxConcurrentDownloads: $maxConcurrentDownloads, schemeVariant: $schemeVariant, backgroundImage: $backgroundImage, enableBlurEffects: $enableBlurEffects, checkForUpdates: $checkForUpdates, usePosterForLibrary: $usePosterForLibrary, useSystemIME: $useSystemIME, useTVExpandedLayout: $useTVExpandedLayout, lastViewedUpdate: $lastViewedUpdate, libraryPageSize: $libraryPageSize, shortcuts: $shortcuts, myTelegramVisibleBuckets: $myTelegramVisibleBuckets)';
+    return 'ClientSettingsModel.internal(syncPath: $syncPath, transcodeDownloadModel: $transcodeDownloadModel, transcodeMusicDownloadModel: $transcodeMusicDownloadModel, position: $position, size: $size, timeOut: $timeOut, nextUpDateCutoff: $nextUpDateCutoff, updateNotificationsInterval: $updateNotificationsInterval, themeMode: $themeMode, themeColor: $themeColor, deriveColorsFromItem: $deriveColorsFromItem, amoledBlack: $amoledBlack, blurPlaceHolders: $blurPlaceHolders, blurUpcomingEpisodes: $blurUpcomingEpisodes, selectedLocale: $selectedLocale, enableMediaKeys: $enableMediaKeys, posterSize: $posterSize, pinchPosterZoom: $pinchPosterZoom, mouseDragSupport: $mouseDragSupport, requireWifi: $requireWifi, expandSideBar: $expandSideBar, showAllCollectionTypes: $showAllCollectionTypes, maxConcurrentDownloads: $maxConcurrentDownloads, schemeVariant: $schemeVariant, backgroundImage: $backgroundImage, enableBlurEffects: $enableBlurEffects, checkForUpdates: $checkForUpdates, usePosterForLibrary: $usePosterForLibrary, useSystemIME: $useSystemIME, useTVExpandedLayout: $useTVExpandedLayout, lastViewedUpdate: $lastViewedUpdate, libraryPageSize: $libraryPageSize, shortcuts: $shortcuts)';
   }
 }
 
@@ -945,6 +926,7 @@ abstract mixin class _$ClientSettingsModelCopyWith<$Res>
   $Res call(
       {String? syncPath,
       TranscodeDownloadModel transcodeDownloadModel,
+      TranscodeMusicDownloadModel transcodeMusicDownloadModel,
       Vector2 position,
       Vector2 size,
       Duration? timeOut,
@@ -974,8 +956,7 @@ abstract mixin class _$ClientSettingsModelCopyWith<$Res>
       bool useTVExpandedLayout,
       String? lastViewedUpdate,
       int? libraryPageSize,
-      Map<GlobalHotKeys, KeyCombination> shortcuts,
-      List<String> myTelegramVisibleBuckets});
+      Map<GlobalHotKeys, KeyCombination> shortcuts});
 
   @override
   $TranscodeDownloadModelCopyWith<$Res> get transcodeDownloadModel;
@@ -996,6 +977,7 @@ class __$ClientSettingsModelCopyWithImpl<$Res>
   $Res call({
     Object? syncPath = freezed,
     Object? transcodeDownloadModel = null,
+    Object? transcodeMusicDownloadModel = null,
     Object? position = null,
     Object? size = null,
     Object? timeOut = freezed,
@@ -1026,7 +1008,6 @@ class __$ClientSettingsModelCopyWithImpl<$Res>
     Object? lastViewedUpdate = freezed,
     Object? libraryPageSize = freezed,
     Object? shortcuts = null,
-    Object? myTelegramVisibleBuckets = null,
   }) {
     return _then(_ClientSettingsModel(
       syncPath: freezed == syncPath
@@ -1037,6 +1018,10 @@ class __$ClientSettingsModelCopyWithImpl<$Res>
           ? _self.transcodeDownloadModel
           : transcodeDownloadModel // ignore: cast_nullable_to_non_nullable
               as TranscodeDownloadModel,
+      transcodeMusicDownloadModel: null == transcodeMusicDownloadModel
+          ? _self.transcodeMusicDownloadModel
+          : transcodeMusicDownloadModel // ignore: cast_nullable_to_non_nullable
+              as TranscodeMusicDownloadModel,
       position: null == position
           ? _self.position
           : position // ignore: cast_nullable_to_non_nullable
@@ -1157,10 +1142,6 @@ class __$ClientSettingsModelCopyWithImpl<$Res>
           ? _self._shortcuts
           : shortcuts // ignore: cast_nullable_to_non_nullable
               as Map<GlobalHotKeys, KeyCombination>,
-      myTelegramVisibleBuckets: null == myTelegramVisibleBuckets
-          ? _self._myTelegramVisibleBuckets
-          : myTelegramVisibleBuckets // ignore: cast_nullable_to_non_nullable
-              as List<String>,
     ));
   }
 

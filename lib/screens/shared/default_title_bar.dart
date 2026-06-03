@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:fladder/providers/arguments_provider.dart';
-import 'package:fladder/oxplayer/oxplayer_online_status.dart';
+import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/widgets/full_screen_helpers/full_screen_wrapper.dart';
 import 'package:fladder/widgets/shared/offline_banner.dart';
@@ -42,7 +42,7 @@ class _DefaultTitleBarState extends ConsumerState<DefaultTitleBar> with WindowLi
     final platform = AdaptiveLayout.of(context).platform;
     final brightness = widget.brightness ?? theme.brightness;
     final iconColor = theme.colorScheme.onSurface.withValues(alpha: 0.65);
-    final appStatus = ref.watch(oxplayerAppStatusProvider);
+    final isOffline = ref.watch(connectivityStatusProvider.select((value) => value == ConnectionState.offline));
     final surfaceColor = theme.colorScheme.surface;
     final titleBarHeight = switch (platform) {
       TargetPlatform.android || TargetPlatform.iOS => MediaQuery.paddingOf(context).top,
@@ -56,7 +56,7 @@ class _DefaultTitleBarState extends ConsumerState<DefaultTitleBar> with WindowLi
           duration: const Duration(milliseconds: 250),
           decoration: BoxDecoration(
               gradient: LinearGradient(
-            colors: appStatus.shouldShowBanner
+            colors: isOffline
                 ? [
                     theme.colorScheme.errorContainer.withValues(alpha: 0.8),
                     theme.colorScheme.errorContainer.withValues(alpha: 0.25),
@@ -107,7 +107,7 @@ class _DefaultTitleBarState extends ConsumerState<DefaultTitleBar> with WindowLi
                               Container(
                                 decoration: BoxDecoration(boxShadow: [
                                   BoxShadow(
-                                    color: surfaceColor.withValues(alpha: appStatus.shouldShowBanner ? 0 : 0.5),
+                                    color: surfaceColor.withValues(alpha: isOffline ? 0 : 0.5),
                                     blurRadius: 32,
                                     spreadRadius: 10,
                                     offset: const Offset(8, -6),
@@ -207,7 +207,7 @@ class _DefaultTitleBarState extends ConsumerState<DefaultTitleBar> with WindowLi
                           ),
                         ),
                       TargetPlatform.macOS => const SizedBox.expand(),
-                      _ => Text(widget.label ?? "OXPlayer"),
+                      _ => Text(widget.label ?? "Fladder"),
                     },
                     const OfflineBanner()
                   ],

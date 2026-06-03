@@ -29,7 +29,6 @@ Future<void> showPlaybackSourceDetailDialog(BuildContext context, MediaStreamsMo
   if (ms == null) return;
   final label = playbackFileQualityLabel(ms);
   final version = ms.currentVersionStream;
-  final caption = version?.oxTelegramCaption?.trim();
   final video = ms.videoStreams.firstOrNull;
 
   final techLines = <String>{
@@ -49,15 +48,6 @@ Future<void> showPlaybackSourceDetailDialog(BuildContext context, MediaStreamsMo
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (caption != null && caption.isNotEmpty) ...[
-              Text(
-                'Description',
-                style: Theme.of(ctx).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              SelectableText(caption),
-              if (techLines.isNotEmpty) const Divider(height: 24),
-            ],
             if (techLines.isNotEmpty) ...[
               Text(
                 'Technical details',

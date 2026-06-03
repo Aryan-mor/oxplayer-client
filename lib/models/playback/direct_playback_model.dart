@@ -1,29 +1,24 @@
-import 'dart:developer' show log;
-
-import 'package:flutter/widgets.dart' hide RepeatMode;
+import 'package:flutter/widgets.dart';
 
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
+import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart' hide RepeatMode;
+import 'package:fladder/jellyfin/jellyfin_open_api.enums.swagger.dart' as jellyfin_enums;
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/items/chapters_model.dart';
 import 'package:fladder/models/items/item_shared_models.dart';
 import 'package:fladder/models/items/media_segments_model.dart';
 import 'package:fladder/models/items/media_streams_model.dart';
 import 'package:fladder/models/items/trick_play_model.dart';
+import 'package:fladder/models/playback/playback_queue_state.dart';
 import 'package:fladder/models/playback/playback_model.dart';
 import 'package:fladder/providers/api_provider.dart';
-import 'package:fladder/providers/video_player_provider.dart';
 import 'package:fladder/util/bitrate_helper.dart';
 import 'package:fladder/util/duration_extensions.dart';
 import 'package:fladder/wrappers/media_control_wrapper.dart';
 
 class DirectPlaybackModel extends PlaybackModel {
-  /// When false, skips [Sessions/Playing] start/progress/stop. Use for local-only
-  /// sources (e.g. My Telegram TDLib files) that are not in the Jellyfin library.
-  final bool reportJellyfinSessions;
-
   DirectPlaybackModel({
     required super.item,
     required super.media,
@@ -33,8 +28,9 @@ class DirectPlaybackModel extends PlaybackModel {
     super.chapters,
     super.trickPlay,
     super.queue,
+    super.playbackQueue,
+    super.queueSource,
     super.bitRateOptions,
-    this.reportJellyfinSessions = true,
   });
 
   @override
@@ -65,10 +61,7 @@ class DirectPlaybackModel extends PlaybackModel {
 
   @override
   Future<PlaybackModel?> playbackStarted(Duration position, Ref ref) async {
-    if (!reportJellyfinSessions) {
-      return null;
-    }
-    final startResp = await ref.read(jellyApiProvider).sessionsPlayingPost(
+    await ref.read(jellyApiProvider).sessionsPlayingPost(
           body: PlaybackStartInfo(
             canSeek: true,
             itemId: item.id,
@@ -81,49 +74,32 @@ class DirectPlaybackModel extends PlaybackModel {
             playMethod: PlayMethod.directplay,
             isMuted: false,
             isPaused: false,
-            repeatMode: RepeatMode.repeatall,
+            repeatMode: jellyfin_enums.RepeatMode.repeatall,
           ),
         );
-    log(
-      '[DEBUG_WL] sessionsPlayingPost itemId=${item.id} status=${startResp.statusCode}',
-      name: 'continue_watching',
-    );
     return null;
   }
 
   @override
   Future<PlaybackModel?> playbackStopped(Duration position, Duration? totalDuration, Ref ref) async {
-    ref.read(playBackModel.notifier).update((state) => null);
+    final stopPosition = resolvedStopPosition(position, totalDuration);
 
-    if (!reportJellyfinSessions) {
-      return null;
-    }
-    final stopTicks = position.toRuntimeTicks;
-    final stopResp = await ref.read(jellyApiProvider).sessionsPlayingStoppedPost(
+    await ref.read(jellyApiProvider).sessionsPlayingStoppedPost(
           body: PlaybackStopInfo(
             itemId: item.id,
             mediaSourceId: item.id,
             playSessionId: playbackInfo?.playSessionId,
-            positionTicks: stopTicks,
+            positionTicks: stopPosition.toRuntimeTicks,
           ),
         );
-    log(
-      '[DEBUG_WL] sessionsPlayingStoppedPost itemId=${item.id} positionTicks=$stopTicks '
-      'status=${stopResp.statusCode}',
-      name: 'continue_watching',
-    );
 
     return null;
   }
 
   @override
   Future<PlaybackModel?> updatePlaybackPosition(Duration position, bool isPlaying, Ref ref) async {
-    if (!reportJellyfinSessions) {
-      return null;
-    }
     final api = ref.read(jellyApiProvider);
-    final ticks = position.toRuntimeTicks;
-    final progResp = await api.sessionsPlayingProgressPost(
+    await api.sessionsPlayingProgressPost(
       body: PlaybackProgressInfo(
         canSeek: true,
         itemId: item.id,
@@ -135,14 +111,9 @@ class DirectPlaybackModel extends PlaybackModel {
         playMethod: PlayMethod.directplay,
         isPaused: !isPlaying,
         isMuted: false,
-        positionTicks: ticks,
-        repeatMode: RepeatMode.repeatall,
+        positionTicks: position.toRuntimeTicks,
+        repeatMode: jellyfin_enums.RepeatMode.repeatall,
       ),
-    );
-    log(
-      '[DEBUG_WL] sessionsPlayingProgressPost itemId=${item.id} ticks=$ticks isPaused=${!isPlaying} '
-      'status=${progResp.statusCode}',
-      name: 'continue_watching',
     );
 
     return null;
@@ -158,8 +129,12 @@ class DirectPlaybackModel extends PlaybackModel {
   }
 
   @override
-  String toString() =>
-      'DirectPlaybackModel(item: $item, playbackInfo: $playbackInfo, reportJellyfinSessions: $reportJellyfinSessions)';
+  DirectPlaybackModel updatePlaybackQueue(PlaybackQueueState newQueue) {
+    return copyWith(playbackQueue: newQueue);
+  }
+
+  @override
+  String toString() => 'DirectPlaybackModel(item: $item, playbackInfo: $playbackInfo)';
 
   @override
   DirectPlaybackModel copyWith({
@@ -172,8 +147,9 @@ class DirectPlaybackModel extends PlaybackModel {
     ValueGetter<List<Chapter>?>? chapters,
     ValueGetter<TrickPlayModel?>? trickPlay,
     List<ItemBaseModel>? queue,
+    PlaybackQueueState? playbackQueue,
+    PlaybackQueueSource? queueSource,
     Map<Bitrate, bool>? bitRateOptions,
-    bool? reportJellyfinSessions,
   }) {
     return DirectPlaybackModel(
       item: item ?? this.item,
@@ -184,8 +160,9 @@ class DirectPlaybackModel extends PlaybackModel {
       chapters: chapters != null ? chapters() : this.chapters,
       trickPlay: trickPlay != null ? trickPlay() : this.trickPlay,
       queue: queue ?? this.queue,
+      playbackQueue: playbackQueue ?? this.playbackQueue,
+      queueSource: queueSource ?? this.queueSource,
       bitRateOptions: bitRateOptions ?? this.bitRateOptions,
-      reportJellyfinSessions: reportJellyfinSessions ?? this.reportJellyfinSessions,
     );
   }
 }

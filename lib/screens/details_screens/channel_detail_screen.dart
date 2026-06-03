@@ -48,9 +48,9 @@ class _ChannelDetailScreenState extends ConsumerState<ChannelDetailScreen> {
           ItemActions.openShow,
           ItemActions.details,
         },
-        onDeleteSuccesFully: (item) async {
+        onDeleteSuccesFully: (item) {
           if (context.mounted) {
-            await context.router.popBack();
+            context.router.popBack();
           }
         },
       ),

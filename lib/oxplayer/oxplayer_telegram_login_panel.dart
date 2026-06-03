@@ -85,7 +85,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
         _telegramLink = link;
       });
       // Poll in background so scanning the QR on another phone still signs in here.
-      unawaited(_pollForCompletion());
+      unawaited(_pollForCompletion(userOpenedTelegram: false));
     } on OxplayerLoginAttemptException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
@@ -99,12 +99,19 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
       unawaited(launchUrl(context, link));
     }
     if (!_pollRunning) {
-      unawaited(_pollForCompletion());
+      unawaited(_pollForCompletion(userOpenedTelegram: true));
+    } else if (mounted) {
+      setState(() => _waiting = true);
     }
   }
 
-  Future<void> _pollForCompletion() async {
-    if (_pollRunning) return;
+  Future<void> _pollForCompletion({required bool userOpenedTelegram}) async {
+    if (_pollRunning) {
+      if (userOpenedTelegram && mounted) {
+        setState(() => _waiting = true);
+      }
+      return;
+    }
     final attemptId = _attemptId;
     final deviceId = _deviceId();
     if (attemptId == null || deviceId == null) return;
@@ -113,7 +120,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
     _cancelPoll = false;
     if (mounted) {
       setState(() {
-        _waiting = true;
+        _waiting = userOpenedTelegram;
         _error = null;
       });
     }
@@ -225,7 +232,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
                 ? null
                 : () async {
                     if (_attemptId != null && _telegramLink != null) {
-                      await _pollForCompletion();
+                      await _pollForCompletion(userOpenedTelegram: true);
                     } else {
                       await _startAttempt();
                     }

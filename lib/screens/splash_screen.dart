@@ -4,6 +4,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fladder/models/account_model.dart';
+import 'package:fladder/oxplayer/oxplayer_session.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
 import 'package:fladder/providers/user_provider.dart';
@@ -35,7 +36,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         } else {
           switch (lastUsedAccount.authMethod) {
             case Authentication.autoLogin:
-              callBackOrNavigate(true);
+              final sessionOk = await oxplayerRestoreSession(ref, lastUsedAccount);
+              callBackOrNavigate(sessionOk);
               break;
             case Authentication.biometrics:
             case Authentication.none:

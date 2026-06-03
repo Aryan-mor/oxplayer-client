@@ -13,17 +13,19 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
 
 ```
 1. App starts
-   └─ OxplayerSplashGate: refresh stored JWT via api-v2 /auth/refresh
+   └─ Splash: oxplayerRestoreSession() — GET /Users/Me; on 401 try refresh; else logout → /ox-login
 
 2. User sees OxplayerLoginScreen  (route: /ox-login)
    └─ FladderLogo + OxplayerClaimCodeLoginPanel
    └─ User runs /login on main bot → enters 6-char code
 
 3. Jellyfin AuthenticateByName (username `ox`, password = code)
-   ← session token + `X-Ox-Refresh-Token` header
+   ← session token + `X-Ox-Refresh-Token` header (stored in SharedPreferences)
 
 4. Token stored → FladderConfig.baseUrl = OxplayerEnv.apiBaseUrl
    └─ Fladder treats api-v2 as its Jellyfin server
+
+5. During use: OxplayerSessionInterceptor on 401 → refresh once → retry; else logout → /ox-login
 ```
 
 ## Key files
@@ -33,7 +35,10 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
 | `oxplayer_login_screen.dart` | Login UI at `/ox-login` |
 | `oxplayer_claim_code_login_panel.dart` | Code entry UI |
 | `oxplayer_jellyfin_auth.dart` | Jellyfin authenticateByName + refresh |
-| `oxplayer_splash_gate.dart` | Cold start: refresh or route to login |
+| `oxplayer_session.dart` | Cold-start restore, refresh, invalidate |
+| `oxplayer_session_interceptor.dart` | 401 → refresh or logout |
+| `oxplayer_session_store.dart` | Persist `X-Ox-Refresh-Token` per account |
+| `splash_screen.dart` | Calls `oxplayerRestoreSession` before auto-login home |
 | `oxplayer_navigation.dart` | `oxplayerSignOutRouteList()` / `oxplayerAddAccountRoute()` |
 
 ## Extending auth

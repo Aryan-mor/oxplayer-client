@@ -12,6 +12,7 @@ import 'package:fladder/models/collection_types.dart';
 import 'package:fladder/models/item_base_model.dart';
 import 'package:fladder/models/library_search/library_search_options.dart';
 import 'package:fladder/models/settings/home_settings_model.dart';
+import 'package:fladder/oxplayer/oxplayer_dashboard_empty_help.dart';
 import 'package:fladder/providers/dashboard_mode_provider.dart';
 import 'package:fladder/providers/dashboard_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
@@ -161,6 +162,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ],
                   ),
                 ),
+              OxplayerDashboardEmptyHelpSliver(
+                views: views,
+                dashboard: dashboardData,
+              ),
               ...[
                 if (tvChannels.isNotEmpty)
                   PosterRow(

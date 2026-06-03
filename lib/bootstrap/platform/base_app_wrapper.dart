@@ -10,6 +10,7 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:fladder/background/update_notifications_worker.dart' as update_worker;
 import 'package:fladder/models/account_model.dart';
+import 'package:fladder/oxplayer/oxplayer_session.dart';
 import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/settings/client_settings_provider.dart';
 import 'package:fladder/providers/shared_provider.dart';
@@ -48,6 +49,7 @@ abstract class BaseAppWrapperState<T extends BaseAppWrapper> extends ConsumerSta
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      oxplayerAttachSessionRevokedListener(ref, autoRouter);
       ref.read(sharedUtilityProvider).loadSettings();
       await platformInit();
       await _initializeNotifications();

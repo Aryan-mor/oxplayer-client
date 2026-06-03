@@ -10,6 +10,7 @@ import 'package:punycoder/punycoder.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:fladder/jellyfin/jellyfin_open_api.swagger.dart';
+import 'package:fladder/oxplayer/oxplayer_session_interceptor.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/providers/connectivity_provider.dart';
 import 'package:fladder/providers/service_provider.dart';
@@ -43,6 +44,7 @@ class JellyApi extends _$JellyApi {
         JellyfinOpenApi.create(
           interceptors: [
             JellyRequest(ref),
+            OxplayerSessionInterceptor(ref),
             JellyResponse(ref),
             HttpLoggingInterceptor(level: Level.basic),
           ],
@@ -55,6 +57,16 @@ JellyfinOpenApi createJellyfinApiForAccount(Ref ref, String baseUrl, Map<String,
     interceptors: [
       _TempJellyRequest(baseUrl: baseUrl, headers: headers),
       JellyResponse(ref),
+      HttpLoggingInterceptor(level: Level.basic),
+    ],
+  );
+}
+
+/// One-off Jellyfin client (e.g. token refresh) without a [Ref] for response logging.
+JellyfinOpenApi createJellyfinApiForAccountUnauthenticated(String baseUrl, Map<String, String> headers) {
+  return JellyfinOpenApi.create(
+    interceptors: [
+      _TempJellyRequest(baseUrl: baseUrl, headers: headers),
       HttpLoggingInterceptor(level: Level.basic),
     ],
   );

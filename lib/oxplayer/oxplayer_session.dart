@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:auto_route/auto_route.dart';
 import 'package:chopper/chopper.dart';
@@ -14,6 +15,9 @@ import 'package:fladder/routes/auto_router.gr.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const kOxJellyfinRefreshUsername = '__ox_refresh__';
+
+/// Cold-start session check must not block the splash screen indefinitely.
+const kOxSessionRestoreTimeout = Duration(seconds: 12);
 
 /// Bumped when the server rejects the session and local credentials are cleared.
 final oxplayerSessionRevokedProvider = StateProvider<int>((ref) => 0);
@@ -43,16 +47,31 @@ Future<bool> oxplayerRestoreSession(WidgetRef ref, AccountModel account) async {
 Future<bool> _restoreSession(OxplayerRead read, AccountModel account) async {
   read(userProvider.notifier).updateUser(account);
 
-  final api = read(jellyApiProvider);
-  final me = await api.usersMeGet();
-  if (me.isSuccessful) return true;
-
-  if (me.statusCode != 401) {
-    // Offline or transient error — keep local session (Fladder behaviour).
-    return true;
+  if (account.credentials.url.trim().isEmpty) {
+    return false;
   }
 
-  return oxplayerTryRefreshSession(read);
+  try {
+    final api = read(jellyApiProvider);
+    final me = await api.usersMeGet().timeout(kOxSessionRestoreTimeout);
+    if (me.isSuccessful) return true;
+
+    if (me.statusCode != 401) {
+      // Offline or transient error — keep local session (Fladder behaviour).
+      return true;
+    }
+
+    try {
+      return await oxplayerTryRefreshSession(read).timeout(kOxSessionRestoreTimeout);
+    } on TimeoutException {
+      return false;
+    }
+  } on TimeoutException {
+    // Server unreachable — do not block splash; open app with cached credentials.
+    return true;
+  } on IOException {
+    return true;
+  }
 }
 
 /// Attempts to exchange the stored refresh token for a new access token.
@@ -109,9 +128,11 @@ Future<bool> _refreshSession(OxplayerRead read) async {
     oxplayerMediaBrowserHeaders(read, credentials),
   );
 
-  final response = await client.usersAuthenticateByNamePost(
-    body: AuthenticateUserByName(username: kOxJellyfinRefreshUsername, pw: refreshToken),
-  );
+  final response = await client
+      .usersAuthenticateByNamePost(
+        body: AuthenticateUserByName(username: kOxJellyfinRefreshUsername, pw: refreshToken),
+      )
+      .timeout(kOxSessionRestoreTimeout);
 
   if (!response.isSuccessful || (response.body?.accessToken?.isEmpty ?? true)) {
     await oxplayerInvalidateLocalSession(read, account);

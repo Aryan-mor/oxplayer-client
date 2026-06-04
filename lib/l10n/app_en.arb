@@ -2756,5 +2756,19 @@
   "oxplayerHelpNavLabel": "Help",
   "@oxplayerHelpNavLabel": {},
   "oxplayerLoginOpenOnAndroid": "Open bot in Telegram",
-  "@oxplayerLoginOpenOnAndroid": {}
+  "@oxplayerLoginOpenOnAndroid": {},
+  "oxplayerDeleteAccountSection": "Account",
+  "@oxplayerDeleteAccountSection": {},
+  "oxplayerDeleteAccountTitle": "Delete account",
+  "@oxplayerDeleteAccountTitle": {},
+  "oxplayerDeleteAccountSubtitle": "Permanently remove your OXPlayer server account and library",
+  "@oxplayerDeleteAccountSubtitle": {},
+  "oxplayerDeleteAccountDialogTitle": "Delete your account?",
+  "@oxplayerDeleteAccountDialogTitle": {},
+  "oxplayerDeleteAccountDialogBody": "This permanently deletes your OXPlayer account, library, and signed-in devices. You can sign in again later with Telegram as a new account. This cannot be undone.",
+  "@oxplayerDeleteAccountDialogBody": {},
+  "oxplayerDeleteAccountConfirm": "Delete account",
+  "@oxplayerDeleteAccountConfirm": {},
+  "oxplayerDeleteAccountFailed": "Could not delete your account. Try again or use the Telegram bot.",
+  "@oxplayerDeleteAccountFailed": {}
 }

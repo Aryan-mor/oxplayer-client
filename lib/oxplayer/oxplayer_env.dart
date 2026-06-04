@@ -38,6 +38,12 @@ abstract final class OxplayerEnv {
     return b == null ? null : 'https://t.me/$b?start=login';
   }
 
+  /// Deep link for self-service account delete in the main bot.
+  static String? get telegramBotDeleteAccountLink {
+    final b = botUsername;
+    return b == null ? null : 'https://t.me/$b?start=delete_account';
+  }
+
   /// Deep link for app login attempt: ?start=li_<32-char hex attemptId>.
   static String? telegramBotLoginAttemptLink(String attemptId) {
     final b = botUsername;

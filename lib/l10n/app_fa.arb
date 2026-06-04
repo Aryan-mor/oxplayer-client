@@ -2055,5 +2055,12 @@
     "sportsCategoriesSubLabel": "دسته بندی برای اختصاص به کانال های تطبیق پیشوند ورزشی",
     "kidsCategoriesSubLabel": "دسته بندی برای اختصاص دادن به کانال های تطبیق پیشوند کودکان",
     "enableNewTVLayoutDesc": "بنر های سبک تلویزیون بزرگتر را در داشبورد نشان دهید. این تبدیل به طرح پیش فرض در یک انتشار آینده خواهد شد.",
-    "oxplayerHomeWelcome": "به OXPlayer خوش آمدید"
+    "oxplayerHomeWelcome": "به OXPlayer خوش آمدید",
+    "oxplayerDeleteAccountSection": "حساب",
+    "oxplayerDeleteAccountTitle": "حذف حساب",
+    "oxplayerDeleteAccountSubtitle": "حذف دائمی حساب سرور OXPlayer و کتابخانه",
+    "oxplayerDeleteAccountDialogTitle": "حساب حذف شود؟",
+    "oxplayerDeleteAccountDialogBody": "حساب OXPlayer، کتابخانه و دستگاه‌های واردشده برای همیشه حذف می‌شود. بعداً می‌توانید با تلگرام به‌عنوان حساب جدید وارد شوید. این کار قابل بازگشت نیست.",
+    "oxplayerDeleteAccountConfirm": "حذف حساب",
+    "oxplayerDeleteAccountFailed": "حذف حساب انجام نشد. دوباره تلاش کنید یا از ربات تلگرام استفاده کنید."
 }

@@ -33,6 +33,8 @@ import 'package:fladder/services/notification_service.dart';
 import 'package:fladder/util/jellyfin_extension.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/simple_duration_picker.dart';
+import 'package:fladder/oxplayer/oxplayer_env.dart';
+import 'package:fladder/oxplayer/oxplayer_profile_delete_account.dart';
 import 'package:fladder/widgets/shared/filled_button_await.dart';
 import 'package:fladder/widgets/shared/item_actions.dart';
 
@@ -400,6 +402,10 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
             ),
           ],
         ),
+        if (OxplayerEnv.apiBaseUrl != null) ...[
+          const SizedBox(height: 16),
+          ...oxplayerProfileDeleteAccountGroup(context, ref),
+        ],
       ],
     );
   }

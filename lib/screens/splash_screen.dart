@@ -27,25 +27,33 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((value) async {
       await Future.delayed(const Duration(milliseconds: 500));
+      if (!context.mounted) return;
+
       final AccountModel? lastUsedAccount = ref.read(sharedUtilityProvider).getActiveAccount();
       ref.read(userProvider.notifier).updateUser(lastUsedAccount);
 
-      if (context.mounted) {
-        if (lastUsedAccount == null || ref.read(argumentsStateProvider).newWindow == true) {
-          callBackOrNavigate(false);
-        } else {
-          switch (lastUsedAccount.authMethod) {
-            case Authentication.autoLogin:
-              final sessionOk = await oxplayerRestoreSession(ref, lastUsedAccount);
-              callBackOrNavigate(sessionOk);
-              break;
-            case Authentication.biometrics:
-            case Authentication.none:
-            case Authentication.passcode:
-              callBackOrNavigate(false);
-              break;
+      if (!context.mounted) return;
+
+      if (lastUsedAccount == null || ref.read(argumentsStateProvider).newWindow == true) {
+        callBackOrNavigate(false);
+        return;
+      }
+
+      switch (lastUsedAccount.authMethod) {
+        case Authentication.autoLogin:
+          var sessionOk = false;
+          try {
+            sessionOk = await oxplayerRestoreSession(ref, lastUsedAccount);
+          } catch (_) {
+            sessionOk = false;
           }
-        }
+          if (context.mounted) callBackOrNavigate(sessionOk);
+          break;
+        case Authentication.biometrics:
+        case Authentication.none:
+        case Authentication.passcode:
+          callBackOrNavigate(false);
+          break;
       }
     });
   }
@@ -58,8 +66,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         context.router.replace(const OxplayerLoginRoute());
       }
     } else {
+      // AuthGuard [redirectUntil] completes via this callback only.
       widget.loggedIn?.call(loggedIn);
-      context.router.maybePop(loggedIn);
     }
   }
 

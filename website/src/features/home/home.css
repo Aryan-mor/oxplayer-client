@@ -1,0 +1,23 @@
+/* CustomSwiper.css */
+.swiper-pagination-bullet {
+  background: linear-gradient(135deg, #f9b435, #e4332c);
+  opacity: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+
+/* Optional: keep active slightly stronger */
+.swiper-pagination-bullet-active {
+  background: linear-gradient(135deg, #f9b435, #e4332c);
+  transform: scale(1.2);
+}
+
+.swiper-pagination-bullet {
+  background: linear-gradient(135deg, #f9b435, #e4332c);
+  opacity: 0.3;
+}
+
+.swiper-pagination-bullet-active {
+  opacity: 1;
+}

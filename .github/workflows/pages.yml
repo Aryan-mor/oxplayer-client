@@ -1,12 +1,14 @@
-# Public Privacy Policy for Google Play (GitHub Pages).
-# URL after deploy: https://aryan-mor.github.io/oxplayer-client/privacy-policy.html
-name: Deploy docs (GitHub Pages)
+# Marketing site + Privacy Policy (Google Play) on GitHub Pages.
+# Site: https://aryan-mor.github.io/oxplayer-client/
+# Privacy: https://aryan-mor.github.io/oxplayer-client/privacy-policy.html
+name: Deploy website (GitHub Pages)
 
 on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
+      - "website/**"
+      - "docs/privacy-policy.html"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -27,11 +29,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v4
+
+      - uses: actions/setup-node@v4
         with:
-          enablement: true
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Sync Play Store privacy policy HTML into static output
+        run: cp docs/privacy-policy.html website/public/privacy-policy.html
+
+      - name: Build Next.js static site
+        working-directory: website
+        env:
+          NODE_ENV: production
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/configure-pages@v4
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: website/out
+
       - id: deployment
         uses: actions/deploy-pages@v4

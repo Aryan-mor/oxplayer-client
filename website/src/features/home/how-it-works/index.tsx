@@ -1,0 +1,113 @@
+import Container from "@/components/ui/Container";
+import Heading from "@/components/ui/Heading";
+import Paragraph from "@/components/ui/Paragraph";
+import Image from "next/image";
+import { GlowDot } from "../hero";
+
+const Card = ({ title, titlePosstion = "left", img, des }: any) => {
+  return (
+    <div className="flex flex-col md:items-center z-10 relative">
+      <div className="h-2 bg-gradient-to-r from-primary to-secondary absolute top-10 left-[90px] w-[110%] -z-30 rounded-full md:hidden"></div>
+
+      <div className="bg-slate-900 rounded-xl border border-slate-700 w-fit p-5">
+        <div className="relative w-full h-[50px] sm:h-[100px] aspect-square">
+          <Image src={img} alt="movie-scene" fill className="object-contain" />
+        </div>
+      </div>
+
+      <Heading level="h6" size="md" className="mt-3 md:text-center">
+        {title}
+      </Heading>
+      <Paragraph size="sm" className="text-gray-400 mt-2 md:text-center">
+        {des}
+      </Paragraph>
+    </div>
+  );
+};
+
+const HowItWorks = () => {
+  return (
+    <section id="how-it-works" className="relative pt-24 lg:pt-40 overflow-hidden">
+      {/* Glow Dots */}
+      <GlowDot size="xs" color="cyan" className="bottom-96 left-[4%] !blur-none" />
+      <GlowDot size="xs" color="cyan" className="bottom-80 left-[2%] !blur-none" />
+      <GlowDot size="md" color="cyan" className="bottom-32 left-[5%] !blur-none" />
+      <GlowDot size="sm" color="cyan" className="bottom-48 left-[10%] !blur-none" />
+      <GlowDot size="lg" color="cyan" className="bottom-64 left-[7%] !blur-none" />
+      <GlowDot size="sm" color="cyan" className="bottom-80 left-[5%] !blur-none" />
+      <GlowDot size="md" color="cyan" className="bottom-60 left-[2%] !blur-none" />
+
+      <GlowDot size="sm" color="purple" className="top-[405px] right-[10%] !blur-none" />
+      <GlowDot size="sm" color="purple" className="top-96 right-[2%] !blur-none" />
+      <GlowDot size="sm" color="purple" className="top-60 right-[5%] !blur-none" />
+      <GlowDot size="md" color="purple" className="top-64 right-[10%] !blur-none" />
+      <GlowDot size="md" color="purple" className="top-80 right-[4%] !blur-none" />
+      <GlowDot size="lg" color="purple" className="top-40 right-[5%] !blur-none" />
+
+      {/* 🔵 Primary Gradient (Top Left) */}
+      <div className="absolute bottom-10 -left-40 w-[420px] h-[520px] bg-primary opacity-30 blur-3xl rounded-full z-0" />
+
+      {/* 🟣 Secondary Gradient (Top Right) */}
+      <div className="absolute top-10 -right-40 w-[420px] h-[520px] bg-gradient-to-r from-secondary to-secondary opacity-30 blur-3xl rounded-full" />
+
+      <Container>
+        <Heading align="center" className="!text-gray-100 mb-10">
+          How It Works
+        </Heading>
+
+        <div className="relative grid grid-cols-2 md:grid-cols-1">
+          {/* <div className="absolute left-0 top-0 h-[70%] border-l-8 border-primary"></div> */}
+
+          <div
+            className="absolute top-20 bottom-40 -right-3 border-y-8 border-r-8 w-[90%] hidden md:block"
+            style={{
+              borderImage: "linear-gradient(to right, var(--color-primary), #FF6900, var(--color-secondary)) 1",
+            }}
+          ></div>
+
+          {/* <div className="w-2 bg-gradient-to-b from-secondary to-primary absolute top-20 -right-10 h-[67%] z-0 rounded-full hidden md:block"></div> */}
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-20 md:gap-7 relative">
+            {/* <div className="h-2 bg-gradient-to-r from-primary to-secondary absolute top-20 left-[100px] w-[95%] z-0 rounded-full hidden md:block"></div> */}
+
+            <Card
+              title="Connect To Telegram"
+              img="/images/FT-5.png"
+              des="Sign in with your Telegram account and securely connect OXPlayer to access your personal media library."
+            />
+
+            <Card
+              title="Send Movie to Bot"
+              img="/images/FT-7.png"
+              des="Upload a movie or video file to the OXPlayer Bot and let it automatically process your content."
+            />
+
+            <Card
+              title="Movie Appears in OXPlayer"
+              img="/images/logo.png"
+              des="Your video is organized with posters and metadata, then added to your library for easy browsing."
+            />
+
+            <Card
+              title="Watch Anywhere"
+              img="/images/FT-6.png"
+              des="Enjoy a smooth streaming experience with resume playback, watchlists, and smart media management."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-20 md:gap-7 md:mt-10 relative">
+            {/* <div className="h-2 bg-gradient-to-r from-secondary to-primary absolute top-[162px] left-[100px] w-[95%] z-0 rounded-full hidden md:block"></div> */}
+
+            {["/images/H-1.png", "/images/H-2.png", "/images/ss-2.png", "/images/H-3.png"].map((item, index) => (
+              <div key={index} className="relative w-full h-[230px] md:h-[300px] z-10">
+                <Image src={item} alt={`movie-scene-${index + 1}`} fill className="object-contain" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+};
+
+export default HowItWorks;

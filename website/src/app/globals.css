@@ -1,0 +1,254 @@
+@import "tailwindcss";
+/* @plugin "daisyui"; */
+
+:root {
+  --font-space-grotesk: "Space Grotesk", sans-serif;
+}
+
+body {
+  font-family: var(--font-space-grotesk);
+}
+
+@theme {
+  /* --color-primary: #00fbfb;
+  --color-secondary: #b571fb; */
+
+  --color-primary: #f9b435;
+  --color-primary-50: #fffbeb;
+  --color-primary-100: #fef3c6;
+  --color-primary-200: #fef3c6;
+  --color-primary-300: #fee685;
+  --color-primary-400: #ffd230;
+  --color-primary-500: #ffb900;
+  --color-primary-600: #fe9a00;
+
+  --color-secondary: #e4332c;
+  /* --color-secondary: #481002; */
+  --color-secondary-50: #fff1f2;
+  --color-secondary-100: #ffe4e6;
+  --color-secondary-200: #ffccd3;
+  --color-secondary-300: #ffa1ad;
+  --color-secondary-400: #ff637e;
+  --color-secondary-500: #ff2056;
+
+  --color-primary-content: #000;
+  --color-secondary-content: #fff;
+
+  --color-base-100: #05081b;
+  --color-base-200: #05081b;
+  --color-base-300: #05081b;
+
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-float-slow: float 8s ease-in-out infinite;
+  --animate-float-fast: float 3s ease-in-out infinite;
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-12px);
+    }
+  }
+}
+
+@plugin "daisyui" {
+  themes: dark --default;
+}
+
+@plugin "daisyui/theme" {
+  name: "dark";
+  default: true;
+
+  /* --color-primary: #00fbfb;
+  --color-secondary: #b571fb; */
+
+  --color-primary: #f9b435;
+  --color-primary-50: #fffbeb;
+  --color-primary-100: #fef3c6;
+  --color-primary-200: #fef3c6;
+  --color-primary-300: #fee685;
+  --color-primary-400: #ffd230;
+  --color-primary-500: #ffb900;
+  --color-primary-600: #fe9a00;
+
+  --color-secondary: #e4332c;
+  /* --color-secondary: #481002; */
+  --color-secondary-50: #fff1f2;
+  --color-secondary-100: #ffe4e6;
+  --color-secondary-200: #ffccd3;
+  --color-secondary-300: #ffa1ad;
+  --color-secondary-400: #ff637e;
+  --color-secondary-500: #ff2056;
+
+  --color-primary-content: #000;
+  --color-secondary-content: #fff;
+
+  --color-base-100: #05081b;
+  --color-base-200: #05081b;
+  --color-base-300: #05081b;
+}
+
+@theme {
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  --breakpoint-3xl: 1920px;
+}
+
+@layer base {
+  h1 {
+    @apply text-[2.5rem] leading-[3.2rem] font-semibold md:text-[2.986rem] md:leading-[3.7rem];
+  }
+  h2 {
+    @apply text-[2.32rem] leading-[3.35rem] font-semibold md:text-[2.488rem];
+  }
+  h3 {
+    @apply text-[2rem] leading-[2.68rem] font-semibold md:text-[2.074rem] md:leading-[2.8rem];
+  }
+  h4 {
+    @apply text-[1.5rem] leading-[2.1rem] font-semibold md:text-[1.728rem] md:leading-[2.5rem];
+  }
+  h5 {
+    @apply text-[1.3rem] leading-[1.8rem] font-semibold md:text-[1.44rem] md:leading-[2rem];
+  }
+  h6 {
+    @apply text-[1.1rem] leading-[1.6rem] font-semibold md:text-[1.2rem] md:leading-[1.8rem];
+  }
+}
+
+@layer components {
+  .glass-1 {
+   backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    background-color: rgba(17, 25, 40, 0.7);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.125);
+  }
+
+  .gradient-border {
+    position: relative;
+    padding: 2px;
+    border-radius: 12px;
+    background: linear-gradient(to right, var(--color-primary), #0284c7, var(--color-secondary));
+  }
+
+  .gradient-border-content {
+    border-radius: 10px;
+    background: var(--color-base-100);
+    height: 100%;
+  }
+}
+
+@layer utilities {
+  .font-nosifer {
+    font-family: var(--font-nosifer), cursive;
+  }
+
+  .font-space {
+    font-family: var(--font-space-grotesk), sans-serif;
+  }
+}
+
+@utility container {
+  width: 100%;
+  margin: auto;
+  padding-inline: 4rem;
+
+  @variant sm {
+    max-width: 640px;
+  }
+
+  @variant md {
+    max-width: 768px;
+  }
+
+  @variant lg {
+    max-width: 1024px;
+  }
+
+  @variant xl {
+    max-width: 1280px;
+  }
+
+  @variant 2xl {
+    max-width: 1536px;
+  }
+
+  @variant 3xl {
+    max-width: 1920px;
+  }
+}
+
+.privacy-prose {
+  line-height: 1.65;
+}
+
+.privacy-prose h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #f1f5f9;
+}
+
+.privacy-prose h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  color: #e2e8f0;
+}
+
+.privacy-prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  color: #cbd5e1;
+}
+
+.privacy-prose p,
+.privacy-prose li {
+  color: #94a3b8;
+}
+
+.privacy-meta {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 1.5rem;
+}
+
+.privacy-prose a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.privacy-prose a:hover {
+  color: var(--color-primary-300);
+}
+
+.privacy-prose code {
+  font-size: 0.875em;
+  background: #1e293b;
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+}
+
+.privacy-prose ul,
+.privacy-prose ol {
+  margin: 0.75rem 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.privacy-prose li {
+  margin: 0.35rem 0;
+}
+
+[dir="rtl"].privacy-prose ul,
+[dir="rtl"].privacy-prose ol {
+  padding-left: 0;
+  padding-right: 1.25rem;
+}

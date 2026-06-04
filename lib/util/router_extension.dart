@@ -1,25 +1,14 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:auto_route/auto_route.dart';
 
 extension RouterExtension on StackRouter {
   Future<bool> popBack() async {
-    if (kIsWeb) {
-      back();
-      return canNavigateBack;
-    } else {
-      return maybePop();
-    }
+    return maybePop();
   }
 
   Widget? backButton() {
-    if (kIsWeb && canNavigateBack) {
-      return IconButton(
-        onPressed: back,
-        icon: const BackButtonIcon(),
-      );
-    } else if (canPop()) {
+    if (canPop()) {
       return IconButton(
         onPressed: maybePop,
         icon: const BackButtonIcon(),

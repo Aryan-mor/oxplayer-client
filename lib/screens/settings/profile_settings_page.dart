@@ -79,7 +79,7 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
   }
 
   Future<bool> checkBatteryOptimization() async {
-    if (!kIsWeb && Platform.isAndroid) {
+    if (Platform.isAndroid) {
       final optimizing = !(await BatteryOptimization.isIgnoringBatteryOptimizations());
       setState(() {
         enabledBatteryOptimization = optimizing;
@@ -281,7 +281,7 @@ class _UserSettingsPageState extends ConsumerState<ProfileSettingsPage> with Wid
                         await checkBatteryOptimization();
                       },
                     ),
-                  if (!kIsWeb && Platform.isIOS)
+                  if (Platform.isIOS)
                     SettingsMessageBox(
                       context.localized.notificationTimerIOSWarning,
                       messageType: MessageType.info,

@@ -70,9 +70,7 @@ class _DefaultTitleBarState extends ConsumerState<DefaultTitleBar> with WindowLi
             end: Alignment.bottomCenter,
           )),
           height: titleBarHeight,
-          child: kIsWeb
-              ? const SizedBox.shrink()
-              : Stack(
+          child: Stack(
                   fit: StackFit.expand,
                   children: [
                     switch (platform) {

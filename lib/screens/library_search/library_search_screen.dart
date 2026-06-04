@@ -88,9 +88,6 @@ class _LibrarySearchScreenState extends ConsumerState<LibrarySearchScreen> {
   @override
   void didUpdateWidget(covariant LibrarySearchScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (kIsWeb && ref.read(librarySearchProvider(uniqueKey)).posters.isEmpty) {
-      initLibrary();
-    }
   }
 
   @override

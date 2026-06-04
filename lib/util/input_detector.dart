@@ -25,7 +25,7 @@ class InputDetector extends StatefulWidget {
 class _InputDetectorState extends State<InputDetector> {
   late InputDevice _currentInput = widget.htpcMode
       ? InputDevice.dPad
-      : (widget.isDesktop || kIsWeb)
+      : (widget.isDesktop)
           ? InputDevice.pointer
           : InputDevice.touch;
 

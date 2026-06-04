@@ -35,7 +35,7 @@ class ClientSettingsNotifier extends StateNotifier<ClientSettingsModel> {
   Future<void> initialize(ClientSettingsModel value) async {
     ClientSettingsModel newState = value;
     try {
-      if (!kIsWeb && Platform.isMacOS) {
+      if (Platform.isMacOS) {
         final bookmarkPath = await DirectoryBookmark().resolveDirectory(syncPathKey);
         newState = newState.copyWith(syncPath: bookmarkPath);
       }
@@ -85,7 +85,7 @@ class ClientSettingsNotifier extends StateNotifier<ClientSettingsModel> {
     String? newPath = path;
 
     if (path != null) {
-      if (!kIsWeb && Platform.isMacOS) {
+      if (Platform.isMacOS) {
         final directoryBookmarks = DirectoryBookmark();
         await closeDirectory();
         await directoryBookmarks.saveDirectory(syncPathKey, path);

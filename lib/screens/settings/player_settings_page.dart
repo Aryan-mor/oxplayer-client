@@ -57,7 +57,7 @@ class _PlayerSettingsPageState extends ConsumerState<PlayerSettingsPage> {
           context,
           SettingsLabelDivider(label: context.localized.video(1)),
           [
-            if (!AdaptiveLayout.of(context).isDesktop && !kIsWeb)
+            if (!AdaptiveLayout.of(context).isDesktop)
               Column(
                 children: [
                   SettingsListTile(
@@ -369,8 +369,7 @@ class _PlayerSettingsPageState extends ConsumerState<PlayerSettingsPage> {
                     onChanged: (value) => provider.setHardwareAccel(value),
                   ),
                 ),
-                if (!kIsWeb)
-                  SettingsListTile(
+                                  SettingsListTile(
                     label: Text(context.localized.settingsPlayerNativeLibassAccelTitle),
                     subLabel: Text(context.localized.settingsPlayerNativeLibassAccelDesc),
                     onTap: () => provider.setUseLibass(!videoSettings.useLibass),
@@ -558,7 +557,7 @@ class _PlayerSettingsPageState extends ConsumerState<PlayerSettingsPage> {
                   ),
                 ),
             ],
-            if (!AdaptiveLayout.of(context).isDesktop && !kIsWeb && !ref.read(argumentsStateProvider).htpcMode)
+            if (!AdaptiveLayout.of(context).isDesktop && !ref.read(argumentsStateProvider).htpcMode)
               SettingsListTile(
                 label: Text(context.localized.playerSettingsOrientationTitle),
                 subLabel: Text(context.localized.playerSettingsOrientationDesc),

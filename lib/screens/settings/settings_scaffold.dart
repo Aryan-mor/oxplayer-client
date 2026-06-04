@@ -120,14 +120,6 @@ class SettingsScaffold extends ConsumerWidget {
   }
 
   void backAction(BuildContext context) {
-    if (kIsWeb) {
-      if (AdaptiveLayout.layoutModeOf(context) == LayoutMode.single && context.tabsRouter.activeIndex != 0) {
-        context.tabsRouter.setActiveIndex(0);
-      } else {
-        context.router.pop();
-      }
-    } else {
-      context.router.popBack();
-    }
+    context.router.popBack();
   }
 }

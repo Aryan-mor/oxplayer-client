@@ -13,7 +13,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:fladder/util/simple_duration_picker.dart';
 
 bool get _isDesktop {
-  if (kIsWeb) return false;
   return [
     TargetPlatform.windows,
     TargetPlatform.linux,

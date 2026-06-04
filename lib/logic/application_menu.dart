@@ -22,7 +22,6 @@ class ApplicationMenuImp extends ApplicationMenu {
 
   @override
   Future<void> newInstance() async {
-    if (kIsWeb) return;
     if (Platform.isMacOS) {
       await Process.start('open', ['-n', '-a', Platform.resolvedExecutable]);
     } else if (Platform.isWindows) {

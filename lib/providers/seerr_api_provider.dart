@@ -11,8 +11,7 @@ import 'package:fladder/providers/user_provider.dart';
 import 'package:fladder/seerr/seerr_chopper_service.dart';
 import 'package:fladder/seerr/seerr_json_converter.dart';
 import 'package:fladder/util/fladder_config.dart';
-import 'package:fladder/util/seerr_http_client.dart'
-    if (dart.library.html) 'package:fladder/util/seerr_http_client_web.dart';
+import 'package:fladder/util/seerr_http_client.dart';
 
 part 'seerr_api_provider.g.dart';
 

@@ -24,7 +24,7 @@ final pigeonPlayerSettingsSyncProvider = Provider<void>((ref) {
 
     final value = ref.read(videoPlayerSettingsProvider);
 
-    if (!kIsWeb && Platform.isAndroid) {
+    if (Platform.isAndroid) {
       pigeon.PlayerSettingsPigeon().sendPlayerSettings(
         pigeon.PlayerSettings(
           enableTunneling: value.enableTunneling,

@@ -9,6 +9,7 @@ import 'package:fladder/oxplayer/oxplayer_jellyfin_auth.dart';
 import 'package:fladder/oxplayer/oxplayer_login_attempt_api.dart';
 import 'package:fladder/oxplayer/oxplayer_test_account_qr_hold.dart';
 import 'package:fladder/oxplayer/oxplayer_test_account_sign_in.dart';
+import 'package:fladder/providers/arguments_provider.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/screens/shared/media/external_urls.dart';
 
@@ -96,7 +97,10 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
     }
   }
 
+  bool get _isTv => ref.read(argumentsStateProvider).leanBackMode;
+
   Future<void> _openTelegramOnThisDevice() async {
+    if (_isTv) return;
     final link = _telegramLink;
     if (link != null) {
       unawaited(launchUrl(context, link));
@@ -124,7 +128,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
 
   Future<void> _pollForCompletion({required bool userOpenedTelegram}) async {
     if (_pollRunning) {
-      if (userOpenedTelegram && mounted) {
+      if (userOpenedTelegram && !_isTv && mounted) {
         setState(() => _waiting = true);
       }
       return;
@@ -137,7 +141,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
     _cancelPoll = false;
     if (mounted) {
       setState(() {
-        _waiting = userOpenedTelegram;
+        _waiting = userOpenedTelegram && !_isTv;
         _error = null;
       });
     }
@@ -190,6 +194,9 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
     final theme = Theme.of(context);
     final link = _telegramLink;
     final bot = OxplayerEnv.botUsername;
+    final isTv = ref.watch(argumentsStateProvider.select((value) => value.leanBackMode));
+    final showDeviceButton = !isTv;
+    final showWaitingOnDevice = _waiting && showDeviceButton;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -201,9 +208,11 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
         ),
         const SizedBox(height: 8),
         Text(
-          _waiting
+          showWaitingOnDevice
               ? 'Waiting for approval in Telegram… This screen will sign you in automatically.'
-              : 'Scan the QR with another device, or tap the button to open Telegram on this phone.',
+              : isTv
+                  ? 'Scan the QR code with Telegram on your phone. This TV will sign you in automatically.'
+                  : 'Scan the QR with another device, or tap the button to open Telegram on this phone.',
           style: theme.textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
@@ -228,18 +237,22 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
           const Center(child: CircularProgressIndicator())
         else
           const SizedBox(height: 200),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: link == null ? null : _openTelegramOnThisDevice,
-          icon: _waiting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.telegram),
-          label: Text(_waiting ? 'Waiting for Telegram…' : 'Open Telegram on this device'),
-        ),
+        if (showDeviceButton) ...[
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: link == null ? null : _openTelegramOnThisDevice,
+            icon: showWaitingOnDevice
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.telegram),
+            label: Text(
+              showWaitingOnDevice ? 'Waiting for Telegram…' : 'Open Telegram on this device',
+            ),
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 12),
           Text(
@@ -263,7 +276,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
         ],
         const SizedBox(height: 16),
         TextButton(
-          onPressed: _waiting ? null : widget.onManualCode,
+          onPressed: showWaitingOnDevice ? null : widget.onManualCode,
           child: Text(
             "Couldn't sign in this way? Enter a login code manually",
             style: theme.textTheme.bodySmall?.copyWith(

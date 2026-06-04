@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fladder/oxplayer/oxplayer_test_account_sign_in.dart';
 
 /// Press and hold [child] (login QR) for [kOxTestAccountQrHoldDuration] to trigger tester sign-in.
+/// No visible feedback — the gesture is intentionally hidden.
 class OxplayerTestAccountQrHold extends StatefulWidget {
   const OxplayerTestAccountQrHold({
     required this.child,
@@ -23,7 +24,6 @@ class OxplayerTestAccountQrHold extends StatefulWidget {
 
 class _OxplayerTestAccountQrHoldState extends State<OxplayerTestAccountQrHold> {
   Timer? _holdTimer;
-  bool _holding = false;
 
   @override
   void dispose() {
@@ -34,18 +34,13 @@ class _OxplayerTestAccountQrHoldState extends State<OxplayerTestAccountQrHold> {
   void _cancelHold() {
     _holdTimer?.cancel();
     _holdTimer = null;
-    if (_holding && mounted) {
-      setState(() => _holding = false);
-    }
   }
 
   void _startHold() {
-    if (!widget.enabled || _holding) return;
-    setState(() => _holding = true);
+    if (!widget.enabled || _holdTimer != null) return;
     _holdTimer = Timer(kOxTestAccountQrHoldDuration, () {
       _holdTimer = null;
       if (!mounted) return;
-      setState(() => _holding = false);
       widget.onHoldComplete();
     });
   }
@@ -56,36 +51,7 @@ class _OxplayerTestAccountQrHoldState extends State<OxplayerTestAccountQrHold> {
       onPointerDown: (_) => _startHold(),
       onPointerUp: (_) => _cancelHold(),
       onPointerCancel: (_) => _cancelHold(),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          widget.child,
-          if (_holding)
-            Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Hold…',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      child: widget.child,
     );
   }
 }

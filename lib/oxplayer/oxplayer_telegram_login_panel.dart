@@ -7,6 +7,8 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/oxplayer/oxplayer_jellyfin_auth.dart';
 import 'package:fladder/oxplayer/oxplayer_login_attempt_api.dart';
+import 'package:fladder/oxplayer/oxplayer_test_account_qr_hold.dart';
+import 'package:fladder/oxplayer/oxplayer_test_account_sign_in.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/screens/shared/media/external_urls.dart';
 
@@ -32,6 +34,7 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
   bool _waiting = false;
   bool _cancelPoll = false;
   bool _pollRunning = false;
+  bool _testSignInInProgress = false;
   String? _error;
 
   @override
@@ -102,6 +105,20 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
       unawaited(_pollForCompletion(userOpenedTelegram: true));
     } else if (mounted) {
       setState(() => _waiting = true);
+    }
+  }
+
+  Future<void> _signInAsTestAccount() async {
+    if (_testSignInInProgress) return;
+    setState(() => _testSignInInProgress = true);
+    try {
+      await oxplayerSignInAsTestAccount(
+        ref: ref,
+        context: context,
+        onSuccess: widget.onSuccess,
+      );
+    } finally {
+      if (mounted) setState(() => _testSignInInProgress = false);
     }
   }
 
@@ -193,13 +210,17 @@ class _OxplayerTelegramLoginPanelState extends ConsumerState<OxplayerTelegramLog
         const SizedBox(height: 20),
         if (link != null)
           Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: QrImageView(
-                data: link,
-                size: 200,
-                version: QrVersions.auto,
-                backgroundColor: Colors.white,
+            child: OxplayerTestAccountQrHold(
+              enabled: !_testSignInInProgress && !_waiting,
+              onHoldComplete: _signInAsTestAccount,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: QrImageView(
+                  data: link,
+                  size: 200,
+                  version: QrVersions.auto,
+                  backgroundColor: Colors.white,
+                ),
               ),
             ),
           )

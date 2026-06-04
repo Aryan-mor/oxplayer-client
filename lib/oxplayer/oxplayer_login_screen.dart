@@ -8,7 +8,7 @@ import 'package:fladder/oxplayer/oxplayer_dotenv.dart';
 import 'package:fladder/oxplayer/oxplayer_env.dart';
 import 'package:fladder/providers/auth_provider.dart';
 import 'package:fladder/screens/login/login_screen_credentials.dart';
-import 'package:fladder/screens/shared/fladder_logo.dart';
+import 'package:fladder/oxplayer/oxplayer_login_logo.dart';
 import 'package:fladder/util/fladder_config.dart';
 
 @RoutePage()
@@ -87,7 +87,7 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
                   ? const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        FladderLogo(),
+                        const OxplayerLoginLogo(),
                         SizedBox(height: 24),
                         CircularProgressIndicator(),
                       ],
@@ -96,7 +96,7 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const FladderLogo(),
+                            const OxplayerLoginLogo(),
                             const SizedBox(height: 16),
                             Text(
                               _bootstrapError!,
@@ -114,7 +114,7 @@ class _OxplayerLoginScreenState extends ConsumerState<OxplayerLoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const FladderLogo(),
+                            const OxplayerLoginLogo(),
                             const SizedBox(height: 24),
                             if (_manualCode)
                               OxplayerClaimCodeLoginPanel(

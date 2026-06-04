@@ -17,6 +17,7 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
 
 2. User sees OxplayerLoginScreen  (route: /ox-login)
    └─ FladderLogo + OxplayerTelegramLoginPanel (QR + Sign in with Telegram)
+   └─ Hidden tester: press and hold the login QR for 5s → POST /auth/test-account
    └─ App creates login attempt → opens `?start=li_<attemptId>` → long-poll until bot completes
    └─ Fallback: OxplayerClaimCodeLoginPanel (6-char code from bot /login)
 
@@ -34,7 +35,9 @@ OXPlayer replaces this with **main-bot claim-code login** — no Jellyfin creden
 | File | Role |
 |------|------|
 | `oxplayer_login_screen.dart` | Login UI at `/ox-login` |
-| `oxplayer_telegram_login_panel.dart` | QR + Telegram deep-link login (primary) |
+| `oxplayer_telegram_login_panel.dart` | QR + Telegram deep-link login (primary); 5s QR hold → test account |
+| `oxplayer_test_account_sign_in.dart` | POST `/auth/test-account` |
+| `oxplayer_test_account_qr_hold.dart` | 5s hold detector on QR |
 | `oxplayer_login_attempt_api.dart` | POST attempt + long-poll GET |
 | `oxplayer_claim_code_login_panel.dart` | Manual code entry (fallback) |
 | `oxplayer_jellyfin_auth.dart` | Jellyfin authenticateByName + refresh |

@@ -2,6 +2,7 @@ import Container from "@/components/ui/Container";
 import Heading from "@/components/ui/Heading";
 import Paragraph from "@/components/ui/Paragraph";
 import Image from "next/image";
+import { assetPath } from "@/utils/assetPath";
 
 const Box = ({ title, titlePosstion = "left", img, des }: any) => {
   return (
@@ -61,20 +62,20 @@ const KeyFeatures = () => {
       <Container>
         <Box
           title="Personal Media Library"
-          img="/images/FT-1.png"
+          img={assetPath("/images/FT-1.png")}
           des="Turn your Telegram videos into a beautifully organized streaming library designed for effortless browsing. OXPlayer automatically enhances your collection with posters, movie information, and structured organization, making it easy to manage, discover, and enjoy all your content from a single, elegant interface."
         />
 
         <Box
           title="Smart Search & Discovery"
           titlePosstion="right"
-          img="/images/FT-2.png"
+          img={assetPath("/images/FT-2.png")}
           des="Spend less time searching and more time watching. OXPlayer provides powerful search capabilities, rich metadata, and intelligent organization to help you quickly find movies, TV shows, and videos. Discover content instantly through a clean, intuitive interface built for convenience."
         />
 
         <Box
           title="Favorites & Watchlist"
-          img="/images/FT-3.png"
+          img={assetPath("/images/FT-3.png")}
           des="Keep track of the content you love and the titles you want to watch next. Create personalized favorites and watchlists that stay synchronized with your account, allowing you to easily return to important content and build your own curated entertainment experience."
         />
       </Container>

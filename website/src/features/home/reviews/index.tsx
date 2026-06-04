@@ -9,6 +9,7 @@ import Container from "@/components/ui/Container";
 import { FaStar } from "react-icons/fa";
 import Paragraph from "@/components/ui/Paragraph";
 
+import { assetPath } from "@/utils/assetPath";
 import "../home.css";
 
 const data = [
@@ -16,31 +17,31 @@ const data = [
     message:
       "OXPlayer changed how I manage my Telegram videos. Scattered files across chats are now organized into a beautiful library with posters, metadata, and seamless playback.",
     name: "Mark Thompson",
-    image: "/images/person-2.jpg",
+    image: assetPath("/images/person-2.jpg"),
   },
   {
     message:
       "I love how easy it is to send a movie to the bot and have it automatically appear in my library. The Netflix-style interface makes browsing my collection a pleasure.",
     name: "Jane Smith",
-    image: "/images/person-1.jpg",
+    image: assetPath("/images/person-1.jpg"),
   },
   {
     message:
       "The watchlist and resume playback features are fantastic. I can start a movie on one device and continue exactly where I left off later. OXPlayer feels incredibly polished.",
     name: "John Doe",
-    image: "/images/person-3.jpg",
+    image: assetPath("/images/person-3.jpg"),
   },
   {
     message:
       "I've tried different ways to manage Telegram videos, but nothing comes close to OXPlayer. Automatic organization and rich movie details make my collection look professional.",
     name: "Mike Johnson",
-    image: "/images/person-4.jpg",
+    image: assetPath("/images/person-4.jpg"),
   },
   {
     message:
       "The search experience is incredibly fast, and finding movies has never been easier. OXPlayer turns Telegram into a complete personal streaming platform that I use every day.",
     name: "Sarah Williams",
-    image: "/images/person-5.jpg",
+    image: assetPath("/images/person-5.jpg"),
   },
 ];
 

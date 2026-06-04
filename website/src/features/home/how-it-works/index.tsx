@@ -2,6 +2,7 @@ import Container from "@/components/ui/Container";
 import Heading from "@/components/ui/Heading";
 import Paragraph from "@/components/ui/Paragraph";
 import Image from "next/image";
+import { assetPath } from "@/utils/assetPath";
 import { GlowDot } from "../hero";
 
 const Card = ({ title, titlePosstion = "left", img, des }: any) => {
@@ -72,25 +73,25 @@ const HowItWorks = () => {
 
             <Card
               title="Connect To Telegram"
-              img="/images/FT-5.png"
+              img={assetPath("/images/FT-5.png")}
               des="Sign in with your Telegram account and securely connect OXPlayer to access your personal media library."
             />
 
             <Card
               title="Send Movie to Bot"
-              img="/images/FT-7.png"
+              img={assetPath("/images/FT-7.png")}
               des="Upload a movie or video file to the OXPlayer Bot and let it automatically process your content."
             />
 
             <Card
               title="Movie Appears in OXPlayer"
-              img="/images/logo.png"
+              img={assetPath("/images/logo.png")}
               des="Your video is organized with posters and metadata, then added to your library for easy browsing."
             />
 
             <Card
               title="Watch Anywhere"
-              img="/images/FT-6.png"
+              img={assetPath("/images/FT-6.png")}
               des="Enjoy a smooth streaming experience with resume playback, watchlists, and smart media management."
             />
           </div>
@@ -98,7 +99,7 @@ const HowItWorks = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-20 md:gap-7 md:mt-10 relative">
             {/* <div className="h-2 bg-gradient-to-r from-secondary to-primary absolute top-[162px] left-[100px] w-[95%] z-0 rounded-full hidden md:block"></div> */}
 
-            {["/images/H-1.png", "/images/H-2.png", "/images/ss-2.png", "/images/H-3.png"].map((item, index) => (
+            {[assetPath("/images/H-1.png"), assetPath("/images/H-2.png"), assetPath("/images/ss-2.png"), assetPath("/images/H-3.png")].map((item, index) => (
               <div key={index} className="relative w-full h-[230px] md:h-[300px] z-10">
                 <Image src={item} alt={`movie-scene-${index + 1}`} fill className="object-contain" />
               </div>

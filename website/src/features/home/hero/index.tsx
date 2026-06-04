@@ -5,6 +5,7 @@ import Heading from "@/components/ui/Heading";
 import Paragraph from "@/components/ui/Paragraph";
 import Image from "next/image";
 import { Fragment } from "react";
+import { assetPath } from "@/utils/assetPath";
 
 export const GlowDot = ({
   size = "md",
@@ -78,7 +79,7 @@ const Hero = () => {
           <div className="flex justify-center">
             <div className="flex gap-3 sm:gap-5 items-center">
               <div className="relative h-[70px] w-[70px] sm:h-[100px] sm:w-[100px]">
-                <Image src="/images/logo.png" alt="movie-scene" fill className="object-contain" />
+                <Image src={assetPath("/images/logo.png")} alt="movie-scene" fill className="object-contain" />
               </div>
               <Heading
                 level="h1"

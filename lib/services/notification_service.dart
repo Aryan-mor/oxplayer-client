@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:fladder/models/notification_model.dart';
+import 'package:fladder/oxplayer/oxplayer_brand.dart';
 
 class NotificationService {
   NotificationService._();
@@ -31,7 +32,7 @@ class NotificationService {
     final darwin = const DarwinInitializationSettings();
     final linux = const LinuxInitializationSettings(defaultActionName: 'Open notification');
     final windows = const WindowsInitializationSettings(
-      appName: 'Fladder',
+      appName: OxplayerBrand.appName,
       appUserModelId: 'nl.jknaapen.fladder',
       guid: 'd49b0314-ee7a-4626-bf79-97cdb8a991bb',
     );

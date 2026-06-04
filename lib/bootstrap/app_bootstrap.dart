@@ -12,9 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fladder/models/settings/arguments_model.dart';
 import 'package:fladder/providers/crash_log_provider.dart';
 import 'package:fladder/src/video_player_helper.g.dart';
+import 'package:fladder/oxplayer/oxplayer_brand.dart';
 import 'package:fladder/util/application_info.dart';
 import 'package:fladder/util/fladder_config.dart';
-import 'package:fladder/util/string_extensions.dart';
 import 'package:fladder/util/svg_utils.dart';
 
 bool get isDesktopPlatform {
@@ -68,7 +68,7 @@ Future<AppBootstrapResult> bootstrapApplication(List<String> args) async {
   }
 
   final applicationInfo = ApplicationInfo(
-    name: packageInfo.appName.capitalize(),
+    name: OxplayerBrand.appName,
     version: packageInfo.version,
     buildNumber: packageInfo.buildNumber,
     platform: defaultTargetPlatform,

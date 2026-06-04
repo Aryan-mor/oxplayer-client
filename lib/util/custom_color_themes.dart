@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:fladder/oxplayer/oxplayer_brand.dart';
+
 enum ColorThemes {
   fladder(
-    name: 'Fladder',
+    name: OxplayerBrand.appName,
     color: kDebugMode ? Colors.purpleAccent : Colors.orange,
   ),
   deepOrange(

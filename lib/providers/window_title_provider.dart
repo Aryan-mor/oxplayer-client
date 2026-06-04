@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fladder/models/media_playback_model.dart';
+import 'package:fladder/oxplayer/oxplayer_brand.dart';
 import 'package:fladder/providers/dashboard_mode_provider.dart';
 import 'package:fladder/providers/video_player_provider.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,7 +14,7 @@ final windowTitleProvider = StateNotifierProvider<WindowTitleNotifier, String>((
 
 class WindowTitleNotifier extends StateNotifier<String> {
   final Ref ref;
-  WindowTitleNotifier(this.ref) : super('Fladder') {
+  WindowTitleNotifier(this.ref) : super(OxplayerBrand.appName) {
     // Listen to player state changes to handle minimized <-> maximized transitions
     ref.listen(mediaPlaybackProvider.select((v) => v.state), (_, __) => _update());
     ref.listen(musicDashboardModeProvider, (_, __) => _update());
@@ -56,7 +57,7 @@ class WindowTitleNotifier extends StateNotifier<String> {
   void _update() {
     final nav = _stackKeys.isNotEmpty ? _titles[_stackKeys.last] : null;
     final playerState = ref.read(mediaPlaybackProvider).state;
-    final appName = ref.read(musicDashboardModeProvider) ? 'Tjilp' : 'Fladder';
+    final appName = ref.read(musicDashboardModeProvider) ? 'Tjilp' : OxplayerBrand.appName;
 
     final isPlayerActive = playerState != VideoPlayerState.disposed;
     final isPlayerMinimized = playerState == VideoPlayerState.minimized;

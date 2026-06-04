@@ -17,6 +17,7 @@ import 'package:fladder/screens/settings/settings_list_tile.dart';
 import 'package:fladder/screens/settings/settings_scaffold.dart';
 import 'package:fladder/screens/settings/widgets/settings_label_divider.dart';
 import 'package:fladder/screens/settings/widgets/settings_list_group.dart';
+import 'package:fladder/oxplayer/oxplayer_brand.dart';
 import 'package:fladder/util/adaptive_layout/adaptive_layout.dart';
 import 'package:fladder/util/localization_helper.dart';
 import 'package:fladder/util/simple_duration_picker.dart';
@@ -41,7 +42,7 @@ class _ClientSettingsPageState extends ConsumerState<ClientSettingsPage> {
     final clientSettings = ref.watch(clientSettingsProvider);
 
     return SettingsScaffold(
-      label: "Fladder",
+      label: OxplayerBrand.appName,
       items: [
         ...buildClientSettingsDownload(context, ref, setState),
         ...settingsListGroup(

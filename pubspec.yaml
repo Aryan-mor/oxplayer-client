@@ -150,14 +150,15 @@ dependencies:
   flutter_dotenv: ^5.2.1
 
 dependency_overrides:
+  # Upstream includes web subtitle fix (oncuechange .toJS); DonutWare fork still broken on web.
   media_kit:
     git:
-      url: https://github.com/DonutWare/media-kit.git
+      url: https://github.com/media-kit/media-kit.git
       ref: main
       path: ./media_kit
   media_kit_video:
     git:
-      url: https://github.com/DonutWare/media-kit.git
+      url: https://github.com/media-kit/media-kit.git
       ref: main
       path: ./media_kit_video
   media_kit_libs_video:

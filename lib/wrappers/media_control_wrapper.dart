@@ -538,12 +538,26 @@ class MediaControlsWrapper extends BaseAudioHandler implements VideoPlayerContro
 
   @override
   Future<void> seek(Duration position) {
+    final model = ref.read(playBackModel);
+    if (kIsWeb && _isRemuxStreamUrl(model?.media?.url) && model != null) {
+      // Progressive remux (ox-stream stream.ts) has no random access; the browser can only
+      // play forward from ?start=. Re-request the stream from the target position instead of
+      // asking the player to seek (which silently fails or stalls).
+      ref.read(mediaPlaybackProvider.notifier).update(
+            (state) => state.copyWith(position: position, buffering: true),
+          );
+      unawaited(ref.read(playbackModelHelper).shouldReload(model));
+      return super.seek(position);
+    }
     _player?.seek(position);
     if (_player?.lastState.playing == false) {
       ref.read(mediaPlaybackProvider.notifier).update((state) => state.copyWith(position: position));
     }
     return super.seek(position);
   }
+
+  static bool _isRemuxStreamUrl(String? url) =>
+      url != null && (url.contains('/stream.ts') || url.contains('stream.ts?'));
 
   @override
   Future<void> setSpeed(double speed) {
